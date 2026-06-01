@@ -1796,7 +1796,16 @@ loadLayout();
 initSectionDrag();
 
 var _gen=generate;
-generate=function(){_gen();saveSettings();showSaveFlash();};
+generate=function(){
+  var scrollY = window.scrollY || window.pageYOffset;
+  var list = gv('pw-list');
+  var oldH = list ? list.offsetHeight : 0;
+  if(list && oldH > 0) list.style.minHeight = oldH + 'px';
+  _gen();
+  if(list) list.style.minHeight = '';
+  window.scrollTo(0, scrollY);
+  saveSettings();showSaveFlash();
+};
 generate();
 </script>
 </body>
