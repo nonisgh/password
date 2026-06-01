@@ -737,70 +737,57 @@ function initSymbols(){
     syncTextInputFromSet(); updateSymPreview(); generate();
   }
 
+  var allBtns = [];
+
   ALL_SYMS.forEach(function(s){
     var b=document.createElement('button');
     b.className='sym-btn'+(activeSyms.has(s)?' active':'');
     b.textContent=s;
     b.dataset.sym = s;
-
-    /* マウス */
-    b.addEventListener('mousedown',function(e){
-      e.preventDefault();
-      painting = true;
-      visited.clear();
-      paintMode = activeSyms.has(s) ? 'remove' : 'add';
-      toggleSym(b, s);
-    });
-    b.addEventListener('mouseenter',function(){
-      if(painting) toggleSym(b, s);
-    });
-
+    allBtns.push(b);
     grid.appendChild(b);
   });
 
-  /* マウスのmouseup */
-  document.addEventListener('mouseup', finishPaint);
-
-  /* iOS対応: gridにtouch-actionを設定 */
+  /* iOS対応: Pointer Events + 座標ベースの判定 */
   grid.style.touchAction = 'none';
+  grid.style.userSelect = 'none';
+  grid.style.webkitUserSelect = 'none';
 
-  /* タッチ時にdata-sym要素を確実に見つけるヘルパー */
-  function findSymEl(x, y){
-    var el = document.elementFromPoint(x, y);
-    if(!el) return null;
-    /* テキストノードや子要素の場合、親を辿る */
-    if(!el.dataset || !el.dataset.sym) el = el.closest('[data-sym]');
-    return (el && el.dataset && el.dataset.sym) ? el : null;
+  function findBtnAt(x, y){
+    for(var i=0; i<allBtns.length; i++){
+      var r = allBtns[i].getBoundingClientRect();
+      if(x >= r.left && x <= r.right && y >= r.top && y <= r.bottom) return allBtns[i];
+    }
+    return null;
   }
 
-  /* タッチイベントはgrid上で処理 */
-  grid.addEventListener('touchstart', function(e){
-    if(e.touches.length !== 1) return;
-    var t = e.touches[0];
-    var el = findSymEl(t.clientX, t.clientY);
-    if(!el) return;
+  grid.addEventListener('pointerdown', function(e){
     e.preventDefault();
-    e.stopPropagation();
+    grid.setPointerCapture(e.pointerId);
+    var el = findBtnAt(e.clientX, e.clientY);
+    if(!el) return;
     painting = true;
     visited.clear();
     paintMode = activeSyms.has(el.dataset.sym) ? 'remove' : 'add';
     toggleSym(el, el.dataset.sym);
-  }, {passive:false});
+  });
 
-  grid.addEventListener('touchmove', function(e){
+  grid.addEventListener('pointermove', function(e){
     if(!painting) return;
     e.preventDefault();
-    e.stopPropagation();
-    var t = e.touches[0];
-    var el = findSymEl(t.clientX, t.clientY);
+    var el = findBtnAt(e.clientX, e.clientY);
     if(el) toggleSym(el, el.dataset.sym);
-  }, {passive:false});
+  });
 
-  grid.addEventListener('touchend', function(e){
-    if(painting) e.preventDefault();
+  grid.addEventListener('pointerup', function(e){
+    grid.releasePointerCapture(e.pointerId);
     finishPaint();
-  }, {passive:false});
-  grid.addEventListener('touchcancel', function(){ finishPaint(); }, {passive:true});
+  });
+
+  grid.addEventListener('pointercancel', function(e){
+    grid.releasePointerCapture(e.pointerId);
+    finishPaint();
+  });
 
   syncTextInputFromSet(); updateSymPreview();
 }
