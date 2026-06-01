@@ -131,6 +131,12 @@ input { -webkit-tap-highlight-color: transparent; font-family: inherit; }
 .section[data-section-id="profiles"] .section-body { padding: 4px 0 8px 0; gap: 0; }
 .section.dragging-over { border-color: #185FA5; }
 
+#ratio-section.ratio-locked .section-body input[type=range],
+#ratio-section.ratio-locked .section-body input[type=text],
+#ratio-section.ratio-locked .section-body button {
+  pointer-events: none; opacity: 0.35;
+}
+
 /* ===== フローティング再生成ボタン ===== */
 .fab-regen {
   position: fixed; bottom: 24px; right: 24px; z-index: 100;
@@ -386,45 +392,48 @@ input { -webkit-tap-highlight-color: transparent; font-family: inherit; }
   <!-- 文字種の割合 -->
   <div class="section" id="ratio-section" data-section-id="ratio">
     <div class="section-head" onclick="toggleSection(this)">
-      <span class="section-drag-handle" onclick="event.stopPropagation()">⠿</span><span class="section-title" style="flex:1;">文字種の割合</span>
+      <span class="section-drag-handle" onclick="event.stopPropagation()">⠿</span><span class="section-title" style="flex:1;">文字種の割合 (%)</span><label style="display:flex;align-items:center;gap:4px;cursor:pointer;margin-right:6px;" onclick="event.stopPropagation()"><input type="checkbox" id="ratio-lock" onchange="toggleRatioLock()" style="margin:0;"><span style="font-size:10px;color:#aaa;">🔒</span></label>
 <span class="section-toggle">▼</span>
     </div>
     <div class="section-body">
       <div class="stepper-row">
-        <span class="s-label">数字の割合</span>
+        <span class="s-label" style="width:50px;">数字</span>
         <div class="stepper-group">
-          <button onclick="stepField('pct-num',-5)">−</button>
+          <button onclick="stepField('pct-num',-1)">−</button>
           <input type="text" inputmode="numeric" class="stepper-num" id="pct-num-num" value="20"
                  oninput="onNumInput(this,'pct-num',0,100);updateTotal();generate()"
                  onblur="onNumBlur(this,'pct-num',0,100);updateTotal();generate()"
                  onkeydown="if(event.key==='Enter')this.blur()">
-          <button onclick="stepField('pct-num',5)">+</button>
+          <button onclick="stepField('pct-num',1)">+</button>
         </div>
-        <input type="range" class="stepper-slider" id="pct-num" min="0" max="100" value="20" step="5" oninput="onSliderInput('pct-num');updateTotal();generate()" onchange="onSliderDone('pct-num',updateTotal)">
+        <span style="font-size:13px;color:#999;margin-left:-2px;">%</span>
+        <input type="range" class="stepper-slider" id="pct-num" min="0" max="100" value="20" step="1" oninput="onSliderInput('pct-num');updateTotal();generate()" onchange="onSliderDone('pct-num',updateTotal)">
       </div>
       <div class="stepper-row">
-        <span class="s-label">記号の割合</span>
+        <span class="s-label" style="width:50px;">記号</span>
         <div class="stepper-group">
-          <button onclick="stepField('pct-sym',-5)">−</button>
+          <button onclick="stepField('pct-sym',-1)">−</button>
           <input type="text" inputmode="numeric" class="stepper-num" id="pct-sym-num" value="20"
                  oninput="onNumInput(this,'pct-sym',0,100);updateTotal();generate()"
                  onblur="onNumBlur(this,'pct-sym',0,100);updateTotal();generate()"
                  onkeydown="if(event.key==='Enter')this.blur()">
-          <button onclick="stepField('pct-sym',5)">+</button>
+          <button onclick="stepField('pct-sym',1)">+</button>
         </div>
-        <input type="range" class="stepper-slider" id="pct-sym" min="0" max="100" value="20" step="5" oninput="onSliderInput('pct-sym');updateTotal();generate()" onchange="onSliderDone('pct-sym',updateTotal)">
+        <span style="font-size:13px;color:#999;margin-left:-2px;">%</span>
+        <input type="range" class="stepper-slider" id="pct-sym" min="0" max="100" value="20" step="1" oninput="onSliderInput('pct-sym');updateTotal();generate()" onchange="onSliderDone('pct-sym',updateTotal)">
       </div>
       <div class="stepper-row">
-        <span class="s-label">大文字の割合</span>
+        <span class="s-label" style="width:50px;">大文字</span>
         <div class="stepper-group">
-          <button onclick="stepField('pct-upper',-5)">−</button>
+          <button onclick="stepField('pct-upper',-1)">−</button>
           <input type="text" inputmode="numeric" class="stepper-num" id="pct-upper-num" value="20"
                  oninput="onNumInput(this,'pct-upper',0,100);updateTotal();generate()"
                  onblur="onNumBlur(this,'pct-upper',0,100);updateTotal();generate()"
                  onkeydown="if(event.key==='Enter')this.blur()">
-          <button onclick="stepField('pct-upper',5)">+</button>
+          <button onclick="stepField('pct-upper',1)">+</button>
         </div>
-        <input type="range" class="stepper-slider" id="pct-upper" min="0" max="100" value="20" step="5" oninput="onSliderInput('pct-upper');updateTotal();generate()" onchange="onSliderDone('pct-upper',updateTotal)">
+        <span style="font-size:13px;color:#999;margin-left:-2px;">%</span>
+        <input type="range" class="stepper-slider" id="pct-upper" min="0" max="100" value="20" step="1" oninput="onSliderInput('pct-upper');updateTotal();generate()" onchange="onSliderDone('pct-upper',updateTotal)">
       </div>
       <div class="pct-total" id="pct-total">残り（小文字）: 45%</div>
     </div>
@@ -708,17 +717,74 @@ function selectAllSyms(){ALL_SYMS.forEach(function(s){activeSyms.add(s);});syncS
 function clearAllSyms(){activeSyms.clear();syncSymButtonsFromSet();syncTextInputFromSet();updateSymPreview();generate();}
 function initSymbols(){
   var grid=gv('sym-grid');
+  var painting = false;
+  var paintMode = null; /* 'add' or 'remove' */
+  var visited = new Set();
+
+  function toggleSym(b, s){
+    if(visited.has(s)) return;
+    visited.add(s);
+    if(paintMode === 'add'){
+      activeSyms.add(s); b.classList.add('active');
+    } else {
+      activeSyms.delete(s); b.classList.remove('active');
+    }
+  }
+
+  function finishPaint(){
+    if(!painting) return;
+    painting = false; paintMode = null; visited.clear();
+    syncTextInputFromSet(); updateSymPreview(); generate();
+  }
+
   ALL_SYMS.forEach(function(s){
     var b=document.createElement('button');
     b.className='sym-btn'+(activeSyms.has(s)?' active':'');
     b.textContent=s;
-    b.addEventListener('click',function(){
-      if(activeSyms.has(s)){activeSyms.delete(s);b.classList.remove('active');}
-      else{activeSyms.add(s);b.classList.add('active');}
-      syncTextInputFromSet(); updateSymPreview(); generate();
+    b.dataset.sym = s;
+
+    /* マウス */
+    b.addEventListener('mousedown',function(e){
+      e.preventDefault();
+      painting = true;
+      visited.clear();
+      paintMode = activeSyms.has(s) ? 'remove' : 'add';
+      toggleSym(b, s);
     });
+    b.addEventListener('mouseenter',function(){
+      if(painting) toggleSym(b, s);
+    });
+
+    /* タッチ — ボタン自体にはイベントを付けず、gridで処理 */
     grid.appendChild(b);
   });
+
+  /* マウスのmouseup */
+  document.addEventListener('mouseup', finishPaint);
+
+  /* タッチイベントはgrid上で処理 */
+  grid.addEventListener('touchstart', function(e){
+    var t = e.touches[0];
+    var el = document.elementFromPoint(t.clientX, t.clientY);
+    if(!el || !el.dataset.sym) return;
+    e.preventDefault();
+    painting = true;
+    visited.clear();
+    paintMode = activeSyms.has(el.dataset.sym) ? 'remove' : 'add';
+    toggleSym(el, el.dataset.sym);
+  }, {passive:false});
+
+  grid.addEventListener('touchmove', function(e){
+    if(!painting) return;
+    e.preventDefault();
+    var t = e.touches[0];
+    var el = document.elementFromPoint(t.clientX, t.clientY);
+    if(el && el.dataset.sym) toggleSym(el, el.dataset.sym);
+  }, {passive:false});
+
+  grid.addEventListener('touchend', function(){ finishPaint(); }, {passive:true});
+  grid.addEventListener('touchcancel', function(){ finishPaint(); }, {passive:true});
+
   syncTextInputFromSet(); updateSymPreview();
 }
 
@@ -842,11 +908,11 @@ function pwConfig(len){
   var fs     = calcFontSize();
   var mobile = window.innerWidth < 541;
   var lineH  = Math.round(fs * 1.6);
-  var pad    = 20;
+  var pad    = 10;
   var rows   = 2;
   var rowH   = lineH * rows + pad;
   /* スマホは行高さ1.8倍、フォントも大きめ */
-  var mobileRowH = Math.round(rowH * 2.0);
+  var mobileRowH = Math.round((lineH * rows + 20) * 2.0);
   var mobilefs   = Math.min(fs + 5, 24);
   return {
     fs:      mobile ? mobilefs+'px' : fs+'px',
@@ -1074,6 +1140,14 @@ function showSaveFlash(){
   var el=gv('save-flash');if(!el)return;
   el.style.opacity='1';clearTimeout(el._t);
   el._t=setTimeout(function(){el.style.opacity='0';},1400);
+}
+
+/* ===== RATIO LOCK ===== */
+function toggleRatioLock(){
+  var locked = gv('ratio-lock').checked;
+  var sec = gv('ratio-section');
+  if(locked) sec.classList.add('ratio-locked');
+  else sec.classList.remove('ratio-locked');
 }
 
 /* ===== ファイル読み込み ===== */
