@@ -347,7 +347,7 @@ input { -webkit-tap-highlight-color: transparent; font-family: inherit; }
   </div>
   <!-- 桁数 -->
   <div class="section" data-section-id="length">
-    <div class="section-head" onclick="toggleSection(this)"><span class="section-drag-handle" onclick="event.stopPropagation()">⠿</span><span class="section-title">桁数</span><span class="section-toggle">▼</span></div>
+    <div class="section-head" onclick="toggleSection(this,event)"><span class="section-drag-handle" onclick="event.stopPropagation()">⠿</span><span class="section-title">桁数</span><span class="section-toggle">▼</span></div>
     <div class="section-body">
       <div class="stepper-row">
         <div class="stepper-group">
@@ -364,7 +364,7 @@ input { -webkit-tap-highlight-color: transparent; font-family: inherit; }
   </div>
   <!-- 基本設定 -->
   <div class="section" data-section-id="basic">
-    <div class="section-head" onclick="toggleSection(this)"><span class="section-drag-handle" onclick="event.stopPropagation()">⠿</span><span class="section-title">基本設定</span><span class="section-toggle">▼</span></div>
+    <div class="section-head" onclick="toggleSection(this,event)"><span class="section-drag-handle" onclick="event.stopPropagation()">⠿</span><span class="section-title">基本設定</span><span class="section-toggle">▼</span></div>
     <div class="section-body">
       <div class="row-toggle">
         <span class="lbl">先頭を大文字にする</span>
@@ -391,8 +391,8 @@ input { -webkit-tap-highlight-color: transparent; font-family: inherit; }
 
   <!-- 文字種の割合 -->
   <div class="section" id="ratio-section" data-section-id="ratio">
-    <div class="section-head" onclick="toggleSection(this)">
-      <span class="section-drag-handle" onclick="event.stopPropagation()">⠿</span><span class="section-title" style="flex:1;">文字種の割合 (%)</span><label style="display:flex;align-items:center;gap:4px;cursor:pointer;margin-right:6px;" onclick="event.stopPropagation()"><input type="checkbox" id="ratio-lock" onchange="toggleRatioLock()" style="margin:0;"><span style="font-size:10px;color:#aaa;">🔒</span></label>
+    <div class="section-head" onclick="toggleSection(this,event)">
+      <span class="section-drag-handle" onclick="event.stopPropagation()">⠿</span><span class="section-title" style="flex:1;">文字種の割合 (%)</span><label style="display:flex;align-items:center;gap:4px;cursor:pointer;margin-right:6px;padding:4px 8px;" onclick="event.stopPropagation()" ontouchstart="event.stopPropagation()" ontouchend="event.stopPropagation()"><input type="checkbox" id="ratio-lock" onchange="toggleRatioLock()" style="margin:0;width:18px;height:18px;"><span style="font-size:10px;color:#aaa;">🔒</span></label>
 <span class="section-toggle">▼</span>
     </div>
     <div class="section-body">
@@ -441,7 +441,7 @@ input { -webkit-tap-highlight-color: transparent; font-family: inherit; }
 
   <!-- 記号選択 -->
   <div class="section" data-section-id="symbols">
-    <div class="section-head" onclick="toggleSection(this)"><span class="section-drag-handle" onclick="event.stopPropagation()">⠿</span><span class="section-title">使用する記号を選択</span><span class="section-toggle">▼</span></div>
+    <div class="section-head" onclick="toggleSection(this,event)"><span class="section-drag-handle" onclick="event.stopPropagation()">⠿</span><span class="section-title">使用する記号を選択</span><span class="section-toggle">▼</span></div>
     <div class="section-body">
       <div class="sym-actions">
         <button class="sym-btn active" onclick="selectAllSyms()">全選択</button>
@@ -458,7 +458,7 @@ input { -webkit-tap-highlight-color: transparent; font-family: inherit; }
 
   <!-- 文字色の設定 -->
   <div class="section" data-section-id="colors">
-    <div class="section-head" onclick="toggleSection(this)"><span class="section-drag-handle" onclick="event.stopPropagation()">⠿</span><span class="section-title">文字色の設定</span><span class="section-toggle">▼</span></div>
+    <div class="section-head" onclick="toggleSection(this,event)"><span class="section-drag-handle" onclick="event.stopPropagation()">⠿</span><span class="section-title">文字色の設定</span><span class="section-toggle">▼</span></div>
     <div class="section-body">
       <div class="color-row">
         <span class="lbl">大文字に色を付ける</span>
@@ -492,7 +492,7 @@ input { -webkit-tap-highlight-color: transparent; font-family: inherit; }
 
   <!-- 設定ファイルを読み込む -->
   <div class="section" data-section-id="config">
-    <div class="section-head" onclick="toggleSection(this)">
+    <div class="section-head" onclick="toggleSection(this,event)">
       <span class="section-drag-handle" onclick="event.stopPropagation()">⠿</span><span class="section-title">設定ファイルを読み込む</span><span class="section-toggle">▼</span>
     </div>
     <div class="section-body">
@@ -508,7 +508,7 @@ input { -webkit-tap-highlight-color: transparent; font-family: inherit; }
     </div>
   </div>
   <div class="section" data-section-id="advanced">
-    <div class="section-head" onclick="toggleSection(this)"><span class="section-drag-handle" onclick="event.stopPropagation()">⠿</span><span class="section-title">高度な設定</span><span class="section-toggle">▼</span></div>
+    <div class="section-head" onclick="toggleSection(this,event)"><span class="section-drag-handle" onclick="event.stopPropagation()">⠿</span><span class="section-title">高度な設定</span><span class="section-toggle">▼</span></div>
     <div class="section-body">
       <div class="row-toggle">
         <span class="lbl">同じ文字の連続を禁止</span>
@@ -755,19 +755,32 @@ function initSymbols(){
       if(painting) toggleSym(b, s);
     });
 
-    /* タッチ — ボタン自体にはイベントを付けず、gridで処理 */
     grid.appendChild(b);
   });
 
   /* マウスのmouseup */
   document.addEventListener('mouseup', finishPaint);
 
+  /* iOS対応: gridにtouch-actionを設定 */
+  grid.style.touchAction = 'none';
+
+  /* タッチ時にdata-sym要素を確実に見つけるヘルパー */
+  function findSymEl(x, y){
+    var el = document.elementFromPoint(x, y);
+    if(!el) return null;
+    /* テキストノードや子要素の場合、親を辿る */
+    if(!el.dataset || !el.dataset.sym) el = el.closest('[data-sym]');
+    return (el && el.dataset && el.dataset.sym) ? el : null;
+  }
+
   /* タッチイベントはgrid上で処理 */
   grid.addEventListener('touchstart', function(e){
+    if(e.touches.length !== 1) return;
     var t = e.touches[0];
-    var el = document.elementFromPoint(t.clientX, t.clientY);
-    if(!el || !el.dataset.sym) return;
+    var el = findSymEl(t.clientX, t.clientY);
+    if(!el) return;
     e.preventDefault();
+    e.stopPropagation();
     painting = true;
     visited.clear();
     paintMode = activeSyms.has(el.dataset.sym) ? 'remove' : 'add';
@@ -777,12 +790,16 @@ function initSymbols(){
   grid.addEventListener('touchmove', function(e){
     if(!painting) return;
     e.preventDefault();
+    e.stopPropagation();
     var t = e.touches[0];
-    var el = document.elementFromPoint(t.clientX, t.clientY);
-    if(el && el.dataset.sym) toggleSym(el, el.dataset.sym);
+    var el = findSymEl(t.clientX, t.clientY);
+    if(el) toggleSym(el, el.dataset.sym);
   }, {passive:false});
 
-  grid.addEventListener('touchend', function(){ finishPaint(); }, {passive:true});
+  grid.addEventListener('touchend', function(e){
+    if(painting) e.preventDefault();
+    finishPaint();
+  }, {passive:false});
   grid.addEventListener('touchcancel', function(){ finishPaint(); }, {passive:true});
 
   syncTextInputFromSet(); updateSymPreview();
@@ -1667,7 +1684,12 @@ function applyRemoteConfig(s){
 /* ===== セクション折りたたみ・並び替え ===== */
 var LAYOUT_KEY = 'pwgen_layout_v1';
 
-function toggleSection(headEl){
+function toggleSection(headEl, e){
+  var evt = e || window.event;
+  if(evt && evt.target){
+    var tag = evt.target.tagName;
+    if(tag === 'INPUT' || tag === 'LABEL') return;
+  }
   var sec = headEl.closest('.section');
   sec.classList.toggle('collapsed');
   saveLayout();
