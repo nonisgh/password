@@ -392,7 +392,7 @@ input { -webkit-tap-highlight-color: transparent; font-family: inherit; }
   <!-- 文字種の割合 -->
   <div class="section" id="ratio-section" data-section-id="ratio">
     <div class="section-head" onclick="toggleSection(this,event)">
-      <span class="section-drag-handle" onclick="event.stopPropagation()">⠿</span><span class="section-title" style="flex:1;">文字種の割合 (%)</span><label style="display:flex;align-items:center;gap:4px;cursor:pointer;margin-right:6px;padding:4px 8px;" onclick="event.stopPropagation()" ontouchstart="event.stopPropagation()" ontouchend="event.stopPropagation()"><input type="checkbox" id="ratio-lock" onchange="toggleRatioLock()" style="margin:0;width:18px;height:18px;"><span style="font-size:10px;color:#aaa;">🔒</span></label>
+      <span class="section-drag-handle" onclick="event.stopPropagation()">⠿</span><span class="section-title" style="flex:1;">文字種の割合 (%)</span><label style="display:flex;align-items:center;gap:3px;cursor:pointer;margin-right:4px;padding:0 4px;line-height:1;" onclick="event.stopPropagation()" ontouchstart="event.stopPropagation()" ontouchend="event.stopPropagation()"><input type="checkbox" id="ratio-lock" onchange="toggleRatioLock()" style="margin:0;width:14px;height:14px;"><span style="font-size:10px;color:#aaa;">🔒</span></label>
 <span class="section-toggle">▼</span>
     </div>
     <div class="section-body">
@@ -956,6 +956,8 @@ function generate(){
     var bp = mobile ? -1 : findBreakPoint(r.plain, cfg.fs);
     var threshold = mobile ? 70 : 55;
     var usedFs = (bp < 0 && r.plain.length <= threshold) ? cfg.fsLarge : cfg.fs;
+    /* debug: show font size on first row */
+    if(i===0){ console.log('mobile:'+mobile+' len:'+r.plain.length+' fs:'+cfg.fs+' fsLarge:'+cfg.fsLarge+' used:'+usedFs); }
 
     /* html文字列のn番目の平文文字の直後のインデックスを返す */
     function htmlSplitAt(html, n){
@@ -1081,7 +1083,8 @@ function saveSettings(){
     maxSeq:gv('max-seq').value,activeSyms:Array.from(activeSyms),
     colorUpperOn:gv('color-upper-on').checked,colorNumOn:gv('color-num-on').checked,colorSymOn:gv('color-sym-on').checked,
     colorUpper:currentColors.upper,colorNum:currentColors.num,colorSym:currentColors.sym,
-    sortOrder:sortOrder
+    sortOrder:sortOrder,
+    ratioLock:gv('ratio-lock').checked
   };
   try{localStorage.setItem(STORAGE_KEY,JSON.stringify(s));}catch(e){}
   /* プロファイルも保存 */
@@ -1127,6 +1130,10 @@ function loadSettings(){
       sortOrder=s.sortOrder;
       var sb=gv('sort-btn');if(sb)sb.textContent=labels[orders.indexOf(sortOrder)];
     }
+  }
+  if(s.ratioLock!==undefined){
+    sc('ratio-lock',s.ratioLock);
+    if(s.ratioLock) gv('ratio-section').classList.add('ratio-locked');
   }
   return true;
 }
@@ -1226,7 +1233,8 @@ function getCurrentSettingsObj(){
     colorNum:     currentColors.num,
     colorSymOn:   gv('color-sym-on').checked,
     colorSym:     currentColors.sym,
-    sortOrder:    sortOrder
+    sortOrder:    sortOrder,
+    ratioLock:    gv('ratio-lock').checked
   };
 }
 
@@ -1663,6 +1671,10 @@ function applyRemoteConfig(s){
         var sb=gv('sort-btn');if(sb)sb.textContent=labels[orders.indexOf(sortOrder)];
       }
     }
+  }
+  if(s.ratioLock!==undefined){
+    var rl=gv('ratio-lock'); if(rl) rl.checked=!!s.ratioLock;
+    toggleRatioLock();
   }
   if(s.layout) { applyLayout(s.layout); saveLayout(); }
   updateTotal(); applyColors(); generate();
