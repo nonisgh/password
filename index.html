@@ -105,7 +105,7 @@ input { -webkit-tap-highlight-color: transparent; font-family: inherit; }
 /* ===== SECTIONS ===== */
 .section { margin-bottom: 12px; border: 1px solid #e0e0da; border-radius: 12px; overflow: hidden; background: #fff; }
 .section-head {
-  padding: 10px 16px; background: #f9f9f6; border-bottom: 1px solid #e8e8e3;
+  padding: 6px 16px; background: #f9f9f6; border-bottom: 1px solid #e8e8e3;
   display: flex; align-items: center; cursor: pointer; user-select: none; -webkit-user-select: none;
 }
 .section-head:hover { background: #f5f5f0; }
@@ -223,23 +223,9 @@ input { -webkit-tap-highlight-color: transparent; font-family: inherit; }
 .color-reset:hover { color: #555; }
 
 /* ===== LOCK ===== */
-#ratio-section.ratio-locked .section-body input[type=range],
-#ratio-section.ratio-locked .section-body input[type=text],
-#ratio-section.ratio-locked .section-body button:not(#ratio-lock-btn) {
-  pointer-events: none; opacity: 0.4;
-}
-#ratio-section.ratio-locked { border-color: #ebebea; }
-#ratio-lock-btn.locked { color: #185FA5; border-color: #185FA5; background: #eef3ff; }
 
-.settings-locked .section-body input[type=range],
-.settings-locked .section-body input[type=number],
-.settings-locked .section-body input[type=text],
-.settings-locked .section-body input[type=checkbox],
-.settings-locked .section-body button:not(#ratio-lock-btn):not(#lock-btn) {
-  pointer-events: none; opacity: 0.4;
-}
-.settings-locked .section { border-color: #ebebea; }
-#lock-btn.locked { color: #185FA5; border-color: #185FA5; background: #eef3ff; }
+
+
 @media (max-width: 540px) {
   body { padding: 1rem 0.9rem env(safe-area-inset-bottom, 0px); }
   .app-title { font-size: 12px; letter-spacing: 0.18em; }
@@ -273,7 +259,7 @@ input { -webkit-tap-highlight-color: transparent; font-family: inherit; }
 
   .section-body { gap: 16px; padding: 14px 14px; }
 
-  .fab-regen { bottom: calc(16px + env(safe-area-inset-bottom, 0px)); right: 16px; width: 52px; height: 52px; font-size: 22px; }
+  .fab-regen { bottom: calc(20px + env(safe-area-inset-bottom, 0px)); right: 16px; width: 76px; height: 76px; font-size: 34px; }
 }
 @media (max-width: 375px) {
   .pw-text { font-size: 13px; }
@@ -305,8 +291,7 @@ input { -webkit-tap-highlight-color: transparent; font-family: inherit; }
         <span class="count-unit">個</span>
         <button class="btn" onclick="copyAll()">全コピー</button>
         <button class="btn" id="sort-btn" onclick="toggleSort()">昇順 ↑</button>
-        <button class="btn" id="lock-btn" onclick="toggleLock()" title="設定をロック">🔓</button>
-        <button class="btn btn-primary" onclick="generate()">↺ 再生成</button>
+            <button class="btn btn-primary" onclick="generate()">↺ 再生成</button>
         <span class="save-flash" id="save-flash">保存済</span>
       </div>
       <div class="pw-list" id="pw-list"></div>
@@ -351,12 +336,11 @@ input { -webkit-tap-highlight-color: transparent; font-family: inherit; }
       </div>
     </div>
   </div>
-  <!-- 基本設定 -->
-  <div class="section" data-section-id="basic">
-    <div class="section-head" onclick="toggleSection(this)"><span class="section-drag-handle" onclick="event.stopPropagation()">⠿</span><span class="section-title">基本設定</span><span class="section-toggle">▼</span></div>
+  <!-- 桁数 -->
+  <div class="section" data-section-id="length">
+    <div class="section-head" onclick="toggleSection(this)"><span class="section-drag-handle" onclick="event.stopPropagation()">⠿</span><span class="section-title">桁数</span><span class="section-toggle">▼</span></div>
     <div class="section-body">
       <div class="stepper-row">
-        <span class="s-label">桁数</span>
         <div class="stepper-group">
           <button onclick="stepField('len',-1)">−</button>
           <input type="text" inputmode="numeric" class="stepper-num" id="len-num" value="32"
@@ -367,6 +351,12 @@ input { -webkit-tap-highlight-color: transparent; font-family: inherit; }
         </div>
         <input type="range" class="stepper-slider" id="len" min="4" max="128" value="32" step="1" oninput="onSliderInput('len');generate()" onchange="onSliderDone('len')">
       </div>
+    </div>
+  </div>
+  <!-- 基本設定 -->
+  <div class="section" data-section-id="basic">
+    <div class="section-head" onclick="toggleSection(this)"><span class="section-drag-handle" onclick="event.stopPropagation()">⠿</span><span class="section-title">基本設定</span><span class="section-toggle">▼</span></div>
+    <div class="section-body">
       <div class="row-toggle">
         <span class="lbl">先頭を大文字にする</span>
         <label class="toggle"><input type="checkbox" id="start-upper" checked onchange="if(this.checked)gv('start-alpha').checked=true; generate()"><span class="slider-tog"></span></label>
@@ -394,9 +384,7 @@ input { -webkit-tap-highlight-color: transparent; font-family: inherit; }
   <div class="section" id="ratio-section" data-section-id="ratio">
     <div class="section-head" onclick="toggleSection(this)">
       <span class="section-drag-handle" onclick="event.stopPropagation()">⠿</span><span class="section-title" style="flex:1;">文字種の割合</span>
-      <button id="ratio-lock-btn" onclick="toggleRatioLock()"
-        style="background:none;border:1px solid #ddd;border-radius:6px;padding:2px 8px;font-size:13px;cursor:pointer;color:#aaa;line-height:1.4;"
-        title="割合をロック">🔓</button><span class="section-toggle">▼</span>
+<span class="section-toggle">▼</span>
     </div>
     <div class="section-body">
       <div class="stepper-row">
@@ -1083,37 +1071,6 @@ function showSaveFlash(){
   var el=gv('save-flash');if(!el)return;
   el.style.opacity='1';clearTimeout(el._t);
   el._t=setTimeout(function(){el.style.opacity='0';},1400);
-}
-
-/* ===== GLOBAL LOCK ===== */
-var settingsLocked = false;
-function toggleLock(){
-  settingsLocked = !settingsLocked;
-  var btn = gv('lock-btn');
-  if(settingsLocked){
-    document.querySelector('.container').classList.add('settings-locked');
-    btn.textContent = '🔒'; btn.classList.add('locked'); btn.title = '設定をアンロック';
-  } else {
-    document.querySelector('.container').classList.remove('settings-locked');
-    btn.textContent = '🔓'; btn.classList.remove('locked'); btn.title = '設定をロック';
-  }
-}
-
-/* ===== RATIO LOCK ===== */
-var ratioLocked = false;
-function toggleRatioLock(){
-  ratioLocked = !ratioLocked;
-  var btn = gv('ratio-lock-btn');
-  var sec = gv('ratio-section');
-  if(ratioLocked){
-    sec.classList.add('ratio-locked');
-    btn.textContent = '🔒'; btn.classList.add('locked');
-    btn.title = '割合のロックを解除';
-  } else {
-    sec.classList.remove('ratio-locked');
-    btn.textContent = '🔓'; btn.classList.remove('locked');
-    btn.title = '割合をロック';
-  }
 }
 
 /* ===== ファイル読み込み ===== */
