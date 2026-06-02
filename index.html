@@ -115,23 +115,28 @@ input { -webkit-tap-highlight-color: transparent; font-family: inherit; }
 .section.collapsed .section-body { display: none; }
 .section.collapsed .section-toggle { transform: rotate(-90deg); }
 .section.collapsed .section-head { border-bottom: none; }
-/* ===== ドラッグハンドル：細長い角丸ボタン＋中央にドット3つ（有効領域は広め） ===== */
+/* ===== ドラッグハンドル：囲みなし・小さめドット16個（縦2×横8）。クリックで開閉/ドラッグで移動 ===== */
 .section-drag-handle {
-  cursor: grab; color: #b9b9b2;
-  width: 60px; height: 16px; box-sizing: border-box;
-  border: 1px solid #e2e2dc; border-radius: 999px;
-  background-color: #fbfbf9;
+  cursor: grab; color: #c7c7c0;
+  width: 76px; height: 18px; box-sizing: border-box;
+  border: none; border-radius: 999px;
+  background-color: transparent;
   font-size: 0; line-height: 0;
   display: inline-flex; align-items: center; justify-content: center;
-  transition: background-color 0.12s, color 0.12s, border-color 0.12s;
+  transition: color 0.12s, background-color 0.12s;
 }
+/* 透明な起点ドットから box-shadow で 上下2段 × 横8列 = 16個 を展開 */
 .section-drag-handle::before {
-  content: ""; width: 3px; height: 3px; border-radius: 50%;
-  background-color: currentColor;
-  box-shadow: -7px 0 0 currentColor, 7px 0 0 currentColor;
+  content: ""; width: 2.5px; height: 2.5px; border-radius: 50%;
+  background-color: transparent;
+  box-shadow:
+    -17.5px -2.5px 0 currentColor, -12.5px -2.5px 0 currentColor, -7.5px -2.5px 0 currentColor, -2.5px -2.5px 0 currentColor,
+      2.5px -2.5px 0 currentColor,   7.5px -2.5px 0 currentColor,  12.5px -2.5px 0 currentColor,  17.5px -2.5px 0 currentColor,
+    -17.5px  2.5px 0 currentColor, -12.5px  2.5px 0 currentColor, -7.5px  2.5px 0 currentColor, -2.5px  2.5px 0 currentColor,
+      2.5px  2.5px 0 currentColor,   7.5px  2.5px 0 currentColor,  12.5px  2.5px 0 currentColor,  17.5px  2.5px 0 currentColor;
 }
-.section-drag-handle:hover { color: #9a9a93; border-color: #cfcfc7; background-color: #f4f4f0; }
-.section-drag-handle:active { color: #808079; border-color: #bdbdb5; background-color: #ececdf; cursor: grabbing; }
+.section-drag-handle:hover { color: #a6a69f; background-color: rgba(0,0,0,0.035); }
+.section-drag-handle:active { color: #8a8a83; background-color: rgba(0,0,0,0.06); cursor: grabbing; }
 /* タイトル付きセクション：1行のまま、ハンドルだけ中央に絶対配置（高さは元のコンパクトさ） */
 .section-head:not(.section-head-mini) .section-drag-handle {
   position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
@@ -306,7 +311,7 @@ input { -webkit-tap-highlight-color: transparent; font-family: inherit; }
 
   <!-- パスワード表示 -->
   <div class="section" data-section-id="passwords">
-    <div class="section-head section-head-mini" onclick="event.stopPropagation()"><span class="section-drag-handle" onclick="event.stopPropagation()">⠿</span></div>
+    <div class="section-head section-head-mini" onclick="event.stopPropagation()"><span class="section-drag-handle">⠿</span></div>
     <div class="section-body">
       <div class="top-controls" style="margin-bottom:8px;">
         <div class="count-wrap">
@@ -343,7 +348,7 @@ input { -webkit-tap-highlight-color: transparent; font-family: inherit; }
 
   <!-- プロファイル -->
   <div class="section" data-section-id="profiles" id="profile-section">
-    <div class="section-head section-head-mini" onclick="event.stopPropagation()"><span class="section-drag-handle" onclick="event.stopPropagation()">⠿</span></div>
+    <div class="section-head section-head-mini" onclick="event.stopPropagation()"><span class="section-drag-handle">⠿</span></div>
     <div class="section-body">
       <div id="profile-bar" style="margin-bottom:0;">
         <div style="display:flex;align-items:center;margin-bottom:8px;gap:6px;flex-wrap:wrap;justify-content:flex-end;">
@@ -367,7 +372,7 @@ input { -webkit-tap-highlight-color: transparent; font-family: inherit; }
   </div>
   <!-- 桁数 -->
   <div class="section" data-section-id="length">
-    <div class="section-head" onclick="toggleSection(this,event)"><span class="section-drag-handle" onclick="event.stopPropagation()">⠿</span><span class="section-title">桁数</span><span class="section-toggle">▼</span></div>
+    <div class="section-head" onclick="toggleSection(this,event)"><span class="section-drag-handle">⠿</span><span class="section-title">桁数</span></div>
     <div class="section-body">
       <div class="stepper-row">
         <div class="stepper-group">
@@ -384,7 +389,7 @@ input { -webkit-tap-highlight-color: transparent; font-family: inherit; }
   </div>
   <!-- 基本設定 -->
   <div class="section" data-section-id="basic">
-    <div class="section-head" onclick="toggleSection(this,event)"><span class="section-drag-handle" onclick="event.stopPropagation()">⠿</span><span class="section-title">基本設定</span><span class="section-toggle">▼</span></div>
+    <div class="section-head" onclick="toggleSection(this,event)"><span class="section-drag-handle">⠿</span><span class="section-title">基本設定</span></div>
     <div class="section-body">
       <div class="row-toggle">
         <span class="lbl">先頭を大文字にする</span>
@@ -412,8 +417,8 @@ input { -webkit-tap-highlight-color: transparent; font-family: inherit; }
   <!-- 文字種の割合 -->
   <div class="section" id="ratio-section" data-section-id="ratio">
     <div class="section-head" onclick="toggleSection(this,event)">
-      <span class="section-drag-handle" onclick="event.stopPropagation()">⠿</span><span class="section-title" style="flex:1;">文字種の割合 (%)</span><label style="display:flex;align-items:center;gap:3px;cursor:pointer;margin-right:4px;padding:0 4px;line-height:1;" onclick="event.stopPropagation()" ontouchstart="event.stopPropagation()" ontouchend="event.stopPropagation()"><input type="checkbox" id="ratio-lock" onchange="toggleRatioLock()" style="margin:0;width:14px;height:14px;"><span style="font-size:10px;color:#aaa;">🔒</span></label>
-<span class="section-toggle">▼</span>
+      <span class="section-drag-handle">⠿</span><span class="section-title" style="flex:1;">文字種の割合 (%)</span><label style="display:flex;align-items:center;gap:3px;cursor:pointer;margin-right:4px;padding:0 4px;line-height:1;" onclick="event.stopPropagation()" ontouchstart="event.stopPropagation()" ontouchend="event.stopPropagation()"><input type="checkbox" id="ratio-lock" onchange="toggleRatioLock()" style="margin:0;width:14px;height:14px;"><span style="font-size:10px;color:#aaa;">🔒</span></label>
+
     </div>
     <div class="section-body">
       <div class="stepper-row">
@@ -461,7 +466,7 @@ input { -webkit-tap-highlight-color: transparent; font-family: inherit; }
 
   <!-- 記号選択 -->
   <div class="section" data-section-id="symbols">
-    <div class="section-head" onclick="toggleSection(this,event)"><span class="section-drag-handle" onclick="event.stopPropagation()">⠿</span><span class="section-title">使用する記号を選択</span><span class="section-toggle">▼</span></div>
+    <div class="section-head" onclick="toggleSection(this,event)"><span class="section-drag-handle">⠿</span><span class="section-title">使用する記号を選択</span></div>
     <div class="section-body">
       <div class="sym-actions">
         <button class="sym-btn active" onclick="selectAllSyms()">全選択</button>
@@ -478,7 +483,7 @@ input { -webkit-tap-highlight-color: transparent; font-family: inherit; }
 
   <!-- 文字色の設定 -->
   <div class="section" data-section-id="colors">
-    <div class="section-head" onclick="toggleSection(this,event)"><span class="section-drag-handle" onclick="event.stopPropagation()">⠿</span><span class="section-title">文字色の設定</span><span class="section-toggle">▼</span></div>
+    <div class="section-head" onclick="toggleSection(this,event)"><span class="section-drag-handle">⠿</span><span class="section-title">文字色の設定</span></div>
     <div class="section-body">
       <div class="color-row">
         <span class="lbl">大文字に色を付ける</span>
@@ -513,7 +518,7 @@ input { -webkit-tap-highlight-color: transparent; font-family: inherit; }
   <!-- 設定ファイルを読み込む -->
   <div class="section" data-section-id="config">
     <div class="section-head" onclick="toggleSection(this,event)">
-      <span class="section-drag-handle" onclick="event.stopPropagation()">⠿</span><span class="section-title">設定ファイルを読み込む</span><span class="section-toggle">▼</span>
+      <span class="section-drag-handle">⠿</span><span class="section-title">設定ファイルを読み込む</span>
     </div>
     <div class="section-body">
       <!-- URL読み込み -->
@@ -528,7 +533,7 @@ input { -webkit-tap-highlight-color: transparent; font-family: inherit; }
     </div>
   </div>
   <div class="section" data-section-id="advanced">
-    <div class="section-head" onclick="toggleSection(this,event)"><span class="section-drag-handle" onclick="event.stopPropagation()">⠿</span><span class="section-title">高度な設定</span><span class="section-toggle">▼</span></div>
+    <div class="section-head" onclick="toggleSection(this,event)"><span class="section-drag-handle">⠿</span><span class="section-title">高度な設定</span></div>
     <div class="section-body">
       <div class="row-toggle">
         <span class="lbl">同じ文字の連続を禁止</span>
@@ -1809,9 +1814,18 @@ function initSectionDrag(){
     if(handle){
       handle.addEventListener('mousedown', function(){ sec.draggable = true; });
       handle.addEventListener('mouseup', function(){ sec.draggable = false; });
+      /* グリップをクリック/タップ → セクション開閉（ドラッグ直後は無視） */
+      handle.addEventListener('click', function(e){
+        e.stopPropagation();   /* 親ヘッダのトグルと二重発火させない */
+        e.preventDefault();
+        if(sec._justDragged){ sec._justDragged = false; return; }
+        sec.classList.toggle('collapsed');
+        saveLayout();
+      });
     }
     sec.addEventListener('dragstart', function(e){
       if(!sec.draggable && !e.target.closest('.section-drag-handle')) { e.preventDefault(); return; }
+      sec._justDragged = true;   /* ドラッグ発生 → 直後のクリック開閉を抑止 */
       e.dataTransfer.effectAllowed = 'move';
       e.dataTransfer.setData('text/plain', sec.dataset.sectionId);
       sec.style.opacity = '0.4';
@@ -1819,6 +1833,8 @@ function initSectionDrag(){
     sec.addEventListener('dragend', function(){
       sec.style.opacity = '';
       sec.draggable = false;
+      /* クリックが来なかった場合に備えて少し遅れて解除 */
+      setTimeout(function(){ sec._justDragged = false; }, 60);
     });
     sec.addEventListener('dragover', function(e){
       e.preventDefault();
@@ -1882,6 +1898,11 @@ function initSectionDrag(){
       if(_fromSec) _fromSec.style.opacity = '';
       if(!_dragging) return;
       _dragging = false;
+      /* 長押しドラッグ直後のタップ開閉を抑止 */
+      if(_fromSec){
+        _fromSec._justDragged = true;
+        setTimeout(function(){ if(_fromSec) _fromSec._justDragged = false; }, 350);
+      }
       var t = e.changedTouches[0];
       container.querySelectorAll('.section[data-section-id]').forEach(function(s){ s.classList.remove('dragging-over'); });
       var els = document.elementsFromPoint(t.clientX, t.clientY);
