@@ -111,9 +111,7 @@ input { -webkit-tap-highlight-color: transparent; font-family: inherit; }
   display: flex; align-items: center; cursor: pointer; user-select: none; -webkit-user-select: none;
 }
 .section-head:hover { background: #f5f5f0; }
-.section-title { font-size: 10px; font-weight: 800; color: #888; letter-spacing: 0.1em; text-transform: uppercase; flex: 1; }
-.section[data-section-id="passwords"] .section-title,
-.section[data-section-id="profiles"] .section-title { color: #5f5f5a; }
+.section-title { font-size: 10px; font-weight: 800; color: #999; letter-spacing: 0.1em; text-transform: uppercase; flex: 1; }
 .section-toggle { font-size: 10px; color: #ccc; transition: transform 0.2s; margin-left: 8px; }
 .section.collapsed .section-body { display: none; }
 .section.collapsed .section-toggle { transform: rotate(-90deg); }
@@ -140,27 +138,23 @@ input { -webkit-tap-highlight-color: transparent; font-family: inherit; }
 }
 .section-drag-handle:hover { color: #a6a69f; background-color: rgba(0,0,0,0.035); }
 .section-drag-handle:active { color: #8a8a83; background-color: rgba(0,0,0,0.06); cursor: grabbing; }
-/* タイトル付きセクション：1行のまま、ハンドルだけ中央に絶対配置（高さはコンパクト） */
-.section-head .section-drag-handle {
+/* タイトル付きセクション：1行のまま、ハンドルだけ中央に絶対配置（高さは元のコンパクトさ） */
+.section-head:not(.section-head-mini) .section-drag-handle {
   position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
 }
-/* パスワード表示部・プロファイル部：枠は他セクションと共通。中は周囲より少し濃い背景でへこませる */
 .section[data-section-id="passwords"],
-.section[data-section-id="profiles"] {
-  margin-bottom: 12px;
-  background: #e7e7e3;          /* 周囲(#f2f2f0)より少し濃いグレー */
-}
+.section[data-section-id="profiles"] { background: transparent; border-color: transparent; margin-bottom: 6px; }
 .section[data-section-id="passwords"] .section-head,
-.section[data-section-id="profiles"] .section-head {
-  background: transparent;       /* ヘッダ帯は中の濃い背景をそのまま見せる */
+.section[data-section-id="profiles"] .section-head { background: transparent; border-bottom-color: transparent; }
+.section-head-mini {
+  padding: 0; justify-content: center; cursor: default;
 }
-.section[data-section-id="passwords"] .section-head:hover,
-.section[data-section-id="profiles"] .section-head:hover {
-  background: rgba(0,0,0,0.03);
+/* ミニヘッダ（パスワード/プロファイル）も同じ小さな点々マークを中央に */
+.section-head-mini .section-drag-handle {
+  margin: 1px auto;
 }
-/* パスワード領域：内側の上下余白を左右(16px)と同じに揃える */
-.section[data-section-id="passwords"] .section-body { padding: 16px; }
-.section[data-section-id="passwords"] .pw-list { margin-bottom: 16px; }
+.section[data-section-id="passwords"] .section-body { padding: 0 0 14px 0; gap: 0; }
+.section[data-section-id="profiles"] .section-body { padding: 0 0 8px 0; gap: 0; }
 .section.dragging-over { border-color: #185FA5; }
 
 #ratio-section.ratio-locked .section-body input[type=range],
@@ -297,11 +291,6 @@ input { -webkit-tap-highlight-color: transparent; font-family: inherit; }
 
   .section-body { gap: 16px; padding: 14px 14px; }
 
-  /* パスワード領域：スマホの窮屈さ解消＋四方の余白バランス調整 */
-  .section[data-section-id="passwords"] .section-body { padding: 14px 12px; }
-  .section[data-section-id="passwords"] .pw-list { gap: 12px; margin-bottom: 14px; }
-  .pw-row { padding: 12px 14px; }
-
   .fab-regen { bottom: calc(20px + env(safe-area-inset-bottom, 0px)); right: 16px; width: 76px; height: 76px; font-size: 34px; }
 
   .profile-btn.btn { font-size: 15px !important; padding: 0 16px !important; height: 40px !important; }
@@ -323,7 +312,7 @@ input { -webkit-tap-highlight-color: transparent; font-family: inherit; }
 
   <!-- パスワード表示 -->
   <div class="section" data-section-id="passwords">
-    <div class="section-head" onclick="toggleSection(this,event)"><span class="section-drag-handle">⠿</span><span class="section-title">パスワード</span></div>
+    <div class="section-head section-head-mini" onclick="event.stopPropagation()"><span class="section-drag-handle">⠿</span></div>
     <div class="section-body">
       <div class="top-controls" style="margin-bottom:8px;">
         <div class="count-wrap">
@@ -360,7 +349,7 @@ input { -webkit-tap-highlight-color: transparent; font-family: inherit; }
 
   <!-- プロファイル -->
   <div class="section" data-section-id="profiles" id="profile-section">
-    <div class="section-head" onclick="toggleSection(this,event)"><span class="section-drag-handle">⠿</span><span class="section-title">プロファイル</span></div>
+    <div class="section-head section-head-mini" onclick="event.stopPropagation()"><span class="section-drag-handle">⠿</span></div>
     <div class="section-body">
       <div id="profile-bar" style="margin-bottom:0;">
         <div style="display:flex;align-items:center;margin-bottom:8px;gap:6px;flex-wrap:wrap;justify-content:flex-end;">
