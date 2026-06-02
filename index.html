@@ -121,12 +121,18 @@ input { -webkit-tap-highlight-color: transparent; font-family: inherit; }
 .section[data-section-id="passwords"] .section-head,
 .section[data-section-id="profiles"] .section-head { background: transparent; border-bottom-color: transparent; }
 .section-head-mini {
-  padding: 2px 0 2px 16px; justify-content: flex-start; cursor: default;
+  padding: 0; justify-content: flex-start; cursor: default;
 }
+/* 見た目の⠿は小さく薄いまま。掴める当たり判定（padding/min-size）だけ拡大 */
 .section-head-mini .section-drag-handle {
-  color: #d0d0cc; font-size: 12px; cursor: grab;
+  color: #d0d0cc; font-size: 12px; line-height: 1; cursor: grab;
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 44px; min-height: 30px; padding: 0 10px;
+  margin: 2px 0 2px 6px; border-radius: 8px;
+  transition: background 0.12s, color 0.12s;
 }
-.section-head-mini:hover .section-drag-handle { color: #aaa; }
+.section-head-mini .section-drag-handle:hover { color: #aaa; background: rgba(0,0,0,0.045); }
+.section-head-mini .section-drag-handle:active { color: #888; background: rgba(0,0,0,0.08); cursor: grabbing; }
 .section[data-section-id="passwords"] .section-body { padding: 4px 0 14px 0; gap: 0; }
 .section[data-section-id="profiles"] .section-body { padding: 4px 0 8px 0; gap: 0; }
 .section.dragging-over { border-color: #185FA5; }
@@ -1754,6 +1760,22 @@ function initSectionDrag(){
   var container = gv('sections-container');
   if(!container) return;
 
+  /* 移動方向ベースで挿入位置を決定
+     ・fromSec が toSec より「後ろ」＝下から上へ動かした → toSec の上に配置
+     ・fromSec が toSec より「前」  ＝上から下へ動かした → toSec の下に配置 */
+  function placeSectionByDirection(fromSec, toSec){
+    if(!fromSec || !toSec || fromSec === toSec) return;
+    var pos = fromSec.compareDocumentPosition(toSec);
+    if(pos & Node.DOCUMENT_POSITION_FOLLOWING){
+      /* toSec が後ろ＝fromSec は上にある＝下方向へ移動 → toSec の下へ */
+      container.insertBefore(fromSec, toSec.nextSibling);
+    } else {
+      /* toSec が前＝fromSec は下にある＝上方向へ移動 → toSec の上へ */
+      container.insertBefore(fromSec, toSec);
+    }
+    saveLayout();
+  }
+
   container.addEventListener('dragstart', function(e){
     var handle = e.target.closest('.section-drag-handle');
     if(!handle) return;
@@ -1800,14 +1822,8 @@ function initSectionDrag(){
       if(fromId === toId) return;
       var fromSec = container.querySelector('[data-section-id="'+fromId+'"]');
       if(!fromSec) return;
-      /* 挿入位置を決定 */
-      var rect = sec.getBoundingClientRect();
-      if(e.clientY < rect.top + rect.height / 2){
-        container.insertBefore(fromSec, sec);
-      } else {
-        container.insertBefore(fromSec, sec.nextSibling);
-      }
-      saveLayout();
+      /* 挿入位置を決定（移動方向ベース） */
+      placeSectionByDirection(fromSec, sec);
     });
   });
 
@@ -1857,10 +1873,8 @@ function initSectionDrag(){
       for(var i=0;i<els.length;i++){
         var toSec = els[i].closest('.section[data-section-id]');
         if(toSec && toSec !== _fromSec){
-          var rect = toSec.getBoundingClientRect();
-          if(t.clientY < rect.top + rect.height / 2) container.insertBefore(_fromSec, toSec);
-          else container.insertBefore(_fromSec, toSec.nextSibling);
-          saveLayout();
+          /* 移動方向ベースで配置 */
+          placeSectionByDirection(_fromSec, toSec);
           break;
         }
       }
