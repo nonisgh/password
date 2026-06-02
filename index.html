@@ -133,8 +133,12 @@ input { -webkit-tap-highlight-color: transparent; font-family: inherit; }
 }
 .section-head-mini .section-drag-handle:hover { color: #aaa; background: rgba(0,0,0,0.045); }
 .section-head-mini .section-drag-handle:active { color: #888; background: rgba(0,0,0,0.08); cursor: grabbing; }
-.section[data-section-id="passwords"] .section-body { padding: 4px 0 14px 0; gap: 0; }
-.section[data-section-id="profiles"] .section-body { padding: 4px 0 8px 0; gap: 0; }
+.section[data-section-id="passwords"] .section-body { padding: 0 0 14px 0; gap: 0; }
+/* パスワードヘッダも箱を低く＋上下余白カット（当たり判定の横幅は維持） */
+.section[data-section-id="passwords"] .section-head-mini .section-drag-handle { min-height: 24px; margin-top: 0; margin-bottom: 0; }
+.section[data-section-id="profiles"] .section-body { padding: 0 0 8px 0; gap: 0; }
+/* プロファイルヘッダと中身の隙間を詰める（当たり判定は確保したまま箱を低く＋上下余白カット） */
+.section[data-section-id="profiles"] .section-head-mini .section-drag-handle { min-height: 24px; margin-top: 0; margin-bottom: 0; }
 .section.dragging-over { border-color: #185FA5; }
 
 #ratio-section.ratio-locked .section-body input[type=range],
