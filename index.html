@@ -115,17 +115,23 @@ input { -webkit-tap-highlight-color: transparent; font-family: inherit; }
 .section.collapsed .section-body { display: none; }
 .section.collapsed .section-toggle { transform: rotate(-90deg); }
 .section.collapsed .section-head { border-bottom: none; }
-/* ===== ドラッグハンドル：小さめの点々マークを中央にさりげなく ===== */
+/* ===== ドラッグハンドル：細長い角丸ボタン＋中央にドット3つ（有効領域は広め） ===== */
 .section-drag-handle {
-  cursor: grab; color: #d6d6d1;
-  width: 40px; height: 9px; box-sizing: border-box; border-radius: 5px;
+  cursor: grab; color: #b9b9b2;
+  width: 60px; height: 16px; box-sizing: border-box;
+  border: 1px solid #e2e2dc; border-radius: 999px;
+  background-color: #fbfbf9;
   font-size: 0; line-height: 0;
-  background-image: radial-gradient(circle, currentColor 0.8px, transparent 1.1px);
-  background-size: 5px 4px; background-position: center; background-repeat: repeat;
-  transition: background-color 0.12s, color 0.12s;
+  display: inline-flex; align-items: center; justify-content: center;
+  transition: background-color 0.12s, color 0.12s, border-color 0.12s;
 }
-.section-drag-handle:hover { color: #b5b5af; background-color: rgba(0,0,0,0.04); }
-.section-drag-handle:active { color: #999; background-color: rgba(0,0,0,0.07); cursor: grabbing; }
+.section-drag-handle::before {
+  content: ""; width: 3px; height: 3px; border-radius: 50%;
+  background-color: currentColor;
+  box-shadow: -7px 0 0 currentColor, 7px 0 0 currentColor;
+}
+.section-drag-handle:hover { color: #9a9a93; border-color: #cfcfc7; background-color: #f4f4f0; }
+.section-drag-handle:active { color: #808079; border-color: #bdbdb5; background-color: #ececdf; cursor: grabbing; }
 /* タイトル付きセクション：1行のまま、ハンドルだけ中央に絶対配置（高さは元のコンパクトさ） */
 .section-head:not(.section-head-mini) .section-drag-handle {
   position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
