@@ -433,7 +433,7 @@ input { -webkit-tap-highlight-color: transparent; font-family: inherit; }
   <!-- 文字種の割合 -->
   <div class="section" id="ratio-section" data-section-id="ratio">
     <div class="section-head" onclick="toggleSection(this,event)">
-      <span class="section-drag-handle">⠿</span><span class="section-title" style="flex:1;">文字種の割合 (%)</span><label style="display:flex;align-items:center;gap:3px;cursor:pointer;margin-right:4px;padding:0 4px;line-height:1;" onclick="event.stopPropagation()" ontouchstart="event.stopPropagation()" ontouchend="event.stopPropagation()"><input type="checkbox" id="ratio-lock" onchange="toggleRatioLock()" style="margin:0;width:14px;height:14px;"><span style="font-size:10px;color:#aaa;">🔒</span></label>
+      <span class="section-drag-handle">⠿</span><span class="section-title" style="flex:1;">文字種の割合 (%)</span><label style="display:flex;align-items:center;gap:3px;cursor:pointer;margin-right:8px;padding:0 4px;line-height:1;" onclick="event.stopPropagation()" ontouchstart="event.stopPropagation()" ontouchend="event.stopPropagation()" title="5%刻みでスライダーを動かす"><input type="checkbox" id="ratio-snap5" onchange="toggleSnap5()" style="margin:0;width:14px;height:14px;"><span style="font-size:10px;color:#999;">5%</span></label><label style="display:flex;align-items:center;gap:3px;cursor:pointer;margin-right:4px;padding:0 4px;line-height:1;" onclick="event.stopPropagation()" ontouchstart="event.stopPropagation()" ontouchend="event.stopPropagation()"><input type="checkbox" id="ratio-lock" onchange="toggleRatioLock()" style="margin:0;width:14px;height:14px;"><span style="font-size:10px;color:#aaa;">🔒</span></label>
 
     </div>
     <div class="section-body">
@@ -641,9 +641,20 @@ function onSliderChange(id){
   var sl=gv(id), nm=gv(id+'-num');
   if(nm) nm.value=sl.value;
 }
+/* 5%刻み対象（割合スライダー）か判定 */
+function isPctId(id){ return id==='pct-num' || id==='pct-sym' || id==='pct-upper'; }
+function snap5On(){ var c=gv('ratio-snap5'); return !!(c && c.checked); }
+function applySnap(id, v){
+  if(isPctId(id) && snap5On()) return Math.round(v/5)*5;
+  return v;
+}
 /* called on oninput — only update UI, no regenerate */
 function onSliderInput(id){
   var sl=gv(id), nm=gv(id+'-num');
+  if(isPctId(id) && snap5On()){
+    var sv=applySnap(id, parseInt(sl.value,10)||0);
+    if(parseInt(sl.value,10)!==sv) sl.value=sv;
+  }
   if(nm) nm.value=sl.value;
 }
 /* called on onchange (mouse/touch release) — regenerate */
@@ -659,6 +670,7 @@ function onNumInput(el, id, mn, mx){
   var v=parseInt(raw,10);
   if(!isNaN(v)){
     var clamped=Math.max(mn,Math.min(mx,v));
+    clamped=applySnap(id, clamped);
     var sl=gv(id); if(sl) sl.value=clamped;
   }
 }
@@ -666,13 +678,16 @@ function onNumBlur(el, id, mn, mx){
   var v=parseInt(el.value,10);
   if(isNaN(v)||el.value==='') v=mn;
   v=Math.max(mn,Math.min(mx,v));
+  v=applySnap(id, v);
   el.value=v;
   var sl=gv(id); if(sl) sl.value=v;
 }
 function stepField(id, delta){
   var sl=gv(id), nm=gv(id+'-num');
+  var step=(isPctId(id) && snap5On()) ? 5 : 1;
   var cur=parseInt(sl.value,10)||parseInt(sl.min,10)||0;
-  var v=Math.max(parseInt(sl.min,10), Math.min(parseInt(sl.max,10), cur+delta));
+  if(isPctId(id) && snap5On()) cur=Math.round(cur/5)*5;  /* 端数があれば先に5の倍数へ */
+  var v=Math.max(parseInt(sl.min,10), Math.min(parseInt(sl.max,10), cur+delta*step));
   sl.value=v; if(nm) nm.value=v;
   sl.dispatchEvent(new Event('input'));
   sl.dispatchEvent(new Event('change'));
@@ -1125,7 +1140,8 @@ function saveSettings(){
     colorUpperOn:gv('color-upper-on').checked,colorNumOn:gv('color-num-on').checked,colorSymOn:gv('color-sym-on').checked,
     colorUpper:currentColors.upper,colorNum:currentColors.num,colorSym:currentColors.sym,
     sortOrder:sortOrder,
-    ratioLock:gv('ratio-lock').checked
+    ratioLock:gv('ratio-lock').checked,
+    snap5:gv('ratio-snap5').checked
   };
   try{localStorage.setItem(STORAGE_KEY,JSON.stringify(s));}catch(e){}
   /* プロファイルも保存 */
@@ -1176,6 +1192,10 @@ function loadSettings(){
     sc('ratio-lock',s.ratioLock);
     if(s.ratioLock) gv('ratio-section').classList.add('ratio-locked');
   }
+  if(s.snap5!==undefined){
+    sc('ratio-snap5', s.snap5);
+    applySnap5State();
+  }
   return true;
 }
 
@@ -1200,6 +1220,27 @@ function toggleRatioLock(){
   var sec = gv('ratio-section');
   if(locked) sec.classList.add('ratio-locked');
   else sec.classList.remove('ratio-locked');
+  saveSettings();
+}
+
+/* ===== 5%刻みスナップ ===== */
+function applySnap5State(){
+  var on = snap5On();
+  ['pct-num','pct-sym','pct-upper'].forEach(function(id){
+    var sl=gv(id), nm=gv(id+'-num');
+    if(!sl) return;
+    sl.step = on ? 5 : 1;
+    if(on){
+      var v=Math.round((parseInt(sl.value,10)||0)/5)*5;
+      sl.value=v; if(nm) nm.value=v;
+    }
+  });
+}
+function toggleSnap5(){
+  applySnap5State();
+  updateTotal();
+  saveSettings();
+  generate();
 }
 
 /* ===== ファイル読み込み ===== */
@@ -1275,7 +1316,8 @@ function getCurrentSettingsObj(){
     colorSymOn:   gv('color-sym-on').checked,
     colorSym:     currentColors.sym,
     sortOrder:    sortOrder,
-    ratioLock:    gv('ratio-lock').checked
+    ratioLock:    gv('ratio-lock').checked,
+    snap5:        gv('ratio-snap5').checked
   };
 }
 
@@ -1717,6 +1759,10 @@ function applyRemoteConfig(s){
     var rl=gv('ratio-lock'); if(rl) rl.checked=!!s.ratioLock;
     toggleRatioLock();
   }
+  if(s.snap5!==undefined){
+    var s5=gv('ratio-snap5'); if(s5) s5.checked=!!s.snap5;
+    applySnap5State();
+  }
   if(s.layout) { applyLayout(s.layout); saveLayout(); }
   updateTotal(); applyColors(); generate();
 }
@@ -1949,6 +1995,7 @@ document.addEventListener('keydown', function(e){
 /* ===== INIT ===== */
 initSymbols();
 loadSettings();
+applySnap5State();
 syncSymButtonsFromSet();syncTextInputFromSet();updateSymPreview();updateTotal();applyColors();
 initSliderTouch();
 loadProfilesFromStorage();
