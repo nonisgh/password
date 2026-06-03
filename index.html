@@ -665,6 +665,11 @@ input { -webkit-tap-highlight-color: transparent; font-family: inherit; }
         <label class="toggle"><input type="checkbox" id="rec-clear-link" onchange="saveRecSettings();refreshRecLabels()"><span class="slider-tog"></span></label>
       </div>
 
+      <div class="row-toggle">
+        <span class="lbl">クリア時に確認を出す</span>
+        <label class="toggle"><input type="checkbox" id="rec-clear-confirm" checked onchange="saveRecSettings()"><span class="slider-tog"></span></label>
+      </div>
+
       <div style="font-size:11px;color:#aaa;margin-top:10px;margin-bottom:2px;">保存件数</div>
       <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;">
         <div class="recset-time"><span style="color:#888;">メモ</span><input type="text" inputmode="numeric" id="rec-memo-max" value="30" onchange="onRecMaxInput()" oninput="onRecMaxInput()"><span>件</span></div>
@@ -1309,6 +1314,7 @@ function withScrollCompensation(fn, anchor){
 var RECSET_KEY = 'pwgen_recset_v1';
 /* 既定値 */
 var recClearLink = false;
+var recClearConfirm = true;   /* クリア時に確認を出すか */
 
 function clampInt(v, mn, mx, def){
   v = parseInt(v,10);
@@ -1346,30 +1352,36 @@ function refreshRecLabels(){
   var mb = gv('memo-clear-btn'); if(mb) mb.textContent = linked ? 'Wクリア' : 'クリア';
   var hb = gv('hist-clear-btn'); if(hb) hb.textContent = linked ? 'Wクリア' : 'クリア';
 }
-function saveRecSettings(){
-  recClearLink = !!(gv('rec-clear-link') && gv('rec-clear-link').checked);
-  var obj = {
+function getRecSettingsObj(){
+  return {
     hh: clampInt(gv('rec-hh').value,0,999,1),
     mm: clampInt(gv('rec-mm').value,0,59,0),
     ss: clampInt(gv('rec-ss').value,0,59,0),
-    clearLink: recClearLink,
+    clearLink: !!(gv('rec-clear-link') && gv('rec-clear-link').checked),
+    clearConfirm: !(gv('rec-clear-confirm')) ? true : gv('rec-clear-confirm').checked,
     memoMax: MEMO_MAX,
     histMax: HIST_MAX
   };
-  try{ localStorage.setItem(RECSET_KEY, JSON.stringify(obj)); }catch(e){}
+}
+function applyRecSettingsObj(o){
+  if(!o) return;
+  if(gv('rec-hh') && typeof o.hh !== 'undefined') gv('rec-hh').value = clampInt(o.hh,0,999,1);
+  if(gv('rec-mm') && typeof o.mm !== 'undefined') gv('rec-mm').value = clampInt(o.mm,0,59,0);
+  if(gv('rec-ss') && typeof o.ss !== 'undefined') gv('rec-ss').value = clampInt(o.ss,0,59,0);
+  if(typeof o.clearLink !== 'undefined'){ recClearLink = !!o.clearLink; var cl=gv('rec-clear-link'); if(cl) cl.checked = recClearLink; }
+  if(typeof o.clearConfirm !== 'undefined'){ recClearConfirm = !!o.clearConfirm; var cc=gv('rec-clear-confirm'); if(cc) cc.checked = recClearConfirm; }
+  if(o.memoMax){ MEMO_MAX = clampInt(o.memoMax,1,500,30); var rm=gv('rec-memo-max'); if(rm) rm.value = MEMO_MAX; }
+  if(o.histMax){ HIST_MAX = clampInt(o.histMax,1,500,30); var rh=gv('rec-hist-max'); if(rh) rh.value = HIST_MAX; }
+}
+function saveRecSettings(){
+  recClearLink = !!(gv('rec-clear-link') && gv('rec-clear-link').checked);
+  recClearConfirm = !(gv('rec-clear-confirm')) ? true : gv('rec-clear-confirm').checked;
+  try{ localStorage.setItem(RECSET_KEY, JSON.stringify(getRecSettingsObj())); }catch(e){}
 }
 function loadRecSettings(){
   var raw; try{ raw = localStorage.getItem(RECSET_KEY); }catch(e){}
   if(raw){
-    try{
-      var o = JSON.parse(raw);
-      if(gv('rec-hh')) gv('rec-hh').value = clampInt(o.hh,0,999,1);
-      if(gv('rec-mm')) gv('rec-mm').value = clampInt(o.mm,0,59,0);
-      if(gv('rec-ss')) gv('rec-ss').value = clampInt(o.ss,0,59,0);
-      if(typeof o.clearLink !== 'undefined'){ recClearLink = !!o.clearLink; var cl=gv('rec-clear-link'); if(cl) cl.checked = recClearLink; }
-      if(o.memoMax){ MEMO_MAX = clampInt(o.memoMax,1,500,30); var rm=gv('rec-memo-max'); if(rm) rm.value = MEMO_MAX; }
-      if(o.histMax){ HIST_MAX = clampInt(o.histMax,1,500,30); var rh=gv('rec-hist-max'); if(rh) rh.value = HIST_MAX; }
-    }catch(e){}
+    try{ applyRecSettingsObj(JSON.parse(raw)); }catch(e){}
   }
   refreshRecLabels();
 }
@@ -1471,14 +1483,14 @@ function fmtTs(ts){
 function clearMemos(){
   if(recClearLink){
     if(memos.length === 0 && pwHistory.length === 0) return;
-    if(!window.confirm('メモと履歴の両方をすべて削除しますか？（クリア連動が有効です）')) return;
+    if(recClearConfirm && !window.confirm('メモと履歴の両方をすべて削除しますか？（クリア連動が有効です）')) return;
     memos = []; pwHistory = [];
     saveMemos(); saveHistory();
     renderMemos(); renderHistory();
     return;
   }
   if(memos.length === 0) return;
-  if(!window.confirm('メモをすべて削除しますか？')) return;
+  if(recClearConfirm && !window.confirm('メモをすべて削除しますか？')) return;
   memos = [];
   saveMemos();
   renderMemos();
@@ -1658,14 +1670,14 @@ function addHistory(plain){
 function clearHistory(){
   if(recClearLink){
     if(memos.length === 0 && pwHistory.length === 0) return;
-    if(!window.confirm('履歴とメモの両方をすべて削除しますか？（クリア連動が有効です）')) return;
+    if(recClearConfirm && !window.confirm('履歴とメモの両方をすべて削除しますか？（クリア連動が有効です）')) return;
     pwHistory = []; memos = [];
     saveHistory(); saveMemos();
     renderHistory(); renderMemos();
     return;
   }
   if(pwHistory.length === 0) return;
-  if(!window.confirm('履歴をすべて削除しますか？')) return;
+  if(recClearConfirm && !window.confirm('履歴をすべて削除しますか？')) return;
   pwHistory = [];
   saveHistory();
   renderHistory();
@@ -1931,6 +1943,7 @@ function processFile(file){
       setTimeout(function(){ gv('config-status').textContent=''; }, 3000);
       maybeRestoreMemos(data);
       maybeRestoreHistory(data);
+      maybeRestoreRecSettings(data);
     } catch(err) {
       gv('config-status').textContent = 'JSONパースエラー: ' + err.message;
       gv('config-status').style.color = '#993C1D';
@@ -1994,13 +2007,15 @@ function exportSettings(){
       profiles: profiles,
       layout: getLayoutForExport(),
       memos: memos,
-      history: pwHistory
+      history: pwHistory,
+      recSettings: getRecSettingsObj()
     });
   } else {
     var obj = Object.assign({ "_comment": "PASSWORD GENERATOR 設定ファイル" }, getCurrentSettingsObj());
     obj.layout = getLayoutForExport();
     obj.memos = memos;
     obj.history = pwHistory;
+    obj.recSettings = getRecSettingsObj();
     downloadJson(obj);
   }
 }
@@ -2037,6 +2052,19 @@ function maybeRestoreMemos(data){
   memos = merged.concat(memos).slice(0, MEMO_MAX);
   saveMemos();
   renderMemos();
+}
+
+/* JSON読み込み時：recSettingsがあれば反映（確認なし・静かに適用） */
+function maybeRestoreRecSettings(data){
+  if(!data || !data.recSettings || typeof data.recSettings !== 'object') return;
+  applyRecSettingsObj(data.recSettings);
+  /* 件数変更に伴うトリム */
+  if(memos.length > MEMO_MAX) memos = memos.slice(0, MEMO_MAX);
+  if(pwHistory.length > HIST_MAX) pwHistory = pwHistory.slice(0, HIST_MAX);
+  saveRecSettings();
+  saveMemos(); saveHistory();
+  refreshRecLabels();
+  renderMemos(); renderHistory();
 }
 
 /* ===== プロファイル ===== */
@@ -2335,6 +2363,7 @@ function loadConfigFromUrl(url, silent){
       }
       if(!silent) maybeRestoreMemos(data);
       if(!silent) maybeRestoreHistory(data);
+      if(!silent) maybeRestoreRecSettings(data);
     })
     .catch(function(err){
       console.error('Config load error:', err);
