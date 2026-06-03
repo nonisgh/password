@@ -197,6 +197,7 @@ input { -webkit-tap-highlight-color: transparent; font-family: inherit; }
 .section-head-mini .section-drag-handle:active { color: #8a8a83; background-color: rgba(0,0,0,0.06); cursor: grabbing; }
 .section[data-section-id="passwords"] .section-body { padding: 10px 0 14px 0; gap: 0; }
 .section[data-section-id="profiles"] .section-body { padding: 10px 0 8px 0; gap: 0; }
+.section[data-section-id="memo"] .section-body { gap: 4px; }
 .section.dragging-over { border-color: #185FA5; }
 
 #ratio-section.ratio-locked .section-body input[type=range],
@@ -605,11 +606,16 @@ input { -webkit-tap-highlight-color: transparent; font-family: inherit; }
   <div class="section" data-section-id="memo">
     <div class="section-head" onclick="toggleSection(this,event)"><span class="section-drag-handle">⠿</span><span class="section-title">パスワードメモ</span></div>
     <div class="section-body">
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+      <div style="display:flex;align-items:center;gap:8px;">
         <span style="font-size:12px;color:#888;flex:1;">パスワード行を長押しでここに追加（最大30件）</span>
         <label style="display:flex;align-items:center;gap:4px;cursor:pointer;font-size:11px;color:#888;white-space:nowrap;"><input type="checkbox" id="memo-color-on" checked onchange="toggleMemoColor()" style="margin:0;width:13px;height:13px;">色を付ける</label>
         <span id="memo-count" style="font-size:11px;color:#aaa;">0/30</span>
         <button class="btn" onclick="clearMemos()" style="height:32px;padding:0 12px;font-size:13px;">クリア</button>
+      </div>
+      <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;">
+        <span style="font-size:11px;color:#aaa;">表示:</span>
+        <label style="display:flex;align-items:center;gap:4px;cursor:pointer;font-size:12px;color:#666;white-space:nowrap;"><input type="checkbox" id="memo-filter-latest" onchange="toggleMemoFilter()" style="margin:0;width:13px;height:13px;">最新1件のみ</label>
+        <label style="display:flex;align-items:center;gap:4px;cursor:pointer;font-size:12px;color:#666;white-space:nowrap;"><input type="checkbox" id="memo-filter-hour" onchange="toggleMemoFilter()" style="margin:0;width:13px;height:13px;">直近1時間</label>
       </div>
       <div class="memo-list" id="memo-list"></div>
       <div id="memo-empty" style="font-size:12px;color:#bbb;padding:6px 2px;">メモはまだありません。</div>
@@ -1218,8 +1224,10 @@ function copyAll(){
 /* ===== MEMO ===== */
 var MEMO_KEY = 'pwgen_memos_v1';
 var MEMO_COLOR_KEY = 'pwgen_memo_color_v1';
+var MEMO_FILTER_KEY = 'pwgen_memo_filter_v1';
 var MEMO_MAX = 30;
-var memos = [];   /* [{plain, html}] */
+var MEMO_HOUR_MS = 60*60*1000;
+var memos = [];   /* [{plain, html, ts}] */
 
 /* 旧形式（文字列）や {plain} だけの項目も正規化 */
 function normMemo(item){
@@ -1245,6 +1253,15 @@ function loadMemos(){
   var c; try{ c = localStorage.getItem(MEMO_COLOR_KEY); }catch(e){}
   if(c !== null && c !== undefined){
     var cb = gv('memo-color-on'); if(cb) cb.checked = (c === '1');
+  }
+  /* 表示フィルタの復元 */
+  var f; try{ f = localStorage.getItem(MEMO_FILTER_KEY); }catch(e){}
+  if(f){
+    try{
+      var fo = JSON.parse(f);
+      var fl = gv('memo-filter-latest'); if(fl) fl.checked = !!fo.latest;
+      var fh = gv('memo-filter-hour');   if(fh) fh.checked = !!fo.hour;
+    }catch(e){}
   }
 }
 function saveMemos(){
@@ -1276,8 +1293,11 @@ function clearMemos(){
   saveMemos();
   renderMemos();
 }
-function deleteMemo(idx){
-  memos.splice(idx, 1);
+function deleteMemo(target){
+  /* target はメモオブジェクト参照（フィルタ表示でもズレない） */
+  var i = memos.indexOf(target);
+  if(i === -1) return;
+  memos.splice(i, 1);
   saveMemos();
   renderMemos();
 }
@@ -1285,13 +1305,48 @@ function toggleMemoColor(){
   saveMemoColorPref();
   renderMemos();
 }
+function saveMemoFilterPref(){
+  try{
+    localStorage.setItem(MEMO_FILTER_KEY, JSON.stringify({
+      latest: gv('memo-filter-latest').checked,
+      hour:   gv('memo-filter-hour').checked
+    }));
+  }catch(e){}
+}
+function toggleMemoFilter(){
+  saveMemoFilterPref();
+  renderMemos();
+}
+/* 表示対象のメモ（フィルタ適用後）。
+   両方ON＝AND（積集合：最新1件 かつ 直近1時間）、片方のみ＝その条件、両OFF＝全件 */
+function getVisibleMemos(){
+  var latest = (function(){ var c=gv('memo-filter-latest'); return c && c.checked; })();
+  var hour   = (function(){ var c=gv('memo-filter-hour');   return c && c.checked; })();
+  if(!latest && !hour) return memos.slice();
+  var now = Date.now();
+  return memos.filter(function(m, i){
+    var passLatest = (i === 0);                                   /* memos[0] が最新 */
+    var passHour   = (!!m.ts && (now - m.ts) <= MEMO_HOUR_MS);    /* 直近1時間 */
+    if(latest && hour) return passLatest && passHour;             /* AND（積集合） */
+    if(latest) return passLatest;
+    return passHour;
+  });
+}
 function renderMemos(){
   var list = gv('memo-list'); if(!list) return;
   list.innerHTML = '';
-  var cnt = gv('memo-count'); if(cnt) cnt.textContent = memos.length + '/' + MEMO_MAX;
-  var empty = gv('memo-empty'); if(empty) empty.style.display = memos.length ? 'none' : '';
+  var visible = getVisibleMemos();
+  var filtering = (memos.length !== visible.length);
+  var cnt = gv('memo-count');
+  if(cnt) cnt.textContent = (filtering ? (visible.length + '/' + memos.length + '件 (全' + MEMO_MAX + ')') : (memos.length + '/' + MEMO_MAX));
+  var empty = gv('memo-empty');
+  if(empty){
+    if(memos.length === 0){ empty.style.display=''; empty.textContent='メモはまだありません。'; }
+    else if(visible.length === 0){ empty.style.display=''; empty.textContent='表示条件に合うメモがありません。'; }
+    else empty.style.display='none';
+  }
   var colorOn = (function(){ var cb=gv('memo-color-on'); return cb ? cb.checked : true; })();
-  memos.forEach(function(m, idx){
+  visible.forEach(function(m){
     var row = document.createElement('div');
     row.className = 'memo-row';
     row.dataset.plain = m.plain;
@@ -1310,7 +1365,7 @@ function renderMemos(){
     del.title = '削除';
     del.addEventListener('click', function(e){
       e.stopPropagation();
-      deleteMemo(idx);
+      deleteMemo(m);
     });
 
     /* メモ行：短タップ＝コピー、長押し＝追加日時を表示 */
