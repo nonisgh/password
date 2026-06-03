@@ -737,6 +737,7 @@ input { -webkit-tap-highlight-color: transparent; font-family: inherit; }
 
 </div>
 <button class="fab-regen" onclick="generate()" title="再生成 (Space / R)">↺</button>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
 /* ===== Prevent double-tap zoom ===== */
 var lastTap=0;
@@ -1987,6 +1988,9 @@ var CLOUD_ROW_ID = 1;              /* 使う行のid（int8）。後で複数人
 var cloudReady = false;            /* 初回ロード完了まで自動保存を抑止 */
 var cloudSaveTimer = null;
 var cloudSuppress = false;         /* クラウド/JSON適用中の自動保存抑止 */
+var sbClient = null;               /* supabase-js クライアント */
+var sbChannel = null;              /* Realtime購読チャンネル */
+var lastSavedJson = null;          /* 最後に自分が保存したsettingsのJSON（ループ防止） */
 
 /* 保存対象の全データを1オブジェクトにまとめる */
 function collectAllData(){
@@ -2026,7 +2030,9 @@ function scheduleCloudSave(){
 }
 function doCloudSave(){
   if(!cloudReady || cloudSuppress) return;
-  var body = [{ id: CLOUD_ROW_ID, settings: collectAllData() }];
+  var settingsObj = collectAllData();
+  lastSavedJson = JSON.stringify(settingsObj);   /* 自分の保存を識別（Realtimeループ防止） */
+  var body = [{ id: CLOUD_ROW_ID, settings: settingsObj }];
   setCloudStatus('保存中…', '#888');
   fetch(SUPABASE_URL + '/rest/v1/' + SUPABASE_TABLE + '?on_conflict=id', {
     method: 'POST',
@@ -2066,6 +2072,33 @@ function loadFromCloud(){
     console.error('cloud load', e);
     return false;
   });
+}
+
+/* Realtime購読：他端末がid=1の行を更新したら自動で画面へ反映 */
+function startRealtimeSync(){
+  if(!(window.supabase && window.supabase.createClient)){
+    console.warn('supabase-js 未読込のためRealtime無効');
+    return;
+  }
+  try{
+    if(!sbClient) sbClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+    if(sbChannel) return;  /* 二重購読防止 */
+    sbChannel = sbClient
+      .channel('pwgen-config')
+      .on('postgres_changes',
+        { event: '*', schema: 'public', table: SUPABASE_TABLE, filter: 'id=eq.' + CLOUD_ROW_ID },
+        function(payload){
+          var row = payload.new || {};
+          var settings = row.settings;
+          if(!settings || typeof settings !== 'object') return;
+          /* 自分が今保存した内容と同じなら無視（ループ防止） */
+          if(JSON.stringify(settings) === lastSavedJson) return;
+          applyCloudData(settings);
+          setCloudStatus('✓ 他の端末の変更を反映', '#185FA5');
+          setTimeout(function(){ setCloudStatus('', '#888'); }, 2000);
+        })
+      .subscribe();
+  }catch(e){ console.error('realtime init', e); }
 }
 
 /* クラウド/JSONのデータオブジェクトを画面へ適用（確認ダイアログなしで反映） */
@@ -3092,9 +3125,12 @@ generate=function(){
 };
 generate();
 
-/* クラウドから読み込み（成功でローカルを上書き）→ 完了後に自動保存を有効化 */
+/* クラウドから読み込み（成功でローカルを上書き）→ 完了後に自動保存を有効化 → Realtime購読開始 */
 (function(){
-  function done(){ cloudReady = true; }
+  function done(){
+    cloudReady = true;
+    if(typeof startRealtimeSync === 'function') startRealtimeSync();
+  }
   if(typeof loadFromCloud === 'function'){ loadFromCloud().then(done).catch(done); }
   else { done(); }
 })();
