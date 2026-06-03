@@ -78,6 +78,7 @@ input { -webkit-tap-highlight-color: transparent; font-family: inherit; }
 .pw-row.memoed .pw-copied-badge, .memo-row.memoed .pw-copied-badge { color: #A8385C; background: rgba(244,221,231,0.95); }
 /* 日時表示時：青系 */
 .memo-row.dated { border-color: #185FA5; background: #eef4fb; }
+.rec-detail { font-size:12px; line-height:1.8; letter-spacing:0.02em; background:#f7f7f4; border:1px solid #e8e8e2; border-radius:8px; padding:8px 10px; margin:2px 2px 2px; }
 .memo-row.dated .pw-copied-badge { color: #185FA5; background: rgba(221,233,247,0.95); }
 /* ===== MEMO ===== */
 .memo-list { display: flex; flex-direction: column; gap: 6px; }
@@ -377,6 +378,7 @@ input { -webkit-tap-highlight-color: transparent; font-family: inherit; }
             <button class="btn btn-primary" onclick="generate()">↺ 再生成</button>
         <span class="save-flash" id="save-flash">保存済</span>
       </div>
+      <div id="cond-summary" style="font-size:12px;color:#888;margin-bottom:8px;line-height:1.7;letter-spacing:0.02em;"></div>
       <div class="pw-list" id="pw-list"></div>
       <div class="pw-text-measure" style="visibility:hidden;height:0;overflow:hidden;font-family:'Courier New',monospace;"></div>
       <div class="strength-row" style="margin-top:6px;margin-bottom:2px;">
@@ -850,6 +852,10 @@ function applyColors(){
     css+='.pw-text .c-'+t+'{color:'+(on?col:'#1a1a1a')+'}\n';
     /* メモ：coloredのときだけ色、OFFは黒（パスワードの色ON/OFFにも追従） */
     css+='.memo-text.colored .c-'+t+'{color:'+(on?col:'#1a1a1a')+'}\n';
+    /* 条件サマリー：色トグルに連動（OFFは黒） */
+    css+='#cond-summary .c-'+t+'{color:'+(on?col:'#1a1a1a')+'}\n';
+    /* メモ・履歴の詳細パネル内の条件表示も同様に色付け */
+    css+='.rec-detail .c-'+t+'{color:'+(on?col:'#1a1a1a')+'}\n';
     var dot=gv('leg-'+t+'-dot'),leg=gv('leg-'+t);
     if(dot) dot.style.background=on?col:'#ccc';
     if(leg) leg.style.opacity=on?'1':'0.35';
@@ -857,6 +863,7 @@ function applyColors(){
   /* メモが非colored時は全span黒 */
   css+='.memo-text:not(.colored) .c-upper,.memo-text:not(.colored) .c-num,.memo-text:not(.colored) .c-sym{color:#1a1a1a}\n';
   styleEl.textContent=css;
+  if(typeof renderCondSummary==='function') renderCondSummary();
 }
 function onColorPick(t){
   var val=gv('color-'+t).value;
@@ -1130,7 +1137,58 @@ function pwConfig(len){
   };
 }
 
+/* 現在の生成条件を素の値で取得（メモ・履歴に保存する用） */
+function getCondObj(){
+  var symArr = getActiveSymsArray();
+  return {
+    len: parseInt(gv('len').value,10) || 16,
+    pctU: parseInt(gv('pct-upper').value,10)||0,
+    pctN: parseInt(gv('pct-num').value,10)||0,
+    pctS: parseInt(gv('pct-sym').value,10)||0,
+    startUpper: gv('start-upper').checked,
+    startAlpha: gv('start-alpha').checked,
+    endNum: gv('end-num').checked,
+    endSym: gv('end-sym').checked && symArr.length>0,
+    syms: symArr.slice()
+  };
+}
+/* 条件オブジェクト→色付きHTML（色は色トグルに連動する c-* クラス） */
+function condToHtml(c){
+  if(!c) return '<span style="color:#bbb;">条件不明</span>';
+  function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+  function tag(cls, inner){ return '<span class="c-'+cls+'" style="font-size:0.85em;font-weight:700;">【'+inner+'】</span>'; }
+  function ch(cls, x){ return '<span class="c-'+cls+'" style="font-weight:700;">'+x+'</span>'; }
+  var U=tag('upper','A'), N=tag('num','1'), S=tag('sym','#');
+  var Uc=ch('upper','A'), Nc=ch('num','1'), Sc=ch('sym','#');
+  var ac='<span style="font-weight:700;color:#1a1a1a;">a</span>';
+  var sep='<span style="color:#ccc;"> : </span>';
+  var parts=[];
+  parts.push('<b style="color:#666;">'+(c.len||'?')+'桁</b>');
+  parts.push(U+': '+(c.pctU||0)+'%  '+N+': '+(c.pctN||0)+'%  '+S+': '+(c.pctS||0)+'%');
+  var head='', tail='';
+  if(c.startUpper) head=Uc; else if(c.startAlpha) head=ac;
+  if(c.endNum) tail=Nc; else if(c.endSym) tail=Sc;
+  if(head || tail){
+    parts.push((head||'<span style="color:#bbb;">?</span>')+'<span style="color:#ccc;">...</span>'+(tail||'<span style="color:#bbb;">?</span>'));
+  }
+  var html=parts.join(sep);
+  if(c.syms && c.syms.length>0){
+    /* 記号の割合が0%のときは記号一覧をグレーアウト */
+    var symStyle = ((c.pctS||0) === 0) ? ' style="color:#bbb;"' : '';
+    var symCls = ((c.pctS||0) === 0) ? '' : ' class="c-sym"';
+    html += sep + '記号 <span'+symCls+symStyle+'>' + c.syms.map(esc).join(' ') + '</span>';
+  }
+  return html;
+}
+
+/* 生成条件のサマリーを1行で表示（大文字=緑【A】 / 数字=青【1】 / 記号=赤茶【#】） */
+function renderCondSummary(){
+  var el = gv('cond-summary'); if(!el) return;
+  el.innerHTML = condToHtml(getCondObj());
+}
+
 function generate(){
+  renderCondSummary();
   var count = Math.min(50, Math.max(1, parseInt(gv('pw-count').value,10)||10));
   var results = [];
   for(var i=0;i<count;i++) results.push(buildOne());
@@ -1470,12 +1528,13 @@ var memos = [];   /* [{plain, html, ts}] */
 
 /* 旧形式（文字列）や {plain} だけの項目も正規化 */
 function normMemo(item){
-  if(typeof item === 'string') return { plain:item, html:colorizePlain(item), ts:0 };
+  if(typeof item === 'string') return { plain:item, html:colorizePlain(item), ts:0, cond:null };
   if(item && typeof item.plain === 'string'){
     return {
       plain:item.plain,
       html:(typeof item.html==='string' && item.html) ? item.html : colorizePlain(item.plain),
-      ts:(typeof item.ts==='number') ? item.ts : 0
+      ts:(typeof item.ts==='number') ? item.ts : 0,
+      cond:(item.cond && typeof item.cond==='object') ? item.cond : null
     };
   }
   return null;
@@ -1513,7 +1572,7 @@ function addMemo(plain){
   if(!plain) return;
   /* 重複：既存の同じパスワードは削除してから先頭に再追加（最新扱い） */
   memos = memos.filter(function(m){ return m.plain !== plain; });
-  memos.unshift({ plain:plain, html:colorizePlain(plain), ts:Date.now() });
+  memos.unshift({ plain:plain, html:colorizePlain(plain), ts:Date.now(), cond:getCondObj() });
   /* リング：最大件数を超えたら古いものを押し出す */
   if(memos.length > MEMO_MAX) memos = memos.slice(0, MEMO_MAX);
   saveMemos();
@@ -1616,33 +1675,36 @@ function renderMemos(){
       deleteMemo(m);
     });
 
-    /* メモ行：短タップ＝コピー、長押し＝追加日時を表示 */
-    (function(plain, ts){
+    /* 詳細パネル（日付＋生成条件）。長押し/右クリックでトグル */
+    var detail = document.createElement('div');
+    detail.className = 'rec-detail';
+    detail.style.display = 'none';
+    detail.innerHTML = '<div style="color:#888;margin-bottom:3px;">追加: ' + fmtTs(m.ts) + '</div>' + condToHtml(m.cond);
+
+    function toggleDetail(){
+      detail.style.display = (detail.style.display==='none') ? 'block' : 'none';
+    }
+
+    /* メモ行：短タップ＝コピー、長押し/右クリック＝詳細パネル開閉 */
+    (function(plain){
       var lpTimer=null, lpFired=false, sx=0, sy=0;
       function start(x,y){
         lpFired=false; sx=x; sy=y; clearTimeout(lpTimer);
-        lpTimer=setTimeout(function(){
-          lpFired=true;
-          row.classList.remove('copied');
-          row.classList.add('dated');
-          badge.textContent = fmtTs(ts);
-          badge.style.opacity='1';
-          clearTimeout(row._ct);
-          row._ct=setTimeout(function(){ row.classList.remove('dated'); badge.style.opacity='0'; badge.textContent='COPIED'; }, 2200);
-        }, 550);
+        lpTimer=setTimeout(function(){ lpFired=true; toggleDetail(); }, 550);
       }
       function moveCancel(x,y){ if(Math.abs(x-sx)>8||Math.abs(y-sy)>8) clearTimeout(lpTimer); }
       function end(){ clearTimeout(lpTimer); }
-      row.addEventListener('mousedown', function(e){ start(e.clientX,e.clientY); });
+      row.addEventListener('mousedown', function(e){ if(e.button!==2) start(e.clientX,e.clientY); });
       row.addEventListener('mousemove', function(e){ moveCancel(e.clientX,e.clientY); });
       row.addEventListener('mouseup', end);
       row.addEventListener('mouseleave', end);
       row.addEventListener('touchstart', function(e){ var t=e.touches[0]; start(t.clientX,t.clientY); }, {passive:true});
       row.addEventListener('touchmove', function(e){ var t=e.touches[0]; moveCancel(t.clientX,t.clientY); }, {passive:true});
       row.addEventListener('touchend', end);
+      row.addEventListener('contextmenu', function(e){ e.preventDefault(); toggleDetail(); });
 
       row.addEventListener('click', function(){
-        if(lpFired){ lpFired=false; return; }  /* 長押しで日時表示 → コピーしない */
+        if(lpFired){ lpFired=false; return; }  /* 長押し → コピーしない */
         copyText(plain, {textContent:'',set textContent(v){}});
         row.classList.add('copied');
         badge.textContent='COPIED';
@@ -1650,12 +1712,13 @@ function renderMemos(){
         clearTimeout(row._ct);
         row._ct = setTimeout(function(){ row.classList.remove('copied'); badge.style.opacity='0'; }, 1500);
       });
-    })(m.plain, m.ts);
+    })(m.plain);
 
     row.appendChild(txt);
     row.appendChild(badge);
     row.appendChild(del);
     list.appendChild(row);
+    list.appendChild(detail);
   });
   /* メモ内容が変わると「メモにあるものを除く」表示も変わるので履歴も更新 */
   if(typeof renderHistory === 'function') renderHistory();
@@ -1707,7 +1770,7 @@ function addHistory(plain){
   if(!plain) return;
   /* 重複：既存の同じ値は削除して先頭に再追加（最新扱い） */
   pwHistory = pwHistory.filter(function(h){ return h.plain !== plain; });
-  pwHistory.unshift({ plain:plain, html:colorizePlain(plain), ts:Date.now() });
+  pwHistory.unshift({ plain:plain, html:colorizePlain(plain), ts:Date.now(), cond:getCondObj() });
   if(pwHistory.length > HIST_MAX) pwHistory = pwHistory.slice(0, HIST_MAX);
   saveHistory();
   renderHistory();
@@ -1795,29 +1858,31 @@ function renderHistory(){
     del.title = '削除';
     del.addEventListener('click', function(e){ e.stopPropagation(); deleteHistory(m); });
 
-    (function(plain, ts){
+    var detail = document.createElement('div');
+    detail.className = 'rec-detail';
+    detail.style.display = 'none';
+    detail.innerHTML = '<div style="color:#888;margin-bottom:3px;">記録: ' + fmtTs(m.ts) + '</div>' + condToHtml(m.cond);
+
+    function toggleDetail(){
+      detail.style.display = (detail.style.display==='none') ? 'block' : 'none';
+    }
+
+    (function(plain){
       var lpTimer=null, lpFired=false, sx=0, sy=0;
       function start(x,y){
         lpFired=false; sx=x; sy=y; clearTimeout(lpTimer);
-        lpTimer=setTimeout(function(){
-          lpFired=true;
-          row.classList.remove('copied');
-          row.classList.add('dated');
-          badge.textContent = fmtTs(ts);
-          badge.style.opacity='1';
-          clearTimeout(row._ct);
-          row._ct=setTimeout(function(){ row.classList.remove('dated'); badge.style.opacity='0'; badge.textContent='COPIED'; }, 2200);
-        }, 550);
+        lpTimer=setTimeout(function(){ lpFired=true; toggleDetail(); }, 550);
       }
       function moveCancel(x,y){ if(Math.abs(x-sx)>8||Math.abs(y-sy)>8) clearTimeout(lpTimer); }
       function end(){ clearTimeout(lpTimer); }
-      row.addEventListener('mousedown', function(e){ start(e.clientX,e.clientY); });
+      row.addEventListener('mousedown', function(e){ if(e.button!==2) start(e.clientX,e.clientY); });
       row.addEventListener('mousemove', function(e){ moveCancel(e.clientX,e.clientY); });
       row.addEventListener('mouseup', end);
       row.addEventListener('mouseleave', end);
       row.addEventListener('touchstart', function(e){ var t=e.touches[0]; start(t.clientX,t.clientY); }, {passive:true});
       row.addEventListener('touchmove', function(e){ var t=e.touches[0]; moveCancel(t.clientX,t.clientY); }, {passive:true});
       row.addEventListener('touchend', end);
+      row.addEventListener('contextmenu', function(e){ e.preventDefault(); toggleDetail(); });
 
       row.addEventListener('click', function(){
         if(lpFired){ lpFired=false; return; }
@@ -1828,12 +1893,13 @@ function renderHistory(){
         clearTimeout(row._ct);
         row._ct = setTimeout(function(){ row.classList.remove('copied'); badge.style.opacity='0'; }, 1500);
       });
-    })(m.plain, m.ts);
+    })(m.plain);
 
     row.appendChild(txt);
     row.appendChild(badge);
     row.appendChild(del);
     list.appendChild(row);
+    list.appendChild(detail);
   });
 }
 
