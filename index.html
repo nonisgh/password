@@ -1999,25 +1999,48 @@ var CLIENT_ID = 'c' + Date.now().toString(36) + Math.random().toString(36).slice
 var myWriteSeq = 0;                 /* 自分の保存に付ける連番 */
 var lastSeenWriter = '';            /* 最後に受信した書き込み元の印 */
 
+/* 同期から除外するinput id（ファイル選択、記号テキストは別管理） */
+var SYNC_EXCLUDE_IDS = { 'config-file':1, 'sym-text-input':1 };
+
+/* 画面上の全input要素を id をキーに機械的に集める（取りこぼし防止の要） */
+function collectAllInputs(){
+  var out = {};
+  var els = document.querySelectorAll('input[id]');
+  els.forEach(function(el){
+    var id = el.id;
+    if(!id || SYNC_EXCLUDE_IDS[id]) return;
+    if(el.type === 'checkbox' || el.type === 'radio') out[id] = { c: el.checked };
+    else out[id] = { v: el.value };
+  });
+  return out;
+}
+
+/* 集めた全input値を id ごとに書き戻す（イベント発火は呼び出し側でまとめて実施） */
+function applyAllInputs(inputs){
+  if(!inputs) return;
+  Object.keys(inputs).forEach(function(id){
+    if(SYNC_EXCLUDE_IDS[id]) return;
+    var el = gv(id); if(!el) return;
+    var rec = inputs[id];
+    if(el.type === 'checkbox' || el.type === 'radio'){
+      if(typeof rec.c !== 'undefined'){ el.checked = rec.c; }
+    } else {
+      if(typeof rec.v !== 'undefined'){ el.value = rec.v; }
+    }
+  });
+}
+
 /* 保存対象の全データを1オブジェクトにまとめる。常に「今の画面の設定」を同期する。
-   プロファイル一覧も同期するが、受信時に自動適用はしない（ボタンを押したときだけ反映）。 */
-function uiChecked(id){ var e=gv(id); return e ? e.checked : undefined; }
+   全input自動収集なので、項目追加しても取りこぼさない。 */
 function collectAllData(){
-  var obj = Object.assign({}, getCurrentSettingsObj());
+  var obj = {};
+  obj.inputs = collectAllInputs();          /* 全input（チェック/数値/色/レンジ等） */
+  obj.activeSyms = Array.from(activeSyms);   /* 記号ボタン（inputでないので別管理） */
+  obj.sortOrder = sortOrder;                 /* 昇順/降順/生成順ボタン */
+  obj.colors = { upper:currentColors.upper, num:currentColors.num, sym:currentColors.sym, lower:currentColors.lower };
   obj.layout = getLayoutForExport();
   obj.memos = memos;
   obj.history = pwHistory;
-  obj.recSettings = getRecSettingsObj();
-  /* メモ・履歴のフィルタと色トグル */
-  obj.uiFilters = {
-    memoColor:   uiChecked('memo-color-on'),
-    memoLatest:  uiChecked('memo-filter-latest'),
-    memoHour:    uiChecked('memo-filter-hour'),
-    histColor:   uiChecked('hist-color-on'),
-    histLatest:  uiChecked('hist-filter-latest'),
-    histHour:    uiChecked('hist-filter-hour'),
-    histNotmemo: uiChecked('hist-filter-notmemo')
-  };
   /* プロファイル一覧（適用はしない。一覧の共有のみ） */
   obj.profiles = profiles;
   obj.defaultProfile = currentProfileId;
@@ -2138,53 +2161,68 @@ function startRealtimeSync(){
 }
 
 /* クラウド/JSONのデータオブジェクトを画面へ適用（確認ダイアログなしで反映）。
-   同期データにprofilesは含まれない。常に「現在の設定」として適用する。 */
+   全input自動方式：画面の全入力要素を機械的に戻すので取りこぼさない。 */
 function applyCloudData(data){
   cloudSuppress = true;
   try{
-    applyRemoteConfig(data);
-    /* 表示件数はクラウド同期では常に揃える（ignore-pwcountに関係なく） */
-    if(typeof data.pwCount !== 'undefined'){ var pc=gv('pw-count'); if(pc) pc.value=Math.max(1,Math.min(50,+data.pwCount)); }
-    /* 色設定はクラウド復元では「色指定も反映」に関係なく常に戻す */
-    var sc2=function(id,v){ var e=gv(id); if(e && typeof v!=='undefined') e.checked=!!v; };
-    sc2('color-upper-on', data.colorUpperOn);
-    sc2('color-num-on',   data.colorNumOn);
-    sc2('color-sym-on',   data.colorSymOn);
-    sc2('color-lower-on', data.colorLowerOn);
-    var lc2=function(t,v){ if(!v) return; currentColors[t]=v; var c=gv('color-'+t); if(c)c.value=v; var sw=gv('swatch-'+t); if(sw)sw.style.background=v; var hx=gv('hex-'+t); if(hx)hx.value=v.toUpperCase(); };
-    lc2('upper', data.colorUpper);
-    lc2('num',   data.colorNum);
-    lc2('sym',   data.colorSym);
-    lc2('lower', data.colorLower);
-    if(data.layout){ applyLayout(data.layout); saveLayout(); }
-    if(data.recSettings){ applyRecSettingsObj(data.recSettings); }
-    if(typeof data.ignorePwCount !== 'undefined'){ var ip=gv('ignore-pwcount'); if(ip) ip.checked=!!data.ignorePwCount; }
-    if(typeof data.applyProfileColors !== 'undefined'){ var ap=gv('apply-profile-colors'); if(ap) ap.checked=!!data.applyProfileColors; }
-    if(Array.isArray(data.memos)){ memos = data.memos.map(normMemo).filter(Boolean).slice(0, MEMO_MAX); saveMemos(); }
-    if(Array.isArray(data.history)){ pwHistory = data.history.map(normMemo).filter(Boolean).slice(0, HIST_MAX); saveHistory(); }
-    if(memos.length > MEMO_MAX) memos = memos.slice(0, MEMO_MAX);
-    if(pwHistory.length > HIST_MAX) pwHistory = pwHistory.slice(0, HIST_MAX);
-    /* メモ・履歴のフィルタ・色トグルを復元 */
-    if(data.uiFilters){
-      var f=data.uiFilters;
-      sc2('memo-color-on',    f.memoColor);
-      sc2('memo-filter-latest', f.memoLatest);
-      sc2('memo-filter-hour',   f.memoHour);
-      sc2('hist-color-on',    f.histColor);
-      sc2('hist-filter-latest', f.histLatest);
-      sc2('hist-filter-hour',   f.histHour);
-      sc2('hist-filter-notmemo', f.histNotmemo);
-      if(typeof saveMemoColorPref==='function') saveMemoColorPref();
-      if(typeof saveMemoFilterPref==='function') saveMemoFilterPref();
-      if(typeof saveHistColorPref==='function') saveHistColorPref();
-      if(typeof saveHistFilterPref==='function') saveHistFilterPref();
+    /* 1) 全inputを一括で戻す */
+    if(data.inputs){ applyAllInputs(data.inputs); }
+    /* 2) 色（currentColors）と各色UI（swatch/hex）を反映 */
+    if(data.colors){
+      ['upper','num','sym','lower'].forEach(function(t){
+        var v=data.colors[t]; if(!v) return;
+        currentColors[t]=v;
+        var c=gv('color-'+t); if(c)c.value=v;
+        var sw=gv('swatch-'+t); if(sw)sw.style.background=v;
+        var hx=gv('hex-'+t); if(hx)hx.value=String(v).toUpperCase();
+      });
     }
-    /* プロファイル一覧を共有（自動適用はしない。ボタンの並びだけ揃える） */
+    /* 3) 記号ボタン（inputでないので別管理） */
+    if(Array.isArray(data.activeSyms)){
+      activeSyms = new Set(data.activeSyms);
+      if(typeof syncSymButtonsFromSet==='function') syncSymButtonsFromSet();
+      if(typeof syncTextInputFromSet==='function') syncTextInputFromSet();
+      if(typeof updateSymPreview==='function') updateSymPreview();
+    }
+    /* 4) 並び順ボタン */
+    if(data.sortOrder){
+      var orders=['asc','desc','none'],labels=['昇順 ↑','降順 ↓','生成順'];
+      if(orders.indexOf(data.sortOrder)!==-1){
+        sortOrder=data.sortOrder;
+        var sb=gv('sort-btn'); if(sb) sb.textContent=labels[orders.indexOf(sortOrder)];
+      }
+    }
+    /* 5) レイアウト（並び順・折りたたみ） */
+    if(data.layout){ applyLayout(data.layout); saveLayout(); }
+    /* 6) メモ・履歴データ */
+    if(Array.isArray(data.memos)){ memos = data.memos.map(normMemo).filter(Boolean).slice(0, MEMO_MAX); }
+    if(Array.isArray(data.history)){ pwHistory = data.history.map(normMemo).filter(Boolean).slice(0, HIST_MAX); }
+    /* 7) プロファイル一覧（適用はしない。ボタンの並びだけ揃える） */
     if(Array.isArray(data.profiles)){
       profiles = data.profiles;
       currentProfileId = data.defaultProfile || currentProfileId;
       if(typeof renderProfileBtns==='function') renderProfileBtns();
     }
+    /* === 後方互換：旧形式（inputsが無い古いデータ）も一応反映 === */
+    if(!data.inputs){
+      applyRemoteConfig(data);
+      if(typeof data.pwCount !== 'undefined'){ var pc=gv('pw-count'); if(pc) pc.value=Math.max(1,Math.min(50,+data.pwCount)); }
+      if(data.recSettings){ applyRecSettingsObj(data.recSettings); }
+    }
+    /* 内部状態の同期（MEMO_MAX/HIST_MAX等をinput値から反映） */
+    if(typeof saveRecSettings==='function') saveRecSettings();
+    if(memos.length > MEMO_MAX) memos = memos.slice(0, MEMO_MAX);
+    if(pwHistory.length > HIST_MAX) pwHistory = pwHistory.slice(0, HIST_MAX);
+    /* ローカル保存（クラウド再送はcloudSuppressで抑止中） */
+    if(typeof saveSettings==='function') saveSettings();
+    if(typeof saveMemos==='function') saveMemos();
+    if(typeof saveHistory==='function') saveHistory();
+    if(typeof saveMemoColorPref==='function') saveMemoColorPref();
+    if(typeof saveMemoFilterPref==='function') saveMemoFilterPref();
+    if(typeof saveHistColorPref==='function') saveHistColorPref();
+    if(typeof saveHistFilterPref==='function') saveHistFilterPref();
+    /* 画面反映 */
+    if(typeof updateTotal==='function') updateTotal();
     refreshRecLabels();
     renderMemos(); renderHistory();
     applyColors(); generate();
