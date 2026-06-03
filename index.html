@@ -353,6 +353,7 @@ input { -webkit-tap-highlight-color: transparent; font-family: inherit; }
 <body
   ondragover="event.preventDefault();"
   ondrop="event.preventDefault();if(event.dataTransfer.files[0])handleDroppedFile(event.dataTransfer.files[0])">
+<div id="cloud-status" style="position:fixed;right:10px;bottom:10px;z-index:9999;font-size:11px;color:#888;background:rgba(255,255,255,0.9);border:1px solid #e8e8e2;border-radius:6px;padding:3px 8px;opacity:0;transition:opacity 0.3s;pointer-events:none;"></div>
 <div class="container">
 
   <div class="app-title">PASSWORD GENERATOR</div>
@@ -424,7 +425,6 @@ input { -webkit-tap-highlight-color: transparent; font-family: inherit; }
             style="background:none;border:1px solid #ddd;border-radius:6px;padding:2px 8px;font-size:12px;cursor:pointer;color:#888;touch-action:manipulation;"
             title="今すぐクラウドに保存">☁ 保存</button>
         </div>
-        <div style="display:flex;justify-content:flex-end;margin-top:4px;"><span id="cloud-status" style="font-size:11px;color:#888;"></span></div>
         <div id="profile-btns" style="display:flex;gap:6px;flex-wrap:wrap;"></div>
       </div>
     </div>
@@ -2012,7 +2012,10 @@ function collectAllData(){
 
 function setCloudStatus(msg, color){
   var el = gv('cloud-status');
-  if(el){ el.textContent = msg; el.style.color = color || '#888'; }
+  if(!el) return;
+  el.textContent = msg || '';
+  el.style.color = color || '#888';
+  el.style.opacity = msg ? '1' : '0';
 }
 
 /* クラウドへ保存（upsert）。デバウンスして呼ぶ */
@@ -2069,17 +2072,34 @@ function loadFromCloud(){
 function applyCloudData(data){
   cloudSuppress = true;
   try{
+    var colorSrc = data;   /* 色設定の取得元（プロファイル時は適用プロファイル） */
     if(data.profiles && data.profiles.length > 0){
       profiles = data.profiles;
       currentProfileId = data.defaultProfile || (profiles[0] && profiles[0].id) || null;
       renderProfileBtns();
       var cur = profiles.filter(function(p){ return p.id === currentProfileId; })[0] || profiles[0];
-      if(cur) applyRemoteConfig(cur);
+      if(cur){ applyRemoteConfig(cur); colorSrc = cur; }
     } else {
       applyRemoteConfig(data);
     }
+    /* 色設定はクラウド復元では「色指定も反映」に関係なく常に戻す */
+    if(colorSrc){
+      var sc2=function(id,v){ var e=gv(id); if(e && typeof v!=='undefined') e.checked=!!v; };
+      sc2('color-upper-on', colorSrc.colorUpperOn);
+      sc2('color-num-on',   colorSrc.colorNumOn);
+      sc2('color-sym-on',   colorSrc.colorSymOn);
+      sc2('color-lower-on', colorSrc.colorLowerOn);
+      var lc2=function(t,v){ if(!v) return; currentColors[t]=v; var c=gv('color-'+t); if(c)c.value=v; var sw=gv('swatch-'+t); if(sw)sw.style.background=v; var hx=gv('hex-'+t); if(hx)hx.value=v.toUpperCase(); };
+      lc2('upper', colorSrc.colorUpper);
+      lc2('num',   colorSrc.colorNum);
+      lc2('sym',   colorSrc.colorSym);
+      lc2('lower', colorSrc.colorLower);
+    }
     if(data.layout){ applyLayout(data.layout); saveLayout(); }
     if(data.recSettings){ applyRecSettingsObj(data.recSettings); }
+    /* プロファイル系トグル（applyRemoteConfigでは扱わないので明示的に復元） */
+    if(typeof data.ignorePwCount !== 'undefined'){ var ip=gv('ignore-pwcount'); if(ip) ip.checked=!!data.ignorePwCount; }
+    if(typeof data.applyProfileColors !== 'undefined'){ var ap=gv('apply-profile-colors'); if(ap) ap.checked=!!data.applyProfileColors; }
     if(Array.isArray(data.memos)){ memos = data.memos.map(normMemo).filter(Boolean).slice(0, MEMO_MAX); saveMemos(); }
     if(Array.isArray(data.history)){ pwHistory = data.history.map(normMemo).filter(Boolean).slice(0, HIST_MAX); saveHistory(); }
     if(memos.length > MEMO_MAX) memos = memos.slice(0, MEMO_MAX);
@@ -2296,7 +2316,9 @@ function getCurrentSettingsObj(){
     colorLower:   currentColors.lower,
     sortOrder:    sortOrder,
     ratioLock:    gv('ratio-lock').checked,
-    snap5:        gv('ratio-snap5').checked
+    snap5:        gv('ratio-snap5').checked,
+    ignorePwCount:(function(){var c=gv('ignore-pwcount');return c&&c.checked;})(),
+    applyProfileColors:(function(){var c=gv('apply-profile-colors');return c&&c.checked;})()
   };
 }
 
