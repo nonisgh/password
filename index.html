@@ -73,6 +73,9 @@ input { -webkit-tap-highlight-color: transparent; font-family: inherit; }
 .pw-row:hover { border-color: #aaa; background: #fafaf8; }
 .pw-row:active { background: #f0f0ec; }
 .pw-row.copied { border-color: #3B6D11; background: #f2f8ee; }
+/* メモ追加＋コピー時：コピー緑と同トーンのピンク/赤系 */
+.pw-row.memoed { border-color: #A8385C; background: #fceef3; }
+.pw-row.memoed .pw-copied-badge { color: #A8385C; background: rgba(244,221,231,0.95); }
 /* ===== MEMO ===== */
 .memo-list { display: flex; flex-direction: column; gap: 6px; }
 .memo-row {
@@ -1125,12 +1128,14 @@ function generate(){
         lpTimer=setTimeout(function(){
           lpFired=true;
           addMemo(plain);
-          /* メモ追加のフィードバック（コピーとは別色っぽく一瞬光らせる） */
-          rowEl.classList.add('copied');
-          badge.textContent='MEMO';
+          copyText(plain, {textContent:'',set textContent(v){}});  /* メモと同時にコピー */
+          /* メモ＋コピーのフィードバック（ピンク/赤系で一瞬光らせる） */
+          rowEl.classList.remove('copied');
+          rowEl.classList.add('memoed');
+          badge.textContent='MEMO + COPIED';
           badge.style.opacity='1';
           clearTimeout(rowEl._ct);
-          rowEl._ct=setTimeout(function(){ rowEl.classList.remove('copied'); badge.style.opacity='0'; badge.textContent='COPIED'; }, 1200);
+          rowEl._ct=setTimeout(function(){ rowEl.classList.remove('memoed'); badge.style.opacity='0'; badge.textContent='COPIED'; }, 1300);
         }, 550);
       }
       function moveCancel(x,y){
