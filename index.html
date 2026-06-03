@@ -197,7 +197,8 @@ input { -webkit-tap-highlight-color: transparent; font-family: inherit; }
 .section-head-mini .section-drag-handle:active { color: #8a8a83; background-color: rgba(0,0,0,0.06); cursor: grabbing; }
 .section[data-section-id="passwords"] .section-body { padding: 10px 0 14px 0; gap: 0; }
 .section[data-section-id="profiles"] .section-body { padding: 10px 0 8px 0; gap: 0; }
-.section[data-section-id="memo"] .section-body { gap: 4px; }
+.section[data-section-id="memo"] .section-body,
+.section[data-section-id="history"] .section-body { gap: 4px; }
 .section.dragging-over { border-color: #185FA5; }
 
 #ratio-section.ratio-locked .section-body input[type=range],
@@ -619,6 +620,27 @@ input { -webkit-tap-highlight-color: transparent; font-family: inherit; }
       </div>
       <div class="memo-list" id="memo-list"></div>
       <div id="memo-empty" style="font-size:12px;color:#bbb;padding:6px 2px;">メモはまだありません。</div>
+    </div>
+  </div>
+
+  <!-- 履歴 -->
+  <div class="section" data-section-id="history">
+    <div class="section-head" onclick="toggleSection(this,event)"><span class="section-drag-handle">⠿</span><span class="section-title">履歴</span></div>
+    <div class="section-body">
+      <div style="display:flex;align-items:center;gap:8px;">
+        <span style="font-size:12px;color:#888;flex:1;">コピー・メモした行を自動記録（最大30件）</span>
+        <label style="display:flex;align-items:center;gap:4px;cursor:pointer;font-size:11px;color:#888;white-space:nowrap;"><input type="checkbox" id="hist-color-on" checked onchange="toggleHistColor()" style="margin:0;width:13px;height:13px;">色を付ける</label>
+        <span id="hist-count" style="font-size:11px;color:#aaa;">0/30</span>
+        <button class="btn" onclick="clearHistory()" style="height:32px;padding:0 12px;font-size:13px;">クリア</button>
+      </div>
+      <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;">
+        <span style="font-size:11px;color:#aaa;">表示:</span>
+        <label style="display:flex;align-items:center;gap:4px;cursor:pointer;font-size:12px;color:#666;white-space:nowrap;"><input type="checkbox" id="hist-filter-latest" onchange="toggleHistFilter()" style="margin:0;width:13px;height:13px;">最新1件のみ</label>
+        <label style="display:flex;align-items:center;gap:4px;cursor:pointer;font-size:12px;color:#666;white-space:nowrap;"><input type="checkbox" id="hist-filter-hour" onchange="toggleHistFilter()" style="margin:0;width:13px;height:13px;">直近1時間</label>
+        <label style="display:flex;align-items:center;gap:4px;cursor:pointer;font-size:12px;color:#666;white-space:nowrap;"><input type="checkbox" id="hist-filter-notmemo" onchange="toggleHistFilter()" style="margin:0;width:13px;height:13px;">メモにあるものを除く</label>
+      </div>
+      <div class="memo-list" id="hist-list"></div>
+      <div id="hist-empty" style="font-size:12px;color:#bbb;padding:6px 2px;">履歴はまだありません。</div>
     </div>
   </div>
   </div><!-- /sections-container -->
@@ -1137,6 +1159,7 @@ function generate(){
         lpTimer=setTimeout(function(){
           lpFired=true;
           addMemo(plain);
+          addHistory(plain);                                       /* 履歴にも記録 */
           copyText(plain, {textContent:'',set textContent(v){}});  /* メモと同時にコピー */
           /* メモ＋コピーのフィードバック（ピンク/赤系で一瞬光らせる） */
           rowEl.classList.remove('copied');
@@ -1163,6 +1186,7 @@ function generate(){
       rowEl.addEventListener('click', function(){
         if(lpFired){ lpFired=false; return; }  /* 長押しでメモ追加済み → コピーしない */
         copyText(plain, {textContent:'',set textContent(v){}});
+        addHistory(plain);                       /* 履歴に記録 */
         rowEl.classList.add('copied');
         badge.style.opacity = '1';
         clearTimeout(rowEl._ct);
@@ -1409,11 +1433,177 @@ function renderMemos(){
     row.appendChild(del);
     list.appendChild(row);
   });
+  /* メモ内容が変わると「メモにあるものを除く」表示も変わるので履歴も更新 */
+  if(typeof renderHistory === 'function') renderHistory();
 }
 
-/* ===== STORAGE ===== */
-var STORAGE_KEY='pwgen_v5';
-var PROFILES_KEY='pwgen_profiles_v1';
+/* ===== HISTORY ===== */
+var HIST_KEY = 'pwgen_history_v1';
+var HIST_COLOR_KEY = 'pwgen_hist_color_v1';
+var HIST_FILTER_KEY = 'pwgen_hist_filter_v1';
+var HIST_MAX = 30;
+var pwHistory = [];   /* [{plain, html, ts}] */
+
+function loadHistory(){
+  var raw; try{ raw = localStorage.getItem(HIST_KEY); }catch(e){}
+  if(raw){
+    try{
+      var a = JSON.parse(raw);
+      if(Array.isArray(a)) pwHistory = a.map(normMemo).filter(Boolean).slice(0, HIST_MAX);
+    }catch(e){}
+  }
+  var c; try{ c = localStorage.getItem(HIST_COLOR_KEY); }catch(e){}
+  if(c !== null && c !== undefined){ var cb=gv('hist-color-on'); if(cb) cb.checked=(c==='1'); }
+  var f; try{ f = localStorage.getItem(HIST_FILTER_KEY); }catch(e){}
+  if(f){
+    try{
+      var fo=JSON.parse(f);
+      var fl=gv('hist-filter-latest');  if(fl) fl.checked=!!fo.latest;
+      var fh=gv('hist-filter-hour');    if(fh) fh.checked=!!fo.hour;
+      var fn=gv('hist-filter-notmemo'); if(fn) fn.checked=!!fo.notmemo;
+    }catch(e){}
+  }
+}
+function saveHistory(){
+  try{ localStorage.setItem(HIST_KEY, JSON.stringify(pwHistory)); }catch(e){}
+}
+function saveHistColorPref(){
+  try{ localStorage.setItem(HIST_COLOR_KEY, gv('hist-color-on').checked ? '1' : '0'); }catch(e){}
+}
+function saveHistFilterPref(){
+  try{
+    localStorage.setItem(HIST_FILTER_KEY, JSON.stringify({
+      latest: gv('hist-filter-latest').checked,
+      hour:   gv('hist-filter-hour').checked,
+      notmemo:gv('hist-filter-notmemo').checked
+    }));
+  }catch(e){}
+}
+function addHistory(plain){
+  if(!plain) return;
+  /* 重複：既存の同じ値は削除して先頭に再追加（最新扱い） */
+  pwHistory = pwHistory.filter(function(h){ return h.plain !== plain; });
+  pwHistory.unshift({ plain:plain, html:colorizePlain(plain), ts:Date.now() });
+  if(pwHistory.length > HIST_MAX) pwHistory = pwHistory.slice(0, HIST_MAX);
+  saveHistory();
+  renderHistory();
+}
+function clearHistory(){
+  if(pwHistory.length === 0) return;
+  if(!window.confirm('履歴をすべて削除しますか？')) return;
+  pwHistory = [];
+  saveHistory();
+  renderHistory();
+}
+function deleteHistory(target){
+  var i = pwHistory.indexOf(target);
+  if(i === -1) return;
+  pwHistory.splice(i, 1);
+  saveHistory();
+  renderHistory();
+}
+function toggleHistColor(){ saveHistColorPref(); renderHistory(); }
+function toggleHistFilter(){ saveHistFilterPref(); renderHistory(); }
+
+/* 表示対象の履歴。最新1件／直近1時間は両ONでAND、片方のみ＝その条件。
+   さらに「メモにあるものを除く」が独立に AND で効く */
+function getVisibleHistory(){
+  var latest  = (function(){ var c=gv('hist-filter-latest');  return c && c.checked; })();
+  var hour    = (function(){ var c=gv('hist-filter-hour');    return c && c.checked; })();
+  var notmemo = (function(){ var c=gv('hist-filter-notmemo'); return c && c.checked; })();
+  var now = Date.now();
+  var memoSet = {};
+  if(notmemo){ memos.forEach(function(m){ memoSet[m.plain]=true; }); }
+  return pwHistory.filter(function(h, i){
+    /* 時間/最新の絞り込み */
+    if(latest || hour){
+      var passLatest = (i === 0);
+      var passHour   = (!!h.ts && (now - h.ts) <= MEMO_HOUR_MS);
+      var passTime;
+      if(latest && hour) passTime = passLatest && passHour;
+      else if(latest) passTime = passLatest;
+      else passTime = passHour;
+      if(!passTime) return false;
+    }
+    /* メモにあるものを除く */
+    if(notmemo && memoSet[h.plain]) return false;
+    return true;
+  });
+}
+function renderHistory(){
+  var list = gv('hist-list'); if(!list) return;
+  list.innerHTML = '';
+  var visible = getVisibleHistory();
+  var filtering = (pwHistory.length !== visible.length);
+  var cnt = gv('hist-count');
+  if(cnt) cnt.textContent = (filtering ? (visible.length + '/' + pwHistory.length + '件 (全' + HIST_MAX + ')') : (pwHistory.length + '/' + HIST_MAX));
+  var empty = gv('hist-empty');
+  if(empty){
+    if(pwHistory.length === 0){ empty.style.display=''; empty.textContent='履歴はまだありません。'; }
+    else if(visible.length === 0){ empty.style.display=''; empty.textContent='表示条件に合う履歴がありません。'; }
+    else empty.style.display='none';
+  }
+  var colorOn = (function(){ var cb=gv('hist-color-on'); return cb ? cb.checked : true; })();
+  visible.forEach(function(m){
+    var row = document.createElement('div');
+    row.className = 'memo-row';
+    row.dataset.plain = m.plain;
+
+    var txt = document.createElement('span');
+    txt.className = 'memo-text' + (colorOn ? ' colored' : '');
+    txt.innerHTML = m.html || colorizePlain(m.plain);
+
+    var badge = document.createElement('span');
+    badge.className = 'pw-copied-badge';
+    badge.textContent = 'COPIED';
+
+    var del = document.createElement('button');
+    del.className = 'memo-del';
+    del.textContent = '\u00d7';
+    del.title = '削除';
+    del.addEventListener('click', function(e){ e.stopPropagation(); deleteHistory(m); });
+
+    (function(plain, ts){
+      var lpTimer=null, lpFired=false, sx=0, sy=0;
+      function start(x,y){
+        lpFired=false; sx=x; sy=y; clearTimeout(lpTimer);
+        lpTimer=setTimeout(function(){
+          lpFired=true;
+          row.classList.remove('copied');
+          row.classList.add('dated');
+          badge.textContent = fmtTs(ts);
+          badge.style.opacity='1';
+          clearTimeout(row._ct);
+          row._ct=setTimeout(function(){ row.classList.remove('dated'); badge.style.opacity='0'; badge.textContent='COPIED'; }, 2200);
+        }, 550);
+      }
+      function moveCancel(x,y){ if(Math.abs(x-sx)>8||Math.abs(y-sy)>8) clearTimeout(lpTimer); }
+      function end(){ clearTimeout(lpTimer); }
+      row.addEventListener('mousedown', function(e){ start(e.clientX,e.clientY); });
+      row.addEventListener('mousemove', function(e){ moveCancel(e.clientX,e.clientY); });
+      row.addEventListener('mouseup', end);
+      row.addEventListener('mouseleave', end);
+      row.addEventListener('touchstart', function(e){ var t=e.touches[0]; start(t.clientX,t.clientY); }, {passive:true});
+      row.addEventListener('touchmove', function(e){ var t=e.touches[0]; moveCancel(t.clientX,t.clientY); }, {passive:true});
+      row.addEventListener('touchend', end);
+
+      row.addEventListener('click', function(){
+        if(lpFired){ lpFired=false; return; }
+        copyText(plain, {textContent:'',set textContent(v){}});
+        row.classList.add('copied');
+        badge.textContent='COPIED';
+        badge.style.opacity = '1';
+        clearTimeout(row._ct);
+        row._ct = setTimeout(function(){ row.classList.remove('copied'); badge.style.opacity='0'; }, 1500);
+      });
+    })(m.plain, m.ts);
+
+    row.appendChild(txt);
+    row.appendChild(badge);
+    row.appendChild(del);
+    list.appendChild(row);
+  });
+}
 
 function saveSettings(){
   var s={
@@ -1564,6 +1754,7 @@ function processFile(file){
       gv('config-status').style.color = '#3B6D11';
       setTimeout(function(){ gv('config-status').textContent=''; }, 3000);
       maybeRestoreMemos(data);
+      maybeRestoreHistory(data);
     } catch(err) {
       gv('config-status').textContent = 'JSONパースエラー: ' + err.message;
       gv('config-status').style.color = '#993C1D';
@@ -1626,14 +1817,32 @@ function exportSettings(){
       defaultProfile: currentProfileId || profiles[0].id,
       profiles: profiles,
       layout: getLayoutForExport(),
-      memos: memos
+      memos: memos,
+      history: pwHistory
     });
   } else {
     var obj = Object.assign({ "_comment": "PASSWORD GENERATOR 設定ファイル" }, getCurrentSettingsObj());
     obj.layout = getLayoutForExport();
     obj.memos = memos;
+    obj.history = pwHistory;
     downloadJson(obj);
   }
+}
+
+/* JSON読み込み時：historyが含まれていれば既存にマージするか確認して反映 */
+function maybeRestoreHistory(data){
+  if(!data || !Array.isArray(data.history)) return;
+  var incoming = data.history.map(normMemo).filter(Boolean);
+  if(incoming.length === 0) return;
+  var ok = window.confirm('このファイルには履歴が ' + incoming.length + ' 件含まれています。\n今の履歴に追記（マージ）しますか？\n（OK：今の履歴に追加／キャンセル：履歴は変更しない）\n※合計が最大' + HIST_MAX + '件を超えた分は古いものから削除されます。');
+  if(!ok) return;
+  var seen = {};
+  pwHistory.forEach(function(h){ seen[h.plain] = true; });
+  var merged = [];
+  incoming.forEach(function(h){ if(!seen[h.plain]){ merged.push(h); seen[h.plain]=true; } });
+  pwHistory = merged.concat(pwHistory).slice(0, HIST_MAX);
+  saveHistory();
+  renderHistory();
 }
 
 /* JSON読み込み時：memosが含まれていれば既存にマージ（追記）するか確認して反映 */
@@ -1949,6 +2158,7 @@ function loadConfigFromUrl(url, silent){
         }
       }
       if(!silent) maybeRestoreMemos(data);
+      if(!silent) maybeRestoreHistory(data);
     })
     .catch(function(err){
       console.error('Config load error:', err);
@@ -2309,7 +2519,9 @@ syncSymButtonsFromSet();syncTextInputFromSet();updateSymPreview();updateTotal();
 initSliderTouch();
 loadProfilesFromStorage();
 loadMemos();
+loadHistory();
 renderMemos();
+renderHistory();
 renderProfileBtns();
 loadLayout();
 initSectionDrag();
