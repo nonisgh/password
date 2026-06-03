@@ -199,6 +199,10 @@ input { -webkit-tap-highlight-color: transparent; font-family: inherit; }
 .section[data-section-id="profiles"] .section-body { padding: 10px 0 8px 0; gap: 0; }
 .section[data-section-id="memo"] .section-body,
 .section[data-section-id="history"] .section-body { gap: 4px; }
+.section[data-section-id="recset"] .section-body { gap: 4px; }
+.recset-time { display:flex; align-items:center; gap:4px; font-size:12px; color:#666; }
+.recset-time input { width:46px; text-align:center; font-size:13px; padding:5px 4px; border:1px solid #ddd; border-radius:6px; background:#fff; color:#1a1a1a; }
+.recset-time input:focus { outline:none; border-color:#185FA5; }
 .section.dragging-over { border-color: #185FA5; }
 
 #ratio-section.ratio-locked .section-body input[type=range],
@@ -608,15 +612,15 @@ input { -webkit-tap-highlight-color: transparent; font-family: inherit; }
     <div class="section-head" onclick="toggleSection(this,event)"><span class="section-drag-handle">⠿</span><span class="section-title">パスワードメモ</span></div>
     <div class="section-body">
       <div style="display:flex;align-items:center;gap:8px;">
-        <span style="font-size:12px;color:#888;flex:1;">パスワード行を長押しでここに追加（最大30件）</span>
+        <span style="font-size:12px;color:#888;flex:1;">パスワード行を長押しでここに追加（最大<span id="memo-max-cap">30</span>件）</span>
         <label style="display:flex;align-items:center;gap:4px;cursor:pointer;font-size:11px;color:#888;white-space:nowrap;"><input type="checkbox" id="memo-color-on" checked onchange="toggleMemoColor()" style="margin:0;width:13px;height:13px;">色を付ける</label>
         <span id="memo-count" style="font-size:11px;color:#aaa;">0/30</span>
-        <button class="btn" onclick="clearMemos()" style="height:32px;padding:0 12px;font-size:13px;">クリア</button>
+        <button class="btn" id="memo-clear-btn" onclick="clearMemos()" style="height:32px;padding:0 12px;font-size:13px;">クリア</button>
       </div>
       <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;">
         <span style="font-size:11px;color:#aaa;">表示:</span>
         <label style="display:flex;align-items:center;gap:4px;cursor:pointer;font-size:12px;color:#666;white-space:nowrap;"><input type="checkbox" id="memo-filter-latest" onchange="toggleMemoFilter()" style="margin:0;width:13px;height:13px;">最新1件のみ</label>
-        <label style="display:flex;align-items:center;gap:4px;cursor:pointer;font-size:12px;color:#666;white-space:nowrap;"><input type="checkbox" id="memo-filter-hour" onchange="toggleMemoFilter()" style="margin:0;width:13px;height:13px;">直近1時間</label>
+        <label style="display:flex;align-items:center;gap:4px;cursor:pointer;font-size:12px;color:#666;white-space:nowrap;"><input type="checkbox" id="memo-filter-hour" onchange="toggleMemoFilter()" style="margin:0;width:13px;height:13px;"><span id="memo-hour-label">直近1時間</span></label>
       </div>
       <div class="memo-list" id="memo-list"></div>
       <div id="memo-empty" style="font-size:12px;color:#bbb;padding:6px 2px;">メモはまだありません。</div>
@@ -628,19 +632,50 @@ input { -webkit-tap-highlight-color: transparent; font-family: inherit; }
     <div class="section-head" onclick="toggleSection(this,event)"><span class="section-drag-handle">⠿</span><span class="section-title">履歴</span></div>
     <div class="section-body">
       <div style="display:flex;align-items:center;gap:8px;">
-        <span style="font-size:12px;color:#888;flex:1;">コピー・メモした行を自動記録（最大30件）</span>
+        <span style="font-size:12px;color:#888;flex:1;">コピー・メモした行を自動記録（最大<span id="hist-max-cap">30</span>件）</span>
         <label style="display:flex;align-items:center;gap:4px;cursor:pointer;font-size:11px;color:#888;white-space:nowrap;"><input type="checkbox" id="hist-color-on" checked onchange="toggleHistColor()" style="margin:0;width:13px;height:13px;">色を付ける</label>
         <span id="hist-count" style="font-size:11px;color:#aaa;">0/30</span>
-        <button class="btn" onclick="clearHistory()" style="height:32px;padding:0 12px;font-size:13px;">クリア</button>
+        <button class="btn" id="hist-clear-btn" onclick="clearHistory()" style="height:32px;padding:0 12px;font-size:13px;">クリア</button>
       </div>
       <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;">
         <span style="font-size:11px;color:#aaa;">表示:</span>
         <label style="display:flex;align-items:center;gap:4px;cursor:pointer;font-size:12px;color:#666;white-space:nowrap;"><input type="checkbox" id="hist-filter-latest" onchange="toggleHistFilter()" style="margin:0;width:13px;height:13px;">最新1件のみ</label>
-        <label style="display:flex;align-items:center;gap:4px;cursor:pointer;font-size:12px;color:#666;white-space:nowrap;"><input type="checkbox" id="hist-filter-hour" onchange="toggleHistFilter()" style="margin:0;width:13px;height:13px;">直近1時間</label>
+        <label style="display:flex;align-items:center;gap:4px;cursor:pointer;font-size:12px;color:#666;white-space:nowrap;"><input type="checkbox" id="hist-filter-hour" onchange="toggleHistFilter()" style="margin:0;width:13px;height:13px;"><span id="hist-hour-label">直近1時間</span></label>
         <label style="display:flex;align-items:center;gap:4px;cursor:pointer;font-size:12px;color:#666;white-space:nowrap;"><input type="checkbox" id="hist-filter-notmemo" onchange="toggleHistFilter()" style="margin:0;width:13px;height:13px;">メモにあるものを除く</label>
       </div>
       <div class="memo-list" id="hist-list"></div>
       <div id="hist-empty" style="font-size:12px;color:#bbb;padding:6px 2px;">履歴はまだありません。</div>
+    </div>
+  </div>
+
+  <!-- 記録設定（メモ・履歴の共通設定） -->
+  <div class="section" data-section-id="recset">
+    <div class="section-head" onclick="toggleSection(this,event)"><span class="section-drag-handle">⠿</span><span class="section-title">記録設定</span></div>
+    <div class="section-body">
+      <div style="font-size:11px;color:#aaa;margin-bottom:2px;">「直近◯◯」の対象時間（メモ・履歴 共通）</div>
+      <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+        <div class="recset-time"><input type="text" inputmode="numeric" id="rec-hh" value="1" onchange="onRecTimeInput()" oninput="onRecTimeInput()"><span>時間</span></div>
+        <div class="recset-time"><input type="text" inputmode="numeric" id="rec-mm" value="0" onchange="onRecTimeInput()" oninput="onRecTimeInput()"><span>分</span></div>
+        <div class="recset-time"><input type="text" inputmode="numeric" id="rec-ss" value="0" onchange="onRecTimeInput()" oninput="onRecTimeInput()"><span>秒</span></div>
+        <span id="rec-time-preview" style="font-size:11px;color:#888;margin-left:4px;"></span>
+      </div>
+
+      <div class="row-toggle" style="margin-top:10px;">
+        <span class="lbl">クリアを連動（片方を消すと両方消す）</span>
+        <label class="toggle"><input type="checkbox" id="rec-clear-link" onchange="saveRecSettings();refreshRecLabels()"><span class="slider-tog"></span></label>
+      </div>
+
+      <div style="font-size:11px;color:#aaa;margin-top:10px;margin-bottom:2px;">保存件数</div>
+      <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;">
+        <div class="recset-time"><span style="color:#888;">メモ</span><input type="text" inputmode="numeric" id="rec-memo-max" value="30" onchange="onRecMaxInput()" oninput="onRecMaxInput()"><span>件</span></div>
+        <div class="recset-time"><span style="color:#888;">履歴</span><input type="text" inputmode="numeric" id="rec-hist-max" value="30" onchange="onRecMaxInput()" oninput="onRecMaxInput()"><span>件</span></div>
+      </div>
+
+      <div style="font-size:11px;color:#aaa;margin-top:10px;margin-bottom:2px;">記録のエクスポート（メモ・履歴のみ）</div>
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+        <button class="btn" onclick="exportRecords()" style="height:32px;padding:0 12px;font-size:13px;">記録をJSON書き出し</button>
+        <span id="rec-export-status" style="font-size:11px;color:#3B6D11;"></span>
+      </div>
     </div>
   </div>
   </div><!-- /sections-container -->
@@ -1270,6 +1305,104 @@ function withScrollCompensation(fn, anchor){
   });});
 }
 
+/* ===== 記録設定（メモ・履歴の共通設定） ===== */
+var RECSET_KEY = 'pwgen_recset_v1';
+/* 既定値 */
+var recClearLink = false;
+
+function clampInt(v, mn, mx, def){
+  v = parseInt(v,10);
+  if(isNaN(v)) v = def;
+  return Math.max(mn, Math.min(mx, v));
+}
+/* 「直近◯◯」のミリ秒（時/分/秒の合計）。0なら従来の1時間にフォールバックしない＝0は「0秒」 */
+function recWindowMs(){
+  var hh = clampInt(gv('rec-hh') && gv('rec-hh').value, 0, 999, 0);
+  var mm = clampInt(gv('rec-mm') && gv('rec-mm').value, 0, 59, 0);
+  var ss = clampInt(gv('rec-ss') && gv('rec-ss').value, 0, 59, 0);
+  return ((hh*3600)+(mm*60)+ss) * 1000;
+}
+/* 冗長にならないよう、0の単位を省いて「直近1時間30分」のように整形 */
+function recWindowLabel(){
+  var hh = clampInt(gv('rec-hh') && gv('rec-hh').value, 0, 999, 0);
+  var mm = clampInt(gv('rec-mm') && gv('rec-mm').value, 0, 59, 0);
+  var ss = clampInt(gv('rec-ss') && gv('rec-ss').value, 0, 59, 0);
+  var parts = [];
+  if(hh) parts.push(hh+'時間');
+  if(mm) parts.push(mm+'分');
+  if(ss) parts.push(ss+'秒');
+  if(parts.length === 0) parts.push('0秒');
+  return '直近' + parts.join('');
+}
+function refreshRecLabels(){
+  var lbl = recWindowLabel();
+  var ml = gv('memo-hour-label'); if(ml) ml.textContent = lbl;
+  var hl = gv('hist-hour-label'); if(hl) hl.textContent = lbl;
+  var pv = gv('rec-time-preview'); if(pv) pv.textContent = '= ' + lbl;
+  var mc = gv('memo-max-cap'); if(mc) mc.textContent = MEMO_MAX;
+  var hc = gv('hist-max-cap'); if(hc) hc.textContent = HIST_MAX;
+  /* クリア連動ONなら「Wクリア」、OFFなら「クリア」 */
+  var linked = !!(gv('rec-clear-link') && gv('rec-clear-link').checked);
+  var mb = gv('memo-clear-btn'); if(mb) mb.textContent = linked ? 'Wクリア' : 'クリア';
+  var hb = gv('hist-clear-btn'); if(hb) hb.textContent = linked ? 'Wクリア' : 'クリア';
+}
+function saveRecSettings(){
+  recClearLink = !!(gv('rec-clear-link') && gv('rec-clear-link').checked);
+  var obj = {
+    hh: clampInt(gv('rec-hh').value,0,999,1),
+    mm: clampInt(gv('rec-mm').value,0,59,0),
+    ss: clampInt(gv('rec-ss').value,0,59,0),
+    clearLink: recClearLink,
+    memoMax: MEMO_MAX,
+    histMax: HIST_MAX
+  };
+  try{ localStorage.setItem(RECSET_KEY, JSON.stringify(obj)); }catch(e){}
+}
+function loadRecSettings(){
+  var raw; try{ raw = localStorage.getItem(RECSET_KEY); }catch(e){}
+  if(raw){
+    try{
+      var o = JSON.parse(raw);
+      if(gv('rec-hh')) gv('rec-hh').value = clampInt(o.hh,0,999,1);
+      if(gv('rec-mm')) gv('rec-mm').value = clampInt(o.mm,0,59,0);
+      if(gv('rec-ss')) gv('rec-ss').value = clampInt(o.ss,0,59,0);
+      if(typeof o.clearLink !== 'undefined'){ recClearLink = !!o.clearLink; var cl=gv('rec-clear-link'); if(cl) cl.checked = recClearLink; }
+      if(o.memoMax){ MEMO_MAX = clampInt(o.memoMax,1,500,30); var rm=gv('rec-memo-max'); if(rm) rm.value = MEMO_MAX; }
+      if(o.histMax){ HIST_MAX = clampInt(o.histMax,1,500,30); var rh=gv('rec-hist-max'); if(rh) rh.value = HIST_MAX; }
+    }catch(e){}
+  }
+  refreshRecLabels();
+}
+/* 直近時間の入力変更 */
+function onRecTimeInput(){
+  saveRecSettings();
+  refreshRecLabels();
+  if(typeof renderMemos === 'function') renderMemos();
+  if(typeof renderHistory === 'function') renderHistory();
+}
+/* 保存件数の変更 */
+function onRecMaxInput(){
+  MEMO_MAX = clampInt(gv('rec-memo-max').value, 1, 500, 30);
+  HIST_MAX = clampInt(gv('rec-hist-max').value, 1, 500, 30);
+  /* 既存配列を新上限にトリム */
+  if(memos.length > MEMO_MAX) memos = memos.slice(0, MEMO_MAX);
+  if(pwHistory.length > HIST_MAX) pwHistory = pwHistory.slice(0, HIST_MAX);
+  saveMemos(); saveHistory();
+  saveRecSettings();
+  refreshRecLabels();
+  renderMemos(); renderHistory();
+}
+/* 記録（メモ・履歴）だけをエクスポート */
+function exportRecords(){
+  downloadJson({
+    "_comment": "PASSWORD GENERATOR 記録（メモ・履歴）",
+    memos: memos,
+    history: pwHistory
+  });
+  var st = gv('rec-export-status');
+  if(st){ st.textContent = '✓ 書き出しました'; setTimeout(function(){ st.textContent=''; }, 2500); }
+}
+
 /* ===== MEMO ===== */
 var MEMO_KEY = 'pwgen_memos_v1';
 var MEMO_COLOR_KEY = 'pwgen_memo_color_v1';
@@ -1336,6 +1469,14 @@ function fmtTs(ts){
   return d.getFullYear()+'/'+z(d.getMonth()+1)+'/'+z(d.getDate())+' '+z(d.getHours())+':'+z(d.getMinutes())+':'+z(d.getSeconds());
 }
 function clearMemos(){
+  if(recClearLink){
+    if(memos.length === 0 && pwHistory.length === 0) return;
+    if(!window.confirm('メモと履歴の両方をすべて削除しますか？（クリア連動が有効です）')) return;
+    memos = []; pwHistory = [];
+    saveMemos(); saveHistory();
+    renderMemos(); renderHistory();
+    return;
+  }
   if(memos.length === 0) return;
   if(!window.confirm('メモをすべて削除しますか？')) return;
   memos = [];
@@ -1346,6 +1487,7 @@ function deleteMemo(target){
   /* target はメモオブジェクト参照（フィルタ表示でもズレない） */
   var i = memos.indexOf(target);
   if(i === -1) return;
+  if(!window.confirm('このメモを削除しますか？')) return;
   memos.splice(i, 1);
   saveMemos();
   renderMemos();
@@ -1375,7 +1517,7 @@ function getVisibleMemos(){
   var now = Date.now();
   return memos.filter(function(m, i){
     var passLatest = (i === 0);                                   /* memos[0] が最新 */
-    var passHour   = (!!m.ts && (now - m.ts) <= MEMO_HOUR_MS);    /* 直近1時間 */
+    var passHour   = (!!m.ts && (now - m.ts) <= recWindowMs());    /* 直近◯◯（記録設定） */
     if(latest && hour) return passLatest && passHour;             /* AND（積集合） */
     if(latest) return passLatest;
     return passHour;
@@ -1514,6 +1656,14 @@ function addHistory(plain){
   renderHistory();
 }
 function clearHistory(){
+  if(recClearLink){
+    if(memos.length === 0 && pwHistory.length === 0) return;
+    if(!window.confirm('履歴とメモの両方をすべて削除しますか？（クリア連動が有効です）')) return;
+    pwHistory = []; memos = [];
+    saveHistory(); saveMemos();
+    renderHistory(); renderMemos();
+    return;
+  }
   if(pwHistory.length === 0) return;
   if(!window.confirm('履歴をすべて削除しますか？')) return;
   pwHistory = [];
@@ -1523,6 +1673,7 @@ function clearHistory(){
 function deleteHistory(target){
   var i = pwHistory.indexOf(target);
   if(i === -1) return;
+  if(!window.confirm('この履歴を削除しますか？')) return;
   pwHistory.splice(i, 1);
   saveHistory();
   renderHistory();
@@ -1543,7 +1694,7 @@ function getVisibleHistory(){
     /* 時間/最新の絞り込み */
     if(latest || hour){
       var passLatest = (i === 0);
-      var passHour   = (!!h.ts && (now - h.ts) <= MEMO_HOUR_MS);
+      var passHour   = (!!h.ts && (now - h.ts) <= recWindowMs());
       var passTime;
       if(latest && hour) passTime = passLatest && passHour;
       else if(latest) passTime = passLatest;
@@ -2545,6 +2696,9 @@ initSliderTouch();
 loadProfilesFromStorage();
 loadMemos();
 loadHistory();
+loadRecSettings();
+if(memos.length > MEMO_MAX) memos = memos.slice(0, MEMO_MAX);
+if(pwHistory.length > HIST_MAX) pwHistory = pwHistory.slice(0, HIST_MAX);
 renderMemos();
 renderHistory();
 renderProfileBtns();
