@@ -1983,7 +1983,7 @@ function renderHistory(){
 var SUPABASE_URL = 'https://jkpiaqrxuygqtonfikkc.supabase.co';
 var SUPABASE_KEY = 'sb_publishable_IjpsktD0soa2FptBa91wPw_aYRdvMT4';
 var SUPABASE_TABLE = 'password_config';
-var CLOUD_CONFIG_ID = 'default';   /* 後で複数人対応する場合はここを変える */
+var CLOUD_ROW_ID = 1;              /* 使う行のid（int8）。後で複数人対応する場合はここを分ける */
 var cloudReady = false;            /* 初回ロード完了まで自動保存を抑止 */
 var cloudSaveTimer = null;
 var cloudSuppress = false;         /* クラウド/JSON適用中の自動保存抑止 */
@@ -2023,9 +2023,9 @@ function scheduleCloudSave(){
 }
 function doCloudSave(){
   if(!cloudReady || cloudSuppress) return;
-  var body = [{ config_id: CLOUD_CONFIG_ID, data: collectAllData() }];
+  var body = [{ id: CLOUD_ROW_ID, settings: collectAllData() }];
   setCloudStatus('保存中…', '#888');
-  fetch(SUPABASE_URL + '/rest/v1/' + SUPABASE_TABLE + '?on_conflict=config_id', {
+  fetch(SUPABASE_URL + '/rest/v1/' + SUPABASE_TABLE + '?on_conflict=id', {
     method: 'POST',
     headers: {
       'apikey': SUPABASE_KEY,
@@ -2043,15 +2043,15 @@ function doCloudSave(){
 /* クラウドから読み込み。成功したら applyCloudData に渡す */
 function loadFromCloud(){
   setCloudStatus('クラウドから読込中…', '#888');
-  return fetch(SUPABASE_URL + '/rest/v1/' + SUPABASE_TABLE + '?config_id=eq.' + encodeURIComponent(CLOUD_CONFIG_ID) + '&select=data', {
+  return fetch(SUPABASE_URL + '/rest/v1/' + SUPABASE_TABLE + '?id=eq.' + encodeURIComponent(CLOUD_ROW_ID) + '&select=settings', {
     method: 'GET',
     headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
   }).then(function(r){
     if(!r.ok) throw new Error('HTTP ' + r.status);
     return r.json();
   }).then(function(rows){
-    if(Array.isArray(rows) && rows.length > 0 && rows[0].data){
-      applyCloudData(rows[0].data);
+    if(Array.isArray(rows) && rows.length > 0 && rows[0].settings && Object.keys(rows[0].settings).length > 0){
+      applyCloudData(rows[0].settings);
       setCloudStatus('✓ クラウドから復元', '#3B6D11');
       setTimeout(function(){ setCloudStatus('', '#888'); }, 2000);
       return true;
