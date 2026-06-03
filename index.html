@@ -1158,8 +1158,10 @@ function generate(){
         clearTimeout(lpTimer);
         lpTimer=setTimeout(function(){
           lpFired=true;
-          addMemo(plain);
-          addHistory(plain);                                       /* 履歴にも記録 */
+          withScrollCompensation(function(){
+            addMemo(plain);
+            addHistory(plain);                                       /* 履歴にも記録 */
+          }, rowEl);
           copyText(plain, {textContent:'',set textContent(v){}});  /* メモと同時にコピー */
           /* メモ＋コピーのフィードバック（ピンク/赤系で一瞬光らせる） */
           rowEl.classList.remove('copied');
@@ -1186,7 +1188,7 @@ function generate(){
       rowEl.addEventListener('click', function(){
         if(lpFired){ lpFired=false; return; }  /* 長押しでメモ追加済み → コピーしない */
         copyText(plain, {textContent:'',set textContent(v){}});
-        addHistory(plain);                       /* 履歴に記録 */
+        withScrollCompensation(function(){ addHistory(plain); }, rowEl);  /* 履歴に記録 */
         rowEl.classList.add('copied');
         badge.style.opacity = '1';
         clearTimeout(rowEl._ct);
@@ -1243,6 +1245,29 @@ function copyAll(){
   var all = Array.prototype.map.call(rows, function(r){ return r.dataset.plain||''; }).join('\n');
   var btn = document.querySelectorAll('.top-controls .btn')[0];
   copyText(all, btn);
+}
+
+/* ===== レイアウト変化のスクロール補正 ===== */
+/* 触っている要素(anchor)の画面上の位置を操作前後で測り、ずれたぶんだけスクロールを足して
+   anchorが画面上で動かないようにする。増えた場所が上でも下でも有効。 */
+function withScrollCompensation(fn, anchor){
+  var se = document.scrollingElement || document.documentElement;
+  if(!anchor){
+    /* anchorが無い場合は従来の高さ差分方式にフォールバック */
+    var beforeH = se.scrollHeight, beforeTop = se.scrollTop;
+    fn();
+    requestAnimationFrame(function(){ requestAnimationFrame(function(){
+      var d = se.scrollHeight - beforeH; if(d) se.scrollTop = beforeTop + d;
+    });});
+    return;
+  }
+  var beforeY = anchor.getBoundingClientRect().top;  /* 操作前の画面上Y */
+  fn();
+  requestAnimationFrame(function(){ requestAnimationFrame(function(){
+    var afterY = anchor.getBoundingClientRect().top; /* 操作後の画面上Y */
+    var delta = afterY - beforeY;
+    if(delta !== 0){ se.scrollTop += delta; }        /* ずれたぶんを相殺 */
+  });});
 }
 
 /* ===== MEMO ===== */
