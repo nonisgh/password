@@ -74,8 +74,11 @@ input { -webkit-tap-highlight-color: transparent; font-family: inherit; }
 .pw-row:active { background: #f0f0ec; }
 .pw-row.copied { border-color: #3B6D11; background: #f2f8ee; }
 /* メモ追加＋コピー時：コピー緑と同トーンのピンク/赤系 */
-.pw-row.memoed { border-color: #A8385C; background: #fceef3; }
-.pw-row.memoed .pw-copied-badge { color: #A8385C; background: rgba(244,221,231,0.95); }
+.pw-row.memoed, .memo-row.memoed { border-color: #A8385C; background: #fceef3; }
+.pw-row.memoed .pw-copied-badge, .memo-row.memoed .pw-copied-badge { color: #A8385C; background: rgba(244,221,231,0.95); }
+/* 日時表示時：青系 */
+.memo-row.dated { border-color: #185FA5; background: #eef4fb; }
+.memo-row.dated .pw-copied-badge { color: #185FA5; background: rgba(221,233,247,0.95); }
 /* ===== MEMO ===== */
 .memo-list { display: flex; flex-direction: column; gap: 6px; }
 .memo-row {
@@ -1220,9 +1223,13 @@ var memos = [];   /* [{plain, html}] */
 
 /* 旧形式（文字列）や {plain} だけの項目も正規化 */
 function normMemo(item){
-  if(typeof item === 'string') return { plain:item, html:colorizePlain(item) };
+  if(typeof item === 'string') return { plain:item, html:colorizePlain(item), ts:0 };
   if(item && typeof item.plain === 'string'){
-    return { plain:item.plain, html:(typeof item.html==='string' && item.html) ? item.html : colorizePlain(item.plain) };
+    return {
+      plain:item.plain,
+      html:(typeof item.html==='string' && item.html) ? item.html : colorizePlain(item.plain),
+      ts:(typeof item.ts==='number') ? item.ts : 0
+    };
   }
   return null;
 }
@@ -1248,11 +1255,19 @@ function saveMemoColorPref(){
 }
 function addMemo(plain){
   if(!plain) return;
-  /* リング：先頭に追加し、最大件数を超えたら古いものを押し出す */
-  memos.unshift({ plain:plain, html:colorizePlain(plain) });
+  /* 重複：既存の同じパスワードは削除してから先頭に再追加（最新扱い） */
+  memos = memos.filter(function(m){ return m.plain !== plain; });
+  memos.unshift({ plain:plain, html:colorizePlain(plain), ts:Date.now() });
+  /* リング：最大件数を超えたら古いものを押し出す */
   if(memos.length > MEMO_MAX) memos = memos.slice(0, MEMO_MAX);
   saveMemos();
   renderMemos();
+}
+/* yyyy/mm/dd hh:mm:ss 形式 */
+function fmtTs(ts){
+  if(!ts) return '日時不明';
+  var d=new Date(ts), z=function(n){return (n<10?'0':'')+n;};
+  return d.getFullYear()+'/'+z(d.getMonth()+1)+'/'+z(d.getDate())+' '+z(d.getHours())+':'+z(d.getMinutes())+':'+z(d.getSeconds());
 }
 function clearMemos(){
   if(memos.length === 0) return;
@@ -1298,16 +1313,41 @@ function renderMemos(){
       deleteMemo(idx);
     });
 
-    /* メモ行クリックでコピー */
-    row.addEventListener('click', (function(plain){
-      return function(){
+    /* メモ行：短タップ＝コピー、長押し＝追加日時を表示 */
+    (function(plain, ts){
+      var lpTimer=null, lpFired=false, sx=0, sy=0;
+      function start(x,y){
+        lpFired=false; sx=x; sy=y; clearTimeout(lpTimer);
+        lpTimer=setTimeout(function(){
+          lpFired=true;
+          row.classList.remove('copied');
+          row.classList.add('dated');
+          badge.textContent = fmtTs(ts);
+          badge.style.opacity='1';
+          clearTimeout(row._ct);
+          row._ct=setTimeout(function(){ row.classList.remove('dated'); badge.style.opacity='0'; badge.textContent='COPIED'; }, 2200);
+        }, 550);
+      }
+      function moveCancel(x,y){ if(Math.abs(x-sx)>8||Math.abs(y-sy)>8) clearTimeout(lpTimer); }
+      function end(){ clearTimeout(lpTimer); }
+      row.addEventListener('mousedown', function(e){ start(e.clientX,e.clientY); });
+      row.addEventListener('mousemove', function(e){ moveCancel(e.clientX,e.clientY); });
+      row.addEventListener('mouseup', end);
+      row.addEventListener('mouseleave', end);
+      row.addEventListener('touchstart', function(e){ var t=e.touches[0]; start(t.clientX,t.clientY); }, {passive:true});
+      row.addEventListener('touchmove', function(e){ var t=e.touches[0]; moveCancel(t.clientX,t.clientY); }, {passive:true});
+      row.addEventListener('touchend', end);
+
+      row.addEventListener('click', function(){
+        if(lpFired){ lpFired=false; return; }  /* 長押しで日時表示 → コピーしない */
         copyText(plain, {textContent:'',set textContent(v){}});
         row.classList.add('copied');
+        badge.textContent='COPIED';
         badge.style.opacity = '1';
         clearTimeout(row._ct);
         row._ct = setTimeout(function(){ row.classList.remove('copied'); badge.style.opacity='0'; }, 1500);
-      };
-    })(m.plain));
+      });
+    })(m.plain, m.ts);
 
     row.appendChild(txt);
     row.appendChild(badge);
