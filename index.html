@@ -619,7 +619,7 @@ input { -webkit-tap-highlight-color: transparent; font-family: inherit; }
       </div>
       <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;">
         <span style="font-size:11px;color:#aaa;">表示:</span>
-        <label style="display:flex;align-items:center;gap:4px;cursor:pointer;font-size:12px;color:#666;white-space:nowrap;"><input type="checkbox" id="memo-filter-latest" onchange="toggleMemoFilter()" style="margin:0;width:13px;height:13px;">最新1件のみ</label>
+        <label style="display:flex;align-items:center;gap:4px;cursor:pointer;font-size:12px;color:#666;white-space:nowrap;"><input type="checkbox" id="memo-filter-latest" onchange="toggleMemoFilter()" style="margin:0;width:13px;height:13px;">最新<span id="memo-latest-label">1</span>件のみ</label>
         <label style="display:flex;align-items:center;gap:4px;cursor:pointer;font-size:12px;color:#666;white-space:nowrap;"><input type="checkbox" id="memo-filter-hour" onchange="toggleMemoFilter()" style="margin:0;width:13px;height:13px;"><span id="memo-hour-label">直近1時間</span></label>
       </div>
       <div class="memo-list" id="memo-list"></div>
@@ -639,7 +639,7 @@ input { -webkit-tap-highlight-color: transparent; font-family: inherit; }
       </div>
       <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;">
         <span style="font-size:11px;color:#aaa;">表示:</span>
-        <label style="display:flex;align-items:center;gap:4px;cursor:pointer;font-size:12px;color:#666;white-space:nowrap;"><input type="checkbox" id="hist-filter-latest" onchange="toggleHistFilter()" style="margin:0;width:13px;height:13px;">最新1件のみ</label>
+        <label style="display:flex;align-items:center;gap:4px;cursor:pointer;font-size:12px;color:#666;white-space:nowrap;"><input type="checkbox" id="hist-filter-latest" onchange="toggleHistFilter()" style="margin:0;width:13px;height:13px;">最新<span id="hist-latest-label">1</span>件のみ</label>
         <label style="display:flex;align-items:center;gap:4px;cursor:pointer;font-size:12px;color:#666;white-space:nowrap;"><input type="checkbox" id="hist-filter-hour" onchange="toggleHistFilter()" style="margin:0;width:13px;height:13px;"><span id="hist-hour-label">直近1時間</span></label>
         <label style="display:flex;align-items:center;gap:4px;cursor:pointer;font-size:12px;color:#666;white-space:nowrap;"><input type="checkbox" id="hist-filter-notmemo" onchange="toggleHistFilter()" style="margin:0;width:13px;height:13px;">メモにあるものを除く</label>
       </div>
@@ -658,6 +658,11 @@ input { -webkit-tap-highlight-color: transparent; font-family: inherit; }
         <div class="recset-time"><input type="text" inputmode="numeric" id="rec-mm" value="0" onchange="onRecTimeInput()" oninput="onRecTimeInput()"><span>分</span></div>
         <div class="recset-time"><input type="text" inputmode="numeric" id="rec-ss" value="0" onchange="onRecTimeInput()" oninput="onRecTimeInput()"><span>秒</span></div>
         <span id="rec-time-preview" style="font-size:11px;color:#888;margin-left:4px;"></span>
+      </div>
+
+      <div style="font-size:11px;color:#aaa;margin-top:10px;margin-bottom:2px;">「最新◯件のみ」の件数（メモ・履歴 共通）</div>
+      <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+        <div class="recset-time"><span style="color:#888;">最新</span><input type="text" inputmode="numeric" id="rec-latest-n" value="1" onchange="onRecLatestInput()" oninput="onRecLatestInput()"><span>件</span></div>
       </div>
 
       <div class="row-toggle" style="margin-top:10px;">
@@ -1347,10 +1352,18 @@ function refreshRecLabels(){
   var pv = gv('rec-time-preview'); if(pv) pv.textContent = '= ' + lbl;
   var mc = gv('memo-max-cap'); if(mc) mc.textContent = MEMO_MAX;
   var hc = gv('hist-max-cap'); if(hc) hc.textContent = HIST_MAX;
+  /* 最新◯件ラベル */
+  var n = recLatestN();
+  var mll = gv('memo-latest-label'); if(mll) mll.textContent = n;
+  var hll = gv('hist-latest-label'); if(hll) hll.textContent = n;
   /* クリア連動ONなら「Wクリア」、OFFなら「クリア」 */
   var linked = !!(gv('rec-clear-link') && gv('rec-clear-link').checked);
   var mb = gv('memo-clear-btn'); if(mb) mb.textContent = linked ? 'Wクリア' : 'クリア';
   var hb = gv('hist-clear-btn'); if(hb) hb.textContent = linked ? 'Wクリア' : 'クリア';
+}
+/* 「最新◯件のみ」の件数（メモ・履歴共通、1以上） */
+function recLatestN(){
+  return clampInt(gv('rec-latest-n') && gv('rec-latest-n').value, 1, 500, 1);
 }
 function getRecSettingsObj(){
   return {
@@ -1359,6 +1372,7 @@ function getRecSettingsObj(){
     ss: clampInt(gv('rec-ss').value,0,59,0),
     clearLink: !!(gv('rec-clear-link') && gv('rec-clear-link').checked),
     clearConfirm: !(gv('rec-clear-confirm')) ? true : gv('rec-clear-confirm').checked,
+    latestN: recLatestN(),
     memoMax: MEMO_MAX,
     histMax: HIST_MAX
   };
@@ -1370,6 +1384,7 @@ function applyRecSettingsObj(o){
   if(gv('rec-ss') && typeof o.ss !== 'undefined') gv('rec-ss').value = clampInt(o.ss,0,59,0);
   if(typeof o.clearLink !== 'undefined'){ recClearLink = !!o.clearLink; var cl=gv('rec-clear-link'); if(cl) cl.checked = recClearLink; }
   if(typeof o.clearConfirm !== 'undefined'){ recClearConfirm = !!o.clearConfirm; var cc=gv('rec-clear-confirm'); if(cc) cc.checked = recClearConfirm; }
+  if(o.latestN){ var rn=gv('rec-latest-n'); if(rn) rn.value = clampInt(o.latestN,1,500,1); }
   if(o.memoMax){ MEMO_MAX = clampInt(o.memoMax,1,500,30); var rm=gv('rec-memo-max'); if(rm) rm.value = MEMO_MAX; }
   if(o.histMax){ HIST_MAX = clampInt(o.histMax,1,500,30); var rh=gv('rec-hist-max'); if(rh) rh.value = HIST_MAX; }
 }
@@ -1387,6 +1402,13 @@ function loadRecSettings(){
 }
 /* 直近時間の入力変更 */
 function onRecTimeInput(){
+  saveRecSettings();
+  refreshRecLabels();
+  if(typeof renderMemos === 'function') renderMemos();
+  if(typeof renderHistory === 'function') renderHistory();
+}
+/* 「最新◯件のみ」の件数変更 */
+function onRecLatestInput(){
   saveRecSettings();
   refreshRecLabels();
   if(typeof renderMemos === 'function') renderMemos();
@@ -1527,8 +1549,9 @@ function getVisibleMemos(){
   var hour   = (function(){ var c=gv('memo-filter-hour');   return c && c.checked; })();
   if(!latest && !hour) return memos.slice();
   var now = Date.now();
+  var nLatest = recLatestN();
   return memos.filter(function(m, i){
-    var passLatest = (i === 0);                                   /* memos[0] が最新 */
+    var passLatest = (i < nLatest);                              /* 先頭からN件が最新 */
     var passHour   = (!!m.ts && (now - m.ts) <= recWindowMs());    /* 直近◯◯（記録設定） */
     if(latest && hour) return passLatest && passHour;             /* AND（積集合） */
     if(latest) return passLatest;
@@ -1700,12 +1723,13 @@ function getVisibleHistory(){
   var hour    = (function(){ var c=gv('hist-filter-hour');    return c && c.checked; })();
   var notmemo = (function(){ var c=gv('hist-filter-notmemo'); return c && c.checked; })();
   var now = Date.now();
+  var nLatest = recLatestN();
   var memoSet = {};
   if(notmemo){ memos.forEach(function(m){ memoSet[m.plain]=true; }); }
   return pwHistory.filter(function(h, i){
     /* 時間/最新の絞り込み */
     if(latest || hour){
-      var passLatest = (i === 0);
+      var passLatest = (i < nLatest);
       var passHour   = (!!h.ts && (now - h.ts) <= recWindowMs());
       var passTime;
       if(latest && hour) passTime = passLatest && passHour;
