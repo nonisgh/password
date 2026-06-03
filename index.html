@@ -2023,6 +2023,8 @@ function setCloudStatus(msg, color){
 }
 
 /* クラウドへ保存（upsert）。デバウンスして呼ぶ */
+var lastAppliedAt = 0;            /* 最後にリモート変更を適用した時刻 */
+var APPLY_COOLDOWN_MS = 1500;     /* 適用直後はこの時間、保存を抑止（ループ防止） */
 function scheduleCloudSave(){
   if(!cloudReady || cloudSuppress) return;
   if(cloudSaveTimer) clearTimeout(cloudSaveTimer);
@@ -2030,8 +2032,13 @@ function scheduleCloudSave(){
 }
 function doCloudSave(){
   if(!cloudReady || cloudSuppress) return;
+  /* リモート変更を適用した直後は、その反映で発火した保存を送らない */
+  if(Date.now() - lastAppliedAt < APPLY_COOLDOWN_MS){ return; }
   var settingsObj = collectAllData();
-  lastSavedJson = JSON.stringify(settingsObj);   /* 自分の保存を識別（Realtimeループ防止） */
+  var jsonNow = JSON.stringify(settingsObj);
+  /* 中身が前回保存/受信と同じなら送らない（無駄打ち・ループ防止） */
+  if(jsonNow === lastSavedJson){ return; }
+  lastSavedJson = jsonNow;
   var body = [{ id: CLOUD_ROW_ID, settings: settingsObj }];
   setCloudStatus('保存中…', '#888');
   fetch(SUPABASE_URL + '/rest/v1/' + SUPABASE_TABLE + '?on_conflict=id', {
@@ -2060,7 +2067,10 @@ function loadFromCloud(){
     return r.json();
   }).then(function(rows){
     if(Array.isArray(rows) && rows.length > 0 && rows[0].settings && Object.keys(rows[0].settings).length > 0){
+      lastSavedJson = JSON.stringify(rows[0].settings);
+      lastAppliedAt = Date.now();
       applyCloudData(rows[0].settings);
+      lastAppliedAt = Date.now();
       setCloudStatus('✓ クラウドから復元', '#3B6D11');
       setTimeout(function(){ setCloudStatus('', '#888'); }, 2000);
       return true;
@@ -2091,9 +2101,14 @@ function startRealtimeSync(){
           var row = payload.new || {};
           var settings = row.settings;
           if(!settings || typeof settings !== 'object') return;
+          var incoming = JSON.stringify(settings);
           /* 自分が今保存した内容と同じなら無視（ループ防止） */
-          if(JSON.stringify(settings) === lastSavedJson) return;
+          if(incoming === lastSavedJson) return;
+          /* 受信内容を「既知」として記録し、適用直後クールダウンを設定（保存し返し防止） */
+          lastSavedJson = incoming;
+          lastAppliedAt = Date.now();
           applyCloudData(settings);
+          lastAppliedAt = Date.now();   /* 適用処理後にも更新（適用中の遅延発火に備える） */
           setCloudStatus('✓ 他の端末の変更を反映', '#185FA5');
           setTimeout(function(){ setCloudStatus('', '#888'); }, 2000);
         })
