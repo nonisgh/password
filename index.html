@@ -1991,6 +1991,9 @@ var cloudSuppress = false;         /* クラウド/JSON適用中の自動保存�
 var sbClient = null;               /* supabase-js クライアント */
 var sbChannel = null;              /* Realtime購読チャンネル */
 var lastSavedJson = null;          /* 最後に自分が保存したsettingsのJSON（ループ防止） */
+var CLIENT_ID = 'c' + Date.now().toString(36) + Math.random().toString(36).slice(2,8);  /* この端末/タブ固有のID */
+var myWriteSeq = 0;                 /* 自分の保存に付ける連番 */
+var lastSeenWriter = '';            /* 最後に受信した書き込み元の印 */
 
 /* 保存対象の全データを1オブジェクトにまとめる */
 function collectAllData(){
@@ -2035,10 +2038,15 @@ function doCloudSave(){
   /* リモート変更を適用した直後は、その反映で発火した保存を送らない */
   if(Date.now() - lastAppliedAt < APPLY_COOLDOWN_MS){ return; }
   var settingsObj = collectAllData();
+  /* 書き込み元の印（この端末＋連番）。Realtime受信時に自分の保存かを確実に判別する */
+  myWriteSeq++;
+  settingsObj._writer = CLIENT_ID + ':' + myWriteSeq;
   var jsonNow = JSON.stringify(settingsObj);
-  /* 中身が前回保存/受信と同じなら送らない（無駄打ち・ループ防止） */
-  if(jsonNow === lastSavedJson){ return; }
-  lastSavedJson = jsonNow;
+  /* 中身が前回保存/受信と同じなら送らない（無駄打ち・ループ防止）。_writerは比較から除く */
+  var cmpNow = jsonNow.replace(/"_writer":"[^"]*",?/, '');
+  if(cmpNow === lastSavedJson){ myWriteSeq--; return; }
+  lastSavedJson = cmpNow;
+  lastSeenWriter = settingsObj._writer;
   var body = [{ id: CLOUD_ROW_ID, settings: settingsObj }];
   setCloudStatus('保存中…', '#888');
   fetch(SUPABASE_URL + '/rest/v1/' + SUPABASE_TABLE + '?on_conflict=id', {
@@ -2067,9 +2075,11 @@ function loadFromCloud(){
     return r.json();
   }).then(function(rows){
     if(Array.isArray(rows) && rows.length > 0 && rows[0].settings && Object.keys(rows[0].settings).length > 0){
-      lastSavedJson = JSON.stringify(rows[0].settings);
+      var s0 = rows[0].settings;
+      lastSeenWriter = s0._writer || '';
+      lastSavedJson = JSON.stringify(s0).replace(/"_writer":"[^"]*",?/, '');
       lastAppliedAt = Date.now();
-      applyCloudData(rows[0].settings);
+      applyCloudData(s0);
       lastAppliedAt = Date.now();
       setCloudStatus('✓ クラウドから復元', '#3B6D11');
       setTimeout(function(){ setCloudStatus('', '#888'); }, 2000);
@@ -2101,14 +2111,18 @@ function startRealtimeSync(){
           var row = payload.new || {};
           var settings = row.settings;
           if(!settings || typeof settings !== 'object') return;
-          var incoming = JSON.stringify(settings);
-          /* 自分が今保存した内容と同じなら無視（ループ防止） */
-          if(incoming === lastSavedJson) return;
-          /* 受信内容を「既知」として記録し、適用直後クールダウンを設定（保存し返し防止） */
+          /* 自分の保存が返ってきた場合は無視（_writerがこの端末のIDで始まる） */
+          var writer = settings._writer || '';
+          if(writer && writer.indexOf(CLIENT_ID + ':') === 0) return;
+          /* 同じ書き込みを二重受信した場合も無視 */
+          if(writer && writer === lastSeenWriter) return;
+          lastSeenWriter = writer;
+          /* 比較用JSON（_writerを除く）を記録し、適用直後クールダウンを設定 */
+          var incoming = JSON.stringify(settings).replace(/"_writer":"[^"]*",?/, '');
           lastSavedJson = incoming;
           lastAppliedAt = Date.now();
           applyCloudData(settings);
-          lastAppliedAt = Date.now();   /* 適用処理後にも更新（適用中の遅延発火に備える） */
+          lastAppliedAt = Date.now();
           setCloudStatus('✓ 他の端末の変更を反映', '#185FA5');
           setTimeout(function(){ setCloudStatus('', '#888'); }, 2000);
         })
