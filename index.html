@@ -1,0 +1,3139 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>PASSWORD GENERATOR</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA2NCA2NCIgd2lkdGg9IjI1NiIgaGVpZ2h0PSIyNTYiPjxyZWN0IHdpZHRoPSI2NCIgaGVpZ2h0PSI2NCIgcng9IjE0IiBmaWxsPSIjMTg1RkE1Ii8+PGcgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjZmZmZmZmIiBzdHJva2Utd2lkdGg9IjUuNSIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIj48IS0tIGtleSBib3cgKHJpbmcpIC0tPjxjaXJjbGUgY3g9IjI0IiBjeT0iMjQiIHI9IjExIi8+PCEtLSBrZXkgc2hhZnQgLS0+PGxpbmUgeDE9IjMxLjgiIHkxPSIzMS44IiB4Mj0iNDYiIHkyPSI0NiIvPjwhLS0ga2V5IHRlZXRoIC0tPjxsaW5lIHgxPSI0MCIgeTE9IjQwLjIiIHgyPSIzNSIgeTI9IjQ1LjIiLz48bGluZSB4MT0iNDYiIHkxPSI0NiIgeDI9IjQxIiB5Mj0iNTEiLz48L2c+PCEtLSBob2xlIGluIHRoZSBib3cgLS0+PGNpcmNsZSBjeD0iMjQiIGN5PSIyNCIgcj0iMy42IiBmaWxsPSIjMTg1RkE1Ii8+PC9zdmc+">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { }
+body {
+  font-family: -apple-system, 'Helvetica Neue', Arial, sans-serif;
+  background: #f2f2f0; color: #1a1a1a;
+  min-height: 100vh;
+  padding: 1.5rem 1rem env(safe-area-inset-bottom, 0px);
+  -webkit-text-size-adjust: 100%;
+}
+.container { max-width: 680px; margin: 0 auto; }
+button { font-family: inherit; cursor: pointer; -webkit-tap-highlight-color: transparent; touch-action: manipulation; }
+input { -webkit-tap-highlight-color: transparent; font-family: inherit; }
+
+/* ===== TOP BAR ===== */
+.app-title {
+  font-size: 13px; font-weight: 800; letter-spacing: 0.2em;
+  text-transform: uppercase; color: #999; margin-bottom: 12px;
+}
+.top-controls { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
+.top-controls .btn-primary { margin-left: auto; }
+.count-wrap {
+  display: flex; align-items: center;
+  background: #fff; border: 1px solid #d0d0cc; border-radius: 10px; overflow: hidden;
+}
+.cnt-btn {
+  background: #f5f5f3; border: none; width: 38px; height: 40px;
+  font-size: 20px; color: #555; line-height: 1;
+}
+.cnt-btn:hover { background: #e8e8e5; }
+.cnt-btn:active { background: #ddd; }
+.count-wrap input {
+  width: 50px; height: 40px; font-size: 15px; font-weight: 700;
+  text-align: center; border: none;
+  border-left: 1px solid #ddd; border-right: 1px solid #ddd;
+  background: #fff; outline: none; color: #111;
+  /* NO min/max here — handled in JS */
+}
+.count-unit { font-size: 13px; color: #888; padding: 0 10px; white-space: nowrap; }
+.btn {
+  background: #fff; border: 1px solid #d0d0cc; border-radius: 10px;
+  padding: 0 18px; height: 40px; font-size: 14px; color: #555;
+  transition: background 0.15s; white-space: nowrap;
+  display: inline-flex; align-items: center;
+}
+.btn:hover { background: #f0f0ee; color: #111; }
+.btn:active { background: #e5e5e3; }
+.btn-primary { background: #fff; color: #555; border: 2px solid #a0a09a; font-weight: 700; }
+.btn-primary:hover { background: #f0f0ee; color: #111; }
+.btn-primary:active { background: #e5e5e3; }
+.save-flash { font-size: 12px; color: #3B6D11; opacity: 0; transition: opacity 0.4s; }
+
+/* ===== PW LIST ===== */
+.pw-list { display: flex; flex-direction: column; gap: 6px; margin-bottom: 10px; }
+.pw-row {
+  background: #fff; border: 1px solid #e0e0da; border-radius: 10px;
+  padding: 11px 10px 11px 12px;
+  display: flex; align-items: center;
+  gap: 6px;
+  overflow: hidden;
+  cursor: pointer;
+  position: relative;
+  transition: background 0.15s, border-color 0.15s;
+  user-select: none; -webkit-user-select: none;
+}
+.pw-row:hover { border-color: #aaa; background: #fafaf8; }
+.pw-row:active { background: #f0f0ec; }
+.pw-row.copied { border-color: #3B6D11; background: #f2f8ee; }
+/* メモ追加＋コピー時：コピー緑と同トーンのピンク/赤系 */
+.pw-row.memoed, .memo-row.memoed { border-color: #A8385C; background: #fceef3; }
+.pw-row.memoed .pw-copied-badge, .memo-row.memoed .pw-copied-badge { color: #A8385C; background: rgba(244,221,231,0.95); }
+/* 日時表示時：青系 */
+.memo-row.dated { border-color: #185FA5; background: #eef4fb; }
+.rec-detail { font-size:12px; line-height:1.8; letter-spacing:0.02em; background:#f7f7f4; border:1px solid #e8e8e2; border-radius:8px; padding:8px 10px; margin:2px 2px 2px; }
+.memo-row.dated .pw-copied-badge { color: #185FA5; background: rgba(221,233,247,0.95); }
+/* ===== MEMO ===== */
+.memo-list { display: flex; flex-direction: column; gap: 6px; }
+.memo-row {
+  background: #fff; border: 1px solid #e0e0da; border-radius: 9px;
+  padding: 9px 8px 9px 10px; display: flex; align-items: center; gap: 8px;
+  cursor: pointer; position: relative; overflow: hidden;
+  transition: background 0.15s, border-color 0.15s;
+}
+.memo-row:hover { border-color: #aaa; background: #fafaf8; }
+.memo-row:active { background: #f0f0ec; }
+.memo-row.copied { border-color: #3B6D11; background: #f2f8ee; }
+.memo-text {
+  font-family: 'Courier New', Courier, monospace; font-weight: 600;
+  flex: 1; min-width: 0; letter-spacing: 0.04em; color: #1a1a1a;
+  word-break: break-all; line-height: 1.35; font-size: 13px; pointer-events: none;
+}
+.memo-del {
+  flex-shrink: 0; border: none; background: none; color: #c4c4be;
+  font-size: 18px; line-height: 1; padding: 2px 6px; border-radius: 6px; cursor: pointer;
+}
+.memo-del:hover { color: #993C1D; background: rgba(153,60,29,0.08); }
+.pw-num { font-size: 11px; color: #ddd; flex-shrink: 0; min-width: 16px; }
+.pw-text {
+  font-family: 'Courier New', Courier, monospace;
+  font-weight: 600; flex: 1; min-width: 0;
+  letter-spacing: 0.04em; color: #1a1a1a;
+  word-break: break-all;
+  line-height: 1.35;
+  pointer-events: none;
+}
+.pw-copied-badge {
+  position: absolute;
+  right: 10px; top: 50%; transform: translateY(-50%);
+  font-size: 10px; font-weight: 700; letter-spacing: 0.06em;
+  color: #3B6d11; background: rgba(228,240,218,0.95);
+  border-radius: 4px; padding: 2px 6px;
+  opacity: 0; transition: opacity 0.2s;
+  pointer-events: none;
+}
+
+/* ===== STRENGTH ===== */
+.strength-row { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+.strength-bar { display: flex; gap: 3px; height: 4px; flex: 1; }
+.strength-seg { flex: 1; border-radius: 2px; background: #ddd; transition: background 0.3s; }
+.strength-label { font-size: 12px; color: #999; min-width: 64px; text-align: right; }
+
+/* ===== LEGEND ===== */
+.legend { display: flex; gap: 14px; flex-wrap: wrap; margin-bottom: 1.2rem; }
+.legend-item { font-size: 12px; color: #888; display: flex; align-items: center; gap: 5px; }
+.legend-dot { width: 8px; height: 8px; border-radius: 50%; }
+
+/* ===== SECTIONS ===== */
+.section { margin-bottom: 12px; border: 1px solid #e0e0da; border-radius: 12px; overflow: hidden; background: #fff; }
+.section-head {
+  padding: 6px 16px; background: #f9f9f6; border-bottom: 1px solid #e8e8e3;
+  position: relative;
+  display: flex; align-items: center; cursor: pointer; user-select: none; -webkit-user-select: none;
+}
+.section-head:hover { background: #f5f5f0; }
+.section-title { font-size: 10px; font-weight: 800; color: #999; letter-spacing: 0.1em; text-transform: uppercase; flex: 1; }
+.section-toggle { font-size: 10px; color: #ccc; transition: transform 0.2s; margin-left: 8px; }
+.section.collapsed .section-body { display: none; }
+.section.collapsed .section-toggle { transform: rotate(-90deg); }
+.section.collapsed .section-head { border-bottom: none; }
+/* ===== ドラッグハンドル：囲みなし・小さめドット16個（縦2×横8）。クリックで開閉/ドラッグで移動 ===== */
+.section-drag-handle {
+  cursor: grab; color: #c7c7c0;
+  width: 76px; height: 18px; box-sizing: border-box;
+  border: none; border-radius: 999px;
+  background-color: transparent;
+  font-size: 0; line-height: 0;
+  display: inline-flex; align-items: center; justify-content: center;
+  transition: color 0.12s, background-color 0.12s;
+}
+/* 透明な起点ドットから box-shadow で 上下2段 × 横8列 = 16個 を展開 */
+.section-drag-handle::before {
+  content: ""; width: 2.5px; height: 2.5px; border-radius: 50%;
+  background-color: transparent;
+  box-shadow:
+    -17.5px -2.5px 0 currentColor, -12.5px -2.5px 0 currentColor, -7.5px -2.5px 0 currentColor, -2.5px -2.5px 0 currentColor,
+      2.5px -2.5px 0 currentColor,   7.5px -2.5px 0 currentColor,  12.5px -2.5px 0 currentColor,  17.5px -2.5px 0 currentColor,
+    -17.5px  2.5px 0 currentColor, -12.5px  2.5px 0 currentColor, -7.5px  2.5px 0 currentColor, -2.5px  2.5px 0 currentColor,
+      2.5px  2.5px 0 currentColor,   7.5px  2.5px 0 currentColor,  12.5px  2.5px 0 currentColor,  17.5px  2.5px 0 currentColor;
+}
+.section-drag-handle:hover { color: #a6a69f; background-color: rgba(0,0,0,0.035); }
+.section-drag-handle:active { color: #8a8a83; background-color: rgba(0,0,0,0.06); cursor: grabbing; }
+/* タイトル付きセクション：1行のまま、ハンドルだけ中央に絶対配置（高さは元のコンパクトさ） */
+.section-head:not(.section-head-mini) .section-drag-handle {
+  position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
+}
+.section[data-section-id="passwords"],
+.section[data-section-id="profiles"] { background: transparent; border-color: transparent; margin-bottom: 6px; }
+.section[data-section-id="passwords"] .section-head,
+.section[data-section-id="profiles"] .section-head { background: transparent; border-bottom-color: transparent; }
+.section-head-mini {
+  padding: 0; justify-content: center; cursor: pointer;
+}
+/* ミニヘッダ（パスワード/プロファイル）：他セクションと同じ縦2段ドットを端まで敷き詰め、帯全体をヒット領域に */
+.section-head-mini .section-drag-handle {
+  width: 100%; height: 18px; margin: 0; border-radius: 0;
+  box-sizing: border-box; padding: 0;
+  display: block;
+  position: relative;
+  /* 2レイヤーのドット行（上段・下段、中心間5px）を全幅にタイル。clipは使わない */
+  background-color: transparent;
+  background-image:
+    radial-gradient(circle at center, currentColor 0.85px, transparent 1.2px),
+    radial-gradient(circle at center, currentColor 0.85px, transparent 1.2px);
+  background-size: 5px 2px, 5px 2px;
+  background-position: center calc(50% - 2.5px), center calc(50% + 2.5px);
+  background-repeat: repeat-x, repeat-x;
+  transition: color 0.12s, background-color 0.12s;
+}
+/* ミニ用は box-shadow ドットを使わない（::before を無効化） */
+.section-head-mini .section-drag-handle:hover { color: #a6a69f; background-color: rgba(0,0,0,0.035); }
+.section-head-mini .section-drag-handle:active { color: #8a8a83; background-color: rgba(0,0,0,0.06); cursor: grabbing; }
+.section[data-section-id="passwords"] .section-body { padding: 10px 0 14px 0; gap: 0; }
+.section[data-section-id="profiles"] .section-body { padding: 10px 0 8px 0; gap: 0; }
+.section[data-section-id="memo"] .section-body,
+.section[data-section-id="history"] .section-body { gap: 4px; }
+.section[data-section-id="recset"] .section-body { gap: 4px; }
+.recset-time { display:flex; align-items:center; gap:4px; font-size:12px; color:#666; }
+.recset-time input { width:46px; text-align:center; font-size:13px; padding:5px 4px; border:1px solid #ddd; border-radius:6px; background:#fff; color:#1a1a1a; }
+.recset-time input:focus { outline:none; border-color:#185FA5; }
+.section.dragging-over { border-color: #185FA5; }
+
+#ratio-section.ratio-locked .section-body input[type=range],
+#ratio-section.ratio-locked .section-body input[type=text],
+#ratio-section.ratio-locked .section-body button {
+  pointer-events: none; opacity: 0.35;
+}
+
+/* ===== フローティング再生成ボタン ===== */
+.fab-regen {
+  position: fixed; bottom: 24px; right: 24px; z-index: 100;
+  width: 48px; height: 48px; border-radius: 50%;
+  background: #fff; border: 2px solid #a0a09a;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.12);
+  font-size: 20px; color: #555; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: all 0.15s; touch-action: manipulation;
+}
+.fab-regen:hover { background: #f0f0ee; box-shadow: 0 3px 14px rgba(0,0,0,0.18); }
+.fab-regen:active { transform: scale(0.92); }
+.section-body { padding: 14px 16px; display: flex; flex-direction: column; gap: 14px; }
+
+/* ===== STEPPER ROW ===== */
+.stepper-row { display: flex; align-items: center; gap: 10px; }
+.stepper-row .s-label { font-size: 14px; color: #555; width: 140px; flex-shrink: 0; line-height: 1.3; }
+.stepper-group {
+  display: flex; align-items: center; border: 1px solid #ccc;
+  border-radius: 9px; overflow: hidden; flex-shrink: 0;
+}
+.stepper-group button {
+  background: #f5f5f3; border: none; width: 38px; height: 38px;
+  font-size: 20px; color: #444; line-height: 1; transition: background 0.1s;
+}
+.stepper-group button:hover { background: #e8e8e5; color: #111; }
+.stepper-group button:active { background: #ddd; }
+/* stepper number input — NO min/max attrs, all clamping in JS */
+.stepper-num {
+  width: 56px; height: 38px; font-size: 15px; font-weight: 700;
+  text-align: center; border: none;
+  border-left: 1px solid #ddd; border-right: 1px solid #ddd;
+  background: #fff; outline: none; color: #111;
+}
+.stepper-slider { flex: 1; accent-color: #185FA5; min-width: 0; cursor: pointer; touch-action: none; }
+
+/* ===== TOGGLE ROW ===== */
+.row-toggle { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 38px; }
+.row-toggle .lbl { font-size: 14px; color: #333; flex: 1; line-height: 1.4; }
+.row-toggle small { font-size: 12px; color: #aaa; }
+.toggle { position: relative; display: inline-block; width: 44px; height: 24px; flex-shrink: 0; }
+.toggle input { opacity: 0; width: 0; height: 0; }
+.slider-tog { position: absolute; cursor: pointer; inset: 0; background: #ccc; border-radius: 24px; transition: 0.2s; }
+.slider-tog:before {
+  content: ''; position: absolute; height: 18px; width: 18px;
+  left: 3px; bottom: 3px; background: white; border-radius: 50%;
+  transition: 0.2s; box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+}
+.toggle input:checked + .slider-tog { background: #185FA5; }
+.toggle input:checked + .slider-tog:before { transform: translateX(20px); }
+
+/* ===== SYMBOLS ===== */
+.symbols-grid { display: flex; flex-wrap: wrap; gap: 6px; }
+.sym-btn {
+  font-family: 'Courier New', monospace; font-size: 15px;
+  padding: 6px 8px; border: 1px solid #ccc; border-radius: 7px;
+  background: none; color: #888; cursor: pointer;
+  min-width: 38px; min-height: 38px; text-align: center; transition: all 0.12s;
+}
+.sym-btn.active { background: #eef3ff; border-color: #185FA5; color: #185FA5; }
+.sym-btn:active { background: #dde8ff; }
+.sym-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.sym-input-wrap { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.sym-input-wrap label { font-size: 14px; color: #666; white-space: nowrap; }
+.sym-text-input {
+  font-family: 'Courier New', monospace; font-size: 16px;
+  border: 1px solid #ccc; border-radius: 8px; padding: 8px 12px;
+  background: #fff; flex: 1; min-width: 100px; letter-spacing: 0.06em;
+}
+.sym-text-input:focus { outline: none; border-color: #185FA5; box-shadow: 0 0 0 2px rgba(24,95,165,0.12); }
+.sym-preview { font-size: 12px; color: #aaa; word-break: break-all; min-height: 16px; }
+
+.pct-total { font-size: 13px; text-align: right; color: #888; }
+.pct-total.over { color: #993C1D; font-weight: 600; }
+
+/* ===== COLOR ===== */
+.color-row { display: flex; align-items: center; gap: 10px; }
+.color-row .lbl { font-size: 14px; color: #333; flex: 1; min-width: 90px; }
+.color-right { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.color-picker-wrap { position: relative; width: 36px; height: 36px; flex-shrink: 0; }
+.color-picker-wrap input[type=color] { position: absolute; inset: 0; width: 100%; height: 100%; border: none; padding: 0; cursor: pointer; opacity: 0; }
+.color-swatch { width: 36px; height: 36px; border-radius: 8px; border: 1px solid #ddd; pointer-events: none; }
+.color-hex-input {
+  font-family: 'Courier New', monospace; font-size: 14px;
+  border: 1px solid #ccc; border-radius: 8px;
+  padding: 6px 8px; width: 90px; text-transform: uppercase; background: #fff;
+}
+.color-hex-input:focus { outline: none; border-color: #185FA5; }
+.color-reset { font-size: 18px; color: #bbb; background: none; border: none; cursor: pointer; padding: 0 4px; }
+.color-reset:hover { color: #555; }
+
+/* ===== LOCK ===== */
+
+
+
+@media (max-width: 540px) {
+  body { padding: 1rem 0.9rem env(safe-area-inset-bottom, 0px); }
+  .app-title { font-size: 12px; letter-spacing: 0.18em; }
+  .top-controls { gap: 7px; justify-content: flex-start; }
+  .top-controls .btn-primary { margin-left: 0; width: 90px; justify-content: center; }
+  #sort-btn { margin-left: auto; width: 90px; justify-content: center; }
+  .btn { height: 42px; padding: 0 14px; font-size: 14px; border-radius: 10px; }
+  .cnt-btn { width: 40px; height: 42px; }
+  .count-wrap input { width: 48px; height: 42px; }
+
+  .pw-row { padding: 8px 12px; border-radius: 11px; }
+
+  .stepper-row { flex-wrap: wrap; gap: 8px; }
+  .stepper-row .s-label { width: 100%; margin-bottom: 2px; }
+  .stepper-group { order: 2; }
+  .stepper-group button { width: 42px; height: 42px; font-size: 22px; }
+  .stepper-num { width: 58px; height: 42px; font-size: 16px; }
+  .stepper-slider { width: 100%; flex: none; order: 3; }
+
+  .row-toggle { min-height: 42px; }
+  .row-toggle .lbl { font-size: 14px; }
+  .toggle { width: 48px; height: 26px; }
+  .slider-tog:before { width: 20px; height: 20px; }
+  .toggle input:checked + .slider-tog:before { transform: translateX(22px); }
+
+  .sym-btn { min-width: 42px; min-height: 42px; font-size: 16px; }
+  .sym-text-input { font-size: 17px; padding: 9px 12px; }
+
+  .color-row { flex-direction: column; align-items: flex-start; gap: 8px; }
+  .color-swatch, .color-picker-wrap { width: 40px; height: 40px; }
+
+  .section-body { gap: 16px; padding: 14px 14px; }
+
+  .fab-regen { bottom: calc(20px + env(safe-area-inset-bottom, 0px)); right: 16px; width: 76px; height: 76px; font-size: 34px; }
+
+  .profile-btn.btn { font-size: 15px !important; padding: 0 16px !important; height: 40px !important; }
+  #profile-btns { gap: 8px !important; }
+}
+@media (max-width: 375px) {
+  .pw-text { font-size: 13px; }
+}
+</style>
+</head>
+<body
+  ondragover="event.preventDefault();"
+  ondrop="event.preventDefault();if(event.dataTransfer.files[0])handleDroppedFile(event.dataTransfer.files[0])">
+<div id="cloud-status" style="position:fixed;right:10px;bottom:10px;z-index:9999;font-size:11px;color:#888;background:rgba(255,255,255,0.9);border:1px solid #e8e8e2;border-radius:6px;padding:3px 8px;opacity:0;transition:opacity 0.3s;pointer-events:none;"></div>
+<div class="container">
+
+  <div class="app-title">PASSWORD GENERATOR</div>
+
+  <div id="sections-container">
+
+  <!-- パスワード表示 -->
+  <div class="section" data-section-id="passwords">
+    <div class="section-head section-head-mini" onclick="event.stopPropagation()"><span class="section-drag-handle">⠿</span></div>
+    <div class="section-body">
+      <div class="top-controls" style="margin-bottom:8px;">
+        <div class="count-wrap">
+          <button class="cnt-btn" onclick="stepCount(-1)">−</button>
+          <input type="text" inputmode="numeric" id="pw-count" value="10"
+                 oninput="onCountInput(this)"
+                 onblur="onCountBlur(this)"
+                 onkeydown="if(event.key==='Enter')this.blur()">
+          <button class="cnt-btn" onclick="stepCount(1)">+</button>
+        </div>
+        <span class="count-unit">個</span>
+        <button class="btn" onclick="copyAll()">全コピー</button>
+        <button class="btn" id="sort-btn" onclick="toggleSort()">昇順 ↑</button>
+            <button class="btn btn-primary" onclick="generate()">↺ 再生成</button>
+        <span class="save-flash" id="save-flash">保存済</span>
+      </div>
+      <div id="cond-summary" style="font-size:12px;color:#888;margin-bottom:8px;line-height:1.7;letter-spacing:0.02em;"></div>
+      <div class="pw-list" id="pw-list"></div>
+      <div class="pw-text-measure" style="visibility:hidden;height:0;overflow:hidden;font-family:'Courier New',monospace;"></div>
+      <div class="strength-row" style="margin-top:6px;margin-bottom:2px;">
+        <div class="strength-bar">
+          <div class="strength-seg" id="s0"></div><div class="strength-seg" id="s1"></div>
+          <div class="strength-seg" id="s2"></div><div class="strength-seg" id="s3"></div>
+          <div class="strength-seg" id="s4"></div>
+        </div>
+        <span class="strength-label" id="strength-label">—</span>
+      </div>
+      <div class="legend" style="margin-bottom:0;">
+        <div class="legend-item" id="leg-num"><div class="legend-dot" id="leg-num-dot" style="background:#185FA5"></div>数字</div>
+        <div class="legend-item" id="leg-sym"><div class="legend-dot" id="leg-sym-dot" style="background:#993C1D"></div>記号</div>
+        <div class="legend-item" id="leg-upper"><div class="legend-dot" id="leg-upper-dot" style="background:#3B6D11"></div>大文字</div>
+        <div class="legend-item" id="leg-lower"><div class="legend-dot" id="leg-lower-dot" style="background:#1a1a1a"></div>小文字</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- プロファイル -->
+  <div class="section" data-section-id="profiles" id="profile-section">
+    <div class="section-head section-head-mini" onclick="event.stopPropagation()"><span class="section-drag-handle">⠿</span></div>
+    <div class="section-body">
+      <div id="profile-bar" style="margin-bottom:0;">
+        <div style="display:flex;align-items:center;margin-bottom:8px;gap:6px;flex-wrap:wrap;justify-content:flex-end;">
+          <label style="font-size:11px;color:#aaa;display:flex;align-items:center;gap:4px;cursor:pointer;">
+            <input type="checkbox" id="ignore-pwcount" style="margin:0;" onchange="saveSettings()"> 生成件数も切り替え
+          </label>
+          <label style="font-size:11px;color:#aaa;display:flex;align-items:center;gap:4px;cursor:pointer;">
+            <input type="checkbox" id="apply-profile-colors" style="margin:0;" onchange="saveSettings()"> 色指定も反映
+          </label>
+          <button onclick="addProfile()"
+            style="background:none;border:1px solid #ddd;border-radius:6px;padding:2px 10px;font-size:14px;cursor:pointer;color:#888;touch-action:manipulation;"
+            title="現在の設定を新しいプロファイルとして追加">＋</button>
+          <button onclick="gv('config-file').click()"
+            style="background:none;border:1px solid #ddd;border-radius:6px;padding:2px 8px;font-size:12px;cursor:pointer;color:#888;touch-action:manipulation;"
+            title="JSONファイルを読み込む">JSON読み込み</button>
+          <input type="file" id="config-file" accept=".json" style="display:none" onchange="loadFileConfig()">
+          <button onclick="exportSettings()"
+            style="background:none;border:1px solid #ddd;border-radius:6px;padding:2px 8px;font-size:12px;cursor:pointer;color:#888;touch-action:manipulation;"
+            title="プロファイルをJSONファイルに書き出し">JSON書き出し</button>
+          <button onclick="doCloudSave()"
+            style="background:none;border:1px solid #ddd;border-radius:6px;padding:2px 8px;font-size:12px;cursor:pointer;color:#888;touch-action:manipulation;"
+            title="今すぐクラウドに保存">☁ 保存</button>
+        </div>
+        <div id="profile-btns" style="display:flex;gap:6px;flex-wrap:wrap;"></div>
+      </div>
+    </div>
+  </div>
+  <!-- 桁数 -->
+  <div class="section" data-section-id="length">
+    <div class="section-head" onclick="toggleSection(this,event)"><span class="section-drag-handle">⠿</span><span class="section-title">桁数</span></div>
+    <div class="section-body">
+      <div class="stepper-row">
+        <div class="stepper-group">
+          <button onclick="stepField('len',-1)">−</button>
+          <input type="text" inputmode="numeric" class="stepper-num" id="len-num" value="32"
+                 oninput="onNumInput(this,'len',4,128);generate()"
+                 onblur="onNumBlur(this,'len',4,128);generate()"
+                 onkeydown="if(event.key==='Enter')this.blur()">
+          <button onclick="stepField('len',1)">+</button>
+        </div>
+        <input type="range" class="stepper-slider" id="len" min="4" max="128" value="32" step="1" oninput="onSliderInput('len');generate()" onchange="onSliderDone('len')">
+      </div>
+    </div>
+  </div>
+  <!-- 基本設定 -->
+  <div class="section" data-section-id="basic">
+    <div class="section-head" onclick="toggleSection(this,event)"><span class="section-drag-handle">⠿</span><span class="section-title">基本設定</span></div>
+    <div class="section-body">
+      <div class="row-toggle">
+        <span class="lbl">先頭を大文字にする</span>
+        <label class="toggle"><input type="checkbox" id="start-upper" checked onchange="if(this.checked)gv('start-alpha').checked=true; generate()"><span class="slider-tog"></span></label>
+      </div>
+      <div class="row-toggle">
+        <span class="lbl">先頭を必ずアルファベットにする</span>
+        <label class="toggle"><input type="checkbox" id="start-alpha" onchange="if(!this.checked)gv('start-upper').checked=false; generate()"><span class="slider-tog"></span></label>
+      </div>
+      <div class="row-toggle">
+        <span class="lbl">末尾を必ず数字にする</span>
+        <label class="toggle"><input type="checkbox" id="end-num" checked onchange="if(this.checked)gv('end-sym').checked=false; generate()"><span class="slider-tog"></span></label>
+      </div>
+      <div class="row-toggle">
+        <span class="lbl">末尾を必ず記号にする <small>（記号なしの場合は無視）</small></span>
+        <label class="toggle"><input type="checkbox" id="end-sym" onchange="if(this.checked)gv('end-num').checked=false; generate()"><span class="slider-tog"></span></label>
+      </div>
+      <div class="row-toggle">
+        <span class="lbl">紛らわしい文字を除外 <small>（0 O o l 1 I）</small></span>
+        <label class="toggle"><input type="checkbox" id="exclude-ambig" checked onchange="generate()"><span class="slider-tog"></span></label>
+      </div>
+    </div>
+  </div>
+
+  <!-- 文字種の割合 -->
+  <div class="section" id="ratio-section" data-section-id="ratio">
+    <div class="section-head" onclick="toggleSection(this,event)">
+      <span class="section-drag-handle">⠿</span><span class="section-title" style="flex:1;">文字種の割合 (%)</span><label style="display:flex;align-items:center;gap:3px;cursor:pointer;margin-right:8px;padding:0 4px;line-height:1;" onclick="event.stopPropagation()" ontouchstart="event.stopPropagation()" ontouchend="event.stopPropagation()" title="5%刻みでスライダーを動かす"><input type="checkbox" id="ratio-snap5" onchange="toggleSnap5()" style="margin:0;width:14px;height:14px;"><span style="font-size:10px;color:#999;">5%</span></label><label style="display:flex;align-items:center;gap:3px;cursor:pointer;margin-right:4px;padding:0 4px;line-height:1;" onclick="event.stopPropagation()" ontouchstart="event.stopPropagation()" ontouchend="event.stopPropagation()"><input type="checkbox" id="ratio-lock" onchange="toggleRatioLock()" style="margin:0;width:14px;height:14px;"><span style="font-size:10px;color:#aaa;">🔒</span></label>
+
+    </div>
+    <div class="section-body">
+      <div class="stepper-row">
+        <span class="s-label" style="width:50px;">数字</span>
+        <div class="stepper-group">
+          <button onclick="stepField('pct-num',-1)">−</button>
+          <input type="text" inputmode="numeric" class="stepper-num" id="pct-num-num" value="20"
+                 oninput="onNumInput(this,'pct-num',0,100);updateTotal();generate()"
+                 onblur="onNumBlur(this,'pct-num',0,100);updateTotal();generate()"
+                 onkeydown="if(event.key==='Enter')this.blur()">
+          <button onclick="stepField('pct-num',1)">+</button>
+        </div>
+        <span style="font-size:13px;color:#999;margin-left:-2px;">%</span>
+        <input type="range" class="stepper-slider" id="pct-num" min="0" max="100" value="20" step="1" oninput="onSliderInput('pct-num');updateTotal();generate()" onchange="onSliderDone('pct-num',updateTotal)">
+      </div>
+      <div class="stepper-row">
+        <span class="s-label" style="width:50px;">記号</span>
+        <div class="stepper-group">
+          <button onclick="stepField('pct-sym',-1)">−</button>
+          <input type="text" inputmode="numeric" class="stepper-num" id="pct-sym-num" value="20"
+                 oninput="onNumInput(this,'pct-sym',0,100);updateTotal();generate()"
+                 onblur="onNumBlur(this,'pct-sym',0,100);updateTotal();generate()"
+                 onkeydown="if(event.key==='Enter')this.blur()">
+          <button onclick="stepField('pct-sym',1)">+</button>
+        </div>
+        <span style="font-size:13px;color:#999;margin-left:-2px;">%</span>
+        <input type="range" class="stepper-slider" id="pct-sym" min="0" max="100" value="20" step="1" oninput="onSliderInput('pct-sym');updateTotal();generate()" onchange="onSliderDone('pct-sym',updateTotal)">
+      </div>
+      <div class="stepper-row">
+        <span class="s-label" style="width:50px;">大文字</span>
+        <div class="stepper-group">
+          <button onclick="stepField('pct-upper',-1)">−</button>
+          <input type="text" inputmode="numeric" class="stepper-num" id="pct-upper-num" value="20"
+                 oninput="onNumInput(this,'pct-upper',0,100);updateTotal();generate()"
+                 onblur="onNumBlur(this,'pct-upper',0,100);updateTotal();generate()"
+                 onkeydown="if(event.key==='Enter')this.blur()">
+          <button onclick="stepField('pct-upper',1)">+</button>
+        </div>
+        <span style="font-size:13px;color:#999;margin-left:-2px;">%</span>
+        <input type="range" class="stepper-slider" id="pct-upper" min="0" max="100" value="20" step="1" oninput="onSliderInput('pct-upper');updateTotal();generate()" onchange="onSliderDone('pct-upper',updateTotal)">
+      </div>
+      <div class="pct-total" id="pct-total">残り（小文字）: 45%</div>
+    </div>
+  </div>
+
+  <!-- 記号選択 -->
+  <div class="section" data-section-id="symbols">
+    <div class="section-head" onclick="toggleSection(this,event)"><span class="section-drag-handle">⠿</span><span class="section-title">使用する記号を選択</span></div>
+    <div class="section-body">
+      <div class="sym-actions">
+        <button class="sym-btn active" onclick="selectAllSyms()">全選択</button>
+        <button class="sym-btn" onclick="clearAllSyms()">全解除</button>
+      </div>
+      <div class="symbols-grid" id="sym-grid"></div>
+      <div class="sym-input-wrap">
+        <label>直接入力:</label>
+        <input type="text" class="sym-text-input" id="sym-text-input" placeholder="例: !@#$%" oninput="syncSymsFromText()">
+      </div>
+      <div class="sym-preview" id="sym-preview"></div>
+    </div>
+  </div>
+
+  <!-- 文字色の設定 -->
+  <div class="section" data-section-id="colors">
+    <div class="section-head" onclick="toggleSection(this,event)"><span class="section-drag-handle">⠿</span><span class="section-title">文字色の設定</span></div>
+    <div class="section-body">
+      <div class="color-row">
+        <span class="lbl">数字に色を付ける</span>
+        <div class="color-right">
+          <label class="toggle"><input type="checkbox" id="color-num-on" checked onchange="applyColors();generate()"><span class="slider-tog"></span></label>
+          <div class="color-picker-wrap"><div class="color-swatch" id="swatch-num" style="background:#185FA5"></div><input type="color" id="color-num" value="#185FA5" oninput="onColorPick('num')"></div>
+          <input type="text" class="color-hex-input" id="hex-num" value="#185FA5" oninput="onHexInput('num')" maxlength="7">
+          <button class="color-reset" onclick="resetColor('num')">↩</button>
+        </div>
+      </div>
+      <div class="color-row">
+        <span class="lbl">記号に色を付ける</span>
+        <div class="color-right">
+          <label class="toggle"><input type="checkbox" id="color-sym-on" checked onchange="applyColors();generate()"><span class="slider-tog"></span></label>
+          <div class="color-picker-wrap"><div class="color-swatch" id="swatch-sym" style="background:#993C1D"></div><input type="color" id="color-sym" value="#993C1D" oninput="onColorPick('sym')"></div>
+          <input type="text" class="color-hex-input" id="hex-sym" value="#993C1D" oninput="onHexInput('sym')" maxlength="7">
+          <button class="color-reset" onclick="resetColor('sym')">↩</button>
+        </div>
+      </div>
+      <div class="color-row">
+        <span class="lbl">大文字に色を付ける</span>
+        <div class="color-right">
+          <label class="toggle"><input type="checkbox" id="color-upper-on" checked onchange="applyColors();generate()"><span class="slider-tog"></span></label>
+          <div class="color-picker-wrap"><div class="color-swatch" id="swatch-upper" style="background:#3B6D11"></div><input type="color" id="color-upper" value="#3B6D11" oninput="onColorPick('upper')"></div>
+          <input type="text" class="color-hex-input" id="hex-upper" value="#3B6D11" oninput="onHexInput('upper')" maxlength="7">
+          <button class="color-reset" onclick="resetColor('upper')">↩</button>
+        </div>
+      </div>
+      <div class="color-row">
+        <span class="lbl">小文字に色を付ける</span>
+        <div class="color-right">
+          <label class="toggle"><input type="checkbox" id="color-lower-on" checked onchange="applyColors();generate()"><span class="slider-tog"></span></label>
+          <div class="color-picker-wrap"><div class="color-swatch" id="swatch-lower" style="background:#1a1a1a"></div><input type="color" id="color-lower" value="#1a1a1a" oninput="onColorPick('lower')"></div>
+          <input type="text" class="color-hex-input" id="hex-lower" value="#1a1a1a" oninput="onHexInput('lower')" maxlength="7">
+          <button class="color-reset" onclick="resetColor('lower')">↩</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 設定ファイルを読み込む -->
+  <div class="section" data-section-id="config">
+    <div class="section-head" onclick="toggleSection(this,event)">
+      <span class="section-drag-handle">⠿</span><span class="section-title">設定ファイルを読み込む</span>
+    </div>
+    <div class="section-body">
+      <!-- URL読み込み -->
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+        <input type="url" id="config-url" placeholder="https://gist.githubusercontent.com/..."
+          style="flex:1;min-width:0;font-family:inherit;font-size:12px;border:1px solid #ccc;border-radius:7px;padding:8px 10px;background:#fff;outline:none;"
+          onfocus="this.style.borderColor='#185FA5'" onblur="this.style.borderColor='#ccc'"
+          onkeydown="if(event.key==='Enter') loadRemoteConfig()">
+        <button class="btn" onclick="loadRemoteConfig()" style="white-space:nowrap;">読み込む</button>
+      </div>
+      <div id="config-status" style="font-size:11px;color:#888;min-height:16px;"></div>
+    </div>
+  </div>
+  <div class="section" data-section-id="advanced">
+    <div class="section-head" onclick="toggleSection(this,event)"><span class="section-drag-handle">⠿</span><span class="section-title">高度な設定</span></div>
+    <div class="section-body">
+      <div class="row-toggle">
+        <span class="lbl">同じ文字の連続を禁止</span>
+        <label class="toggle"><input type="checkbox" id="no-repeat" onchange="generate()"><span class="slider-tog"></span></label>
+      </div>
+      <div class="row-toggle">
+        <span class="lbl">各種文字を最低1文字含める</span>
+        <label class="toggle"><input type="checkbox" id="min-one" checked onchange="generate()"><span class="slider-tog"></span></label>
+      </div>
+      <div class="stepper-row">
+        <span class="s-label">最大連続同種文字数</span>
+        <div class="stepper-group">
+          <button onclick="stepField('max-seq',-1)">−</button>
+          <input type="text" inputmode="numeric" class="stepper-num" id="max-seq-num" value="5"
+                 oninput="onNumInput(this,'max-seq',1,10);generate()"
+                 onblur="onNumBlur(this,'max-seq',1,10);generate()"
+                 onkeydown="if(event.key==='Enter')this.blur()">
+          <button onclick="stepField('max-seq',1)">+</button>
+        </div>
+        <input type="range" class="stepper-slider" id="max-seq" min="1" max="10" value="5" step="1" oninput="onSliderInput('max-seq');generate()" onchange="onSliderDone('max-seq')">
+      </div>
+    </div>
+  </div>
+
+  <!-- パスワードメモ -->
+  <div class="section" data-section-id="memo">
+    <div class="section-head" onclick="toggleSection(this,event)"><span class="section-drag-handle">⠿</span><span class="section-title">パスワードメモ</span></div>
+    <div class="section-body">
+      <div style="display:flex;align-items:center;gap:8px;">
+        <span style="font-size:12px;color:#888;flex:1;">パスワード行を長押しでここに追加（最大<span id="memo-max-cap">30</span>件）</span>
+        <label style="display:flex;align-items:center;gap:4px;cursor:pointer;font-size:11px;color:#888;white-space:nowrap;"><input type="checkbox" id="memo-color-on" checked onchange="toggleMemoColor()" style="margin:0;width:13px;height:13px;">色を付ける</label>
+        <span id="memo-count" style="font-size:11px;color:#aaa;">0/30</span>
+        <button class="btn" id="memo-clear-btn" onclick="clearMemos()" style="height:32px;padding:0 12px;font-size:13px;">クリア</button>
+      </div>
+      <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;">
+        <span style="font-size:11px;color:#aaa;">表示:</span>
+        <label style="display:flex;align-items:center;gap:4px;cursor:pointer;font-size:12px;color:#666;white-space:nowrap;"><input type="checkbox" id="memo-filter-latest" onchange="toggleMemoFilter()" style="margin:0;width:13px;height:13px;">最新<span id="memo-latest-label">1</span>件のみ</label>
+        <label style="display:flex;align-items:center;gap:4px;cursor:pointer;font-size:12px;color:#666;white-space:nowrap;"><input type="checkbox" id="memo-filter-hour" onchange="toggleMemoFilter()" style="margin:0;width:13px;height:13px;"><span id="memo-hour-label">直近1時間</span></label>
+      </div>
+      <div class="memo-list" id="memo-list"></div>
+      <div id="memo-empty" style="font-size:12px;color:#bbb;padding:6px 2px;">メモはまだありません。</div>
+    </div>
+  </div>
+
+  <!-- 履歴 -->
+  <div class="section" data-section-id="history">
+    <div class="section-head" onclick="toggleSection(this,event)"><span class="section-drag-handle">⠿</span><span class="section-title">履歴</span></div>
+    <div class="section-body">
+      <div style="display:flex;align-items:center;gap:8px;">
+        <span style="font-size:12px;color:#888;flex:1;">コピー・メモした行を自動記録（最大<span id="hist-max-cap">30</span>件）</span>
+        <label style="display:flex;align-items:center;gap:4px;cursor:pointer;font-size:11px;color:#888;white-space:nowrap;"><input type="checkbox" id="hist-color-on" checked onchange="toggleHistColor()" style="margin:0;width:13px;height:13px;">色を付ける</label>
+        <span id="hist-count" style="font-size:11px;color:#aaa;">0/30</span>
+        <button class="btn" id="hist-clear-btn" onclick="clearHistory()" style="height:32px;padding:0 12px;font-size:13px;">クリア</button>
+      </div>
+      <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;">
+        <span style="font-size:11px;color:#aaa;">表示:</span>
+        <label style="display:flex;align-items:center;gap:4px;cursor:pointer;font-size:12px;color:#666;white-space:nowrap;"><input type="checkbox" id="hist-filter-latest" onchange="toggleHistFilter()" style="margin:0;width:13px;height:13px;">最新<span id="hist-latest-label">1</span>件のみ</label>
+        <label style="display:flex;align-items:center;gap:4px;cursor:pointer;font-size:12px;color:#666;white-space:nowrap;"><input type="checkbox" id="hist-filter-hour" onchange="toggleHistFilter()" style="margin:0;width:13px;height:13px;"><span id="hist-hour-label">直近1時間</span></label>
+        <label style="display:flex;align-items:center;gap:4px;cursor:pointer;font-size:12px;color:#666;white-space:nowrap;"><input type="checkbox" id="hist-filter-notmemo" onchange="toggleHistFilter()" style="margin:0;width:13px;height:13px;">メモにあるものを除く</label>
+      </div>
+      <div class="memo-list" id="hist-list"></div>
+      <div id="hist-empty" style="font-size:12px;color:#bbb;padding:6px 2px;">履歴はまだありません。</div>
+    </div>
+  </div>
+
+  <!-- 記録設定（メモ・履歴の共通設定） -->
+  <div class="section" data-section-id="recset">
+    <div class="section-head" onclick="toggleSection(this,event)"><span class="section-drag-handle">⠿</span><span class="section-title">記録設定</span></div>
+    <div class="section-body">
+      <div style="font-size:11px;color:#888;font-weight:700;margin-bottom:4px;">メモの絞り込み</div>
+      <div style="font-size:11px;color:#aaa;margin-bottom:2px;">「直近◯◯」の対象時間</div>
+      <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+        <div class="recset-time"><input type="text" inputmode="numeric" id="rec-memo-hh" value="1" onchange="onRecTimeInput()" oninput="onRecTimeInput()"><span>時間</span></div>
+        <div class="recset-time"><input type="text" inputmode="numeric" id="rec-memo-mm" value="0" onchange="onRecTimeInput()" oninput="onRecTimeInput()"><span>分</span></div>
+        <div class="recset-time"><input type="text" inputmode="numeric" id="rec-memo-ss" value="0" onchange="onRecTimeInput()" oninput="onRecTimeInput()"><span>秒</span></div>
+        <span id="rec-memo-time-preview" style="font-size:11px;color:#888;margin-left:4px;"></span>
+      </div>
+      <div style="font-size:11px;color:#aaa;margin-top:6px;margin-bottom:2px;">「最新◯件のみ」の件数</div>
+      <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+        <div class="recset-time"><span style="color:#888;">最新</span><input type="text" inputmode="numeric" id="rec-memo-latest" value="1" onchange="onRecLatestInput()" oninput="onRecLatestInput()"><span>件</span></div>
+      </div>
+      <div style="font-size:11px;color:#aaa;margin-top:6px;margin-bottom:2px;">先頭何件目まで詳細（日時・条件）を常に表示（0で表示しない）</div>
+      <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+        <div class="recset-time"><span style="color:#888;">先頭</span><input type="text" inputmode="numeric" id="rec-memo-detail" value="0" onchange="onRecDetailInput()" oninput="onRecDetailInput()"><span>件</span></div>
+      </div>
+
+      <div style="font-size:11px;color:#888;font-weight:700;margin-top:14px;margin-bottom:4px;">履歴の絞り込み</div>
+      <div style="font-size:11px;color:#aaa;margin-bottom:2px;">「直近◯◯」の対象時間</div>
+      <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+        <div class="recset-time"><input type="text" inputmode="numeric" id="rec-hist-hh" value="1" onchange="onRecTimeInput()" oninput="onRecTimeInput()"><span>時間</span></div>
+        <div class="recset-time"><input type="text" inputmode="numeric" id="rec-hist-mm" value="0" onchange="onRecTimeInput()" oninput="onRecTimeInput()"><span>分</span></div>
+        <div class="recset-time"><input type="text" inputmode="numeric" id="rec-hist-ss" value="0" onchange="onRecTimeInput()" oninput="onRecTimeInput()"><span>秒</span></div>
+        <span id="rec-hist-time-preview" style="font-size:11px;color:#888;margin-left:4px;"></span>
+      </div>
+      <div style="font-size:11px;color:#aaa;margin-top:6px;margin-bottom:2px;">「最新◯件のみ」の件数</div>
+      <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+        <div class="recset-time"><span style="color:#888;">最新</span><input type="text" inputmode="numeric" id="rec-hist-latest" value="1" onchange="onRecLatestInput()" oninput="onRecLatestInput()"><span>件</span></div>
+      </div>
+      <div style="font-size:11px;color:#aaa;margin-top:6px;margin-bottom:2px;">先頭何件目まで詳細（日時・条件）を常に表示（0で表示しない）</div>
+      <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+        <div class="recset-time"><span style="color:#888;">先頭</span><input type="text" inputmode="numeric" id="rec-hist-detail" value="0" onchange="onRecDetailInput()" oninput="onRecDetailInput()"><span>件</span></div>
+      </div>
+
+      <div class="row-toggle" style="margin-top:14px;">
+        <span class="lbl">「直近◯◯」を過ぎたらリアルタイムで自動的に消す</span>
+        <label class="toggle"><input type="checkbox" id="rec-realtime-expire" onchange="onRecRealtimeToggle()"><span class="slider-tog"></span></label>
+      </div>
+
+      <div class="row-toggle" style="margin-top:14px;">
+        <span class="lbl">クリアを連動（片方を消すと両方消す）</span>
+        <label class="toggle"><input type="checkbox" id="rec-clear-link" onchange="saveRecSettings();refreshRecLabels()"><span class="slider-tog"></span></label>
+      </div>
+
+      <div class="row-toggle">
+        <span class="lbl">クリア時に確認を出す</span>
+        <label class="toggle"><input type="checkbox" id="rec-clear-confirm" checked onchange="saveRecSettings()"><span class="slider-tog"></span></label>
+      </div>
+
+      <div style="font-size:11px;color:#aaa;margin-top:10px;margin-bottom:2px;">保存件数</div>
+      <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;">
+        <div class="recset-time"><span style="color:#888;">メモ</span><input type="text" inputmode="numeric" id="rec-memo-max" value="30" onchange="onRecMaxInput()" oninput="onRecMaxInput()"><span>件</span></div>
+        <div class="recset-time"><span style="color:#888;">履歴</span><input type="text" inputmode="numeric" id="rec-hist-max" value="30" onchange="onRecMaxInput()" oninput="onRecMaxInput()"><span>件</span></div>
+      </div>
+
+      <div style="font-size:11px;color:#aaa;margin-top:10px;margin-bottom:2px;">記録のエクスポート（メモ・履歴のみ）</div>
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+        <button class="btn" onclick="exportRecords()" style="height:32px;padding:0 12px;font-size:13px;">記録をJSON書き出し</button>
+        <span id="rec-export-status" style="font-size:11px;color:#3B6D11;"></span>
+      </div>
+    </div>
+  </div>
+  </div><!-- /sections-container -->
+
+</div>
+<button class="fab-regen" onclick="generate()" title="再生成 (Space / R)">↺</button>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+/* ===== Prevent double-tap zoom ===== */
+var lastTap=0;
+document.addEventListener('touchend',function(e){
+  var now=Date.now();
+  if(now-lastTap<300){e.preventDefault();}
+  lastTap=now;
+},{passive:false});
+
+/* ===== スライダータッチ操作（touch-action:noneのため手動で値更新） ===== */
+function initSliderTouch(){
+  document.querySelectorAll('.stepper-slider').forEach(function(sl){
+    function getVal(clientX){
+      var rect = sl.getBoundingClientRect();
+      var ratio = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
+      var min = parseFloat(sl.min)||0;
+      var max = parseFloat(sl.max)||100;
+      var step = parseFloat(sl.step)||1;
+      var raw = min + ratio * (max - min);
+      return Math.round(raw / step) * step;
+    }
+    sl.addEventListener('touchstart', function(e){
+      e.preventDefault();
+      sl.value = getVal(e.touches[0].clientX);
+      sl.dispatchEvent(new Event('input', {bubbles:true}));
+    }, {passive:false});
+    sl.addEventListener('touchmove', function(e){
+      e.preventDefault();
+      sl.value = getVal(e.touches[0].clientX);
+      sl.dispatchEvent(new Event('input', {bubbles:true}));
+    }, {passive:false});
+    sl.addEventListener('touchend', function(e){
+      e.preventDefault();
+      sl.dispatchEvent(new Event('change', {bubbles:true}));
+    }, {passive:false});
+  });
+}
+
+var sortOrder = 'asc'; /* 'asc' | 'desc' | 'none' */
+function toggleSort(){
+  var orders = ['asc','desc','none'];
+  var labels = ['昇順 ↑','降順 ↓','生成順'];
+  sortOrder = orders[(orders.indexOf(sortOrder)+1) % orders.length];
+  gv('sort-btn').textContent = labels[orders.indexOf(sortOrder)];
+  generate();
+}
+
+var ALL_SYMS=['!','@','#','$','%','^','&','*','(',')','_','-','+','=','[',']','{','}','|',';',':',',','.','<','>','?','/','"',"'","\\","~","`"];
+var activeSyms=new Set(['!','@','#','$','%','^','&','*','?']);
+var DEFAULTS={upper:'#3B6D11',num:'#185FA5',sym:'#993C1D',lower:'#1a1a1a'};
+var currentColors={upper:'#3B6D11',num:'#185FA5',sym:'#993C1D',lower:'#1a1a1a'};
+
+function gv(id){return document.getElementById(id);}
+function pick(arr){return arr[Math.floor(Math.random()*arr.length)];}
+
+/* ===== STEPPER — key fix =====
+   Use type="text" inputmode="numeric" so browser never blocks deletion.
+   onNumInput: push to slider only if value is a valid complete integer (no clamping yet).
+   onNumBlur: clamp & finalize.
+*/
+function onSliderChange(id){
+  var sl=gv(id), nm=gv(id+'-num');
+  if(nm) nm.value=sl.value;
+}
+/* 5%刻み対象（割合スライダー）か判定 */
+function isPctId(id){ return id==='pct-num' || id==='pct-sym' || id==='pct-upper'; }
+function snap5On(){ var c=gv('ratio-snap5'); return !!(c && c.checked); }
+function applySnap(id, v){
+  if(isPctId(id) && snap5On()) return Math.round(v/5)*5;
+  return v;
+}
+/* called on oninput — only update UI, no regenerate */
+function onSliderInput(id){
+  var sl=gv(id), nm=gv(id+'-num');
+  if(isPctId(id) && snap5On()){
+    var sv=applySnap(id, parseInt(sl.value,10)||0);
+    if(parseInt(sl.value,10)!==sv) sl.value=sv;
+  }
+  if(nm) nm.value=sl.value;
+}
+/* called on onchange (mouse/touch release) — regenerate */
+function onSliderDone(id, extra){
+  var sl=gv(id), nm=gv(id+'-num');
+  if(nm) nm.value=sl.value;
+  if(extra) extra();
+  generate();
+}
+function onNumInput(el, id, mn, mx){
+  var raw=el.value.replace(/[^0-9]/g,'');
+  // Allow empty / partial editing — don't clamp or block
+  var v=parseInt(raw,10);
+  if(!isNaN(v)){
+    var clamped=Math.max(mn,Math.min(mx,v));
+    clamped=applySnap(id, clamped);
+    var sl=gv(id); if(sl) sl.value=clamped;
+  }
+}
+function onNumBlur(el, id, mn, mx){
+  var v=parseInt(el.value,10);
+  if(isNaN(v)||el.value==='') v=mn;
+  v=Math.max(mn,Math.min(mx,v));
+  v=applySnap(id, v);
+  el.value=v;
+  var sl=gv(id); if(sl) sl.value=v;
+}
+function stepField(id, delta){
+  var sl=gv(id), nm=gv(id+'-num');
+  var step=(isPctId(id) && snap5On()) ? 5 : 1;
+  var cur=parseInt(sl.value,10)||parseInt(sl.min,10)||0;
+  if(isPctId(id) && snap5On()) cur=Math.round(cur/5)*5;  /* 端数があれば先に5の倍数へ */
+  var v=Math.max(parseInt(sl.min,10), Math.min(parseInt(sl.max,10), cur+delta*step));
+  sl.value=v; if(nm) nm.value=v;
+  sl.dispatchEvent(new Event('input'));
+  sl.dispatchEvent(new Event('change'));
+}
+function onCountInput(el){
+  var raw=el.value.replace(/[^0-9]/g,'');
+  var v=parseInt(raw,10);
+  if(!isNaN(v)&&v>=1&&v<=50) generate();
+}
+function onCountBlur(el){
+  var v=parseInt(el.value,10);
+  if(isNaN(v)||el.value==='') v=10;
+  v=Math.max(1,Math.min(50,v));
+  el.value=v; generate();
+}
+function stepCount(d){
+  var el=gv('pw-count');
+  var v=Math.max(1,Math.min(50,(parseInt(el.value,10)||10)+d));
+  el.value=v;  generate();
+}
+
+/* ===== COLORS ===== */
+function applyColors(){
+  var styleEl=gv('dyn-colors');
+  if(!styleEl){styleEl=document.createElement('style');styleEl.id='dyn-colors';document.head.appendChild(styleEl);}
+  var css='';
+  ['upper','num','sym','lower'].forEach(function(t){
+    var on=gv('color-'+t+'-on').checked, col=currentColors[t];
+    css+='.pw-text .c-'+t+'{color:'+(on?col:'#1a1a1a')+'}\n';
+    /* メモ：coloredのときだけ色、OFFは黒（パスワードの色ON/OFFにも追従） */
+    css+='.memo-text.colored .c-'+t+'{color:'+(on?col:'#1a1a1a')+'}\n';
+    /* 条件サマリー：色トグルに連動（OFFは黒） */
+    css+='#cond-summary .c-'+t+'{color:'+(on?col:'#1a1a1a')+'}\n';
+    /* メモ・履歴の詳細パネル内の条件表示も同様に色付け */
+    css+='.rec-detail .c-'+t+'{color:'+(on?col:'#1a1a1a')+'}\n';
+    var dot=gv('leg-'+t+'-dot'),leg=gv('leg-'+t);
+    if(dot) dot.style.background=on?col:'#ccc';
+    if(leg) leg.style.opacity=on?'1':'0.35';
+  });
+  /* メモが非colored時は全span黒 */
+  css+='.memo-text:not(.colored) .c-upper,.memo-text:not(.colored) .c-num,.memo-text:not(.colored) .c-sym,.memo-text:not(.colored) .c-lower{color:#1a1a1a}\n';
+  styleEl.textContent=css;
+  if(typeof renderCondSummary==='function') renderCondSummary();
+}
+function onColorPick(t){
+  var val=gv('color-'+t).value;
+  currentColors[t]=val;
+  gv('swatch-'+t).style.background=val;
+  gv('hex-'+t).value=val.toUpperCase();
+  applyColors(); generate();
+}
+function onHexInput(t){
+  var raw=gv('hex-'+t).value.trim();
+  if(!/^#/.test(raw)) raw='#'+raw;
+  if(/^#[0-9a-fA-F]{6}$/.test(raw)){
+    currentColors[t]=raw;
+    gv('color-'+t).value=raw;
+    gv('swatch-'+t).style.background=raw;
+    applyColors(); generate();
+  }
+}
+function resetColor(t){
+  currentColors[t]=DEFAULTS[t];
+  gv('color-'+t).value=DEFAULTS[t];
+  gv('swatch-'+t).style.background=DEFAULTS[t];
+  gv('hex-'+t).value=DEFAULTS[t].toUpperCase();
+  applyColors(); generate();
+}
+
+/* ===== SYMBOLS ===== */
+function getActiveSymsArray(){return ALL_SYMS.filter(function(s){return activeSyms.has(s);});}
+function updateSymPreview(){
+  var arr=getActiveSymsArray();
+  gv('sym-preview').textContent=arr.length>0?'選択中: '+arr.join(' '):'記号なし（末尾記号・記号割合は無視されます）';
+}
+function syncSymButtonsFromSet(){
+  document.querySelectorAll('#sym-grid .sym-btn').forEach(function(b){
+    if(activeSyms.has(b.textContent)) b.classList.add('active');
+    else b.classList.remove('active');
+  });
+}
+function syncTextInputFromSet(){
+  gv('sym-text-input').value=ALL_SYMS.filter(function(s){return activeSyms.has(s);}).join('');
+}
+function syncSymsFromText(){
+  var val=gv('sym-text-input').value;
+  activeSyms.clear();
+  for(var i=0;i<val.length;i++){var ch=val[i];if(ALL_SYMS.indexOf(ch)!==-1)activeSyms.add(ch);}
+  syncSymButtonsFromSet(); updateSymPreview(); generate();
+}
+function selectAllSyms(){ALL_SYMS.forEach(function(s){activeSyms.add(s);});syncSymButtonsFromSet();syncTextInputFromSet();updateSymPreview();generate();}
+function clearAllSyms(){activeSyms.clear();syncSymButtonsFromSet();syncTextInputFromSet();updateSymPreview();generate();}
+function initSymbols(){
+  var grid=gv('sym-grid');
+  var painting = false;
+  var paintMode = null; /* 'add' or 'remove' */
+  var visited = new Set();
+
+  function toggleSym(b, s){
+    if(visited.has(s)) return;
+    visited.add(s);
+    if(paintMode === 'add'){
+      activeSyms.add(s); b.classList.add('active');
+    } else {
+      activeSyms.delete(s); b.classList.remove('active');
+    }
+  }
+
+  function finishPaint(){
+    if(!painting) return;
+    painting = false; paintMode = null; visited.clear();
+    syncTextInputFromSet(); updateSymPreview(); generate();
+  }
+
+  var allBtns = [];
+
+  ALL_SYMS.forEach(function(s){
+    var b=document.createElement('button');
+    b.className='sym-btn'+(activeSyms.has(s)?' active':'');
+    b.textContent=s;
+    b.dataset.sym = s;
+    allBtns.push(b);
+    grid.appendChild(b);
+  });
+
+  /* iOS対応: Pointer Events + 座標ベースの判定 */
+  grid.style.touchAction = 'none';
+  grid.style.userSelect = 'none';
+  grid.style.webkitUserSelect = 'none';
+
+  function findBtnAt(x, y){
+    for(var i=0; i<allBtns.length; i++){
+      var r = allBtns[i].getBoundingClientRect();
+      if(x >= r.left && x <= r.right && y >= r.top && y <= r.bottom) return allBtns[i];
+    }
+    return null;
+  }
+
+  grid.addEventListener('pointerdown', function(e){
+    e.preventDefault();
+    grid.setPointerCapture(e.pointerId);
+    var el = findBtnAt(e.clientX, e.clientY);
+    if(!el) return;
+    painting = true;
+    visited.clear();
+    paintMode = activeSyms.has(el.dataset.sym) ? 'remove' : 'add';
+    toggleSym(el, el.dataset.sym);
+  });
+
+  grid.addEventListener('pointermove', function(e){
+    if(!painting) return;
+    e.preventDefault();
+    var el = findBtnAt(e.clientX, e.clientY);
+    if(el) toggleSym(el, el.dataset.sym);
+  });
+
+  grid.addEventListener('pointerup', function(e){
+    grid.releasePointerCapture(e.pointerId);
+    finishPaint();
+  });
+
+  grid.addEventListener('pointercancel', function(e){
+    grid.releasePointerCapture(e.pointerId);
+    finishPaint();
+  });
+
+  syncTextInputFromSet(); updateSymPreview();
+}
+
+/* ===== TOTAL ===== */
+function updateTotal(){
+  var n=+gv('pct-num').value,s=+gv('pct-sym').value,u=+gv('pct-upper').value;
+  var lower=100-n-s-u,el=gv('pct-total');
+  if(lower<0){el.textContent='合計が100%超 → 自動正規化します';el.className='pct-total over';}
+  else{el.textContent='残り（小文字）: '+lower+'%';el.className='pct-total';}
+}
+
+/* ===== BUILD ONE ===== */
+function buildOne(){
+  var len=parseInt(gv('len').value,10)||8;
+  var pctN=+gv('pct-num').value/100,pctS=+gv('pct-sym').value/100,pctU=+gv('pct-upper').value/100;
+  var symArr=getActiveSymsArray();
+  if(symArr.length===0) pctS=0;
+  var total=pctN+pctS+pctU;
+  if(total>1){var f=1/total;pctN*=f;pctS*=f;pctU*=f;}
+
+  var excludeAmbig=gv('exclude-ambig').checked;
+  var startUpper=gv('start-upper').checked,startAlpha=gv('start-alpha').checked;
+  var endNum=gv('end-num').checked,endSym=gv('end-sym').checked&&symArr.length>0;
+  var noRepeat=gv('no-repeat').checked,minOne=gv('min-one').checked,maxSeq=parseInt(gv('max-seq').value,10)||5;
+
+  var lower='abcdefghijklmnopqrstuvwxyz',upper='ABCDEFGHIJKLMNOPQRSTUVWXYZ',nums='0123456789';
+  if(excludeAmbig){lower=lower.replace(/[ol]/g,'');upper=upper.replace(/[OI]/g,'');nums=nums.replace(/[01]/g,'');}
+  var lArr=lower.split(''),uArr=upper.split(''),nArr=nums.split('');
+
+  var cntN=Math.round(len*pctN),cntS=Math.round(len*pctS),cntU=Math.round(len*pctU);
+  var cntL=len-cntN-cntS-cntU;
+  if(cntL<0){cntN+=cntL;cntL=0;} if(cntN<0)cntN=0;
+  if(minOne){
+    if(pctN>0&&nArr.length>0&&cntN<1){cntN=1;if(cntL>0)cntL--;}
+    if(pctS>0&&symArr.length>0&&cntS<1){cntS=1;if(cntL>0)cntL--;}
+    if(pctU>0&&uArr.length>0&&cntU<1){cntU=1;if(cntL>0)cntL--;}
+  }
+  if(cntL<0)cntL=0;
+
+  var pool=[];
+  for(var i=0;i<cntN;i++) pool.push({c:pick(nArr),t:'num'});
+  for(var i=0;i<cntS;i++) pool.push({c:pick(symArr),t:'sym'});
+  for(var i=0;i<cntU;i++) pool.push({c:pick(uArr),t:'upper'});
+  for(var i=0;i<cntL;i++) pool.push({c:pick(lArr),t:'lower'});
+
+  for(var i=pool.length-1;i>0;i--){var j=Math.floor(Math.random()*(i+1));var tmp=pool[i];pool[i]=pool[j];pool[j]=tmp;}
+  if(noRepeat){for(var i=1;i<pool.length;i++){if(pool[i].c===pool[i-1].c){for(var k=i+1;k<pool.length;k++){if(pool[k].c!==pool[i-1].c){var tmp=pool[i];pool[i]=pool[k];pool[k]=tmp;break;}}}}}
+  if(maxSeq<10){for(var att=0;att<80;att++){var bad=false;for(var i=0;i+maxSeq<pool.length;i++){var t0=pool[i].t,run=true;for(var k=i+1;k<=i+maxSeq;k++){if(pool[k].t!==t0){run=false;break;}}if(run){bad=true;break;}}if(!bad)break;for(var i=pool.length-1;i>0;i--){var j=Math.floor(Math.random()*(i+1));var tmp=pool[i];pool[i]=pool[j];pool[j]=tmp;}}}
+
+  if(startUpper&&pool.length>0){
+    var ui=-1;for(var i=0;i<pool.length;i++){if(pool[i].t==='upper'){ui=i;break;}}
+    if(ui>0){var tmp=pool[0];pool[0]=pool[ui];pool[ui]=tmp;}
+    else if(ui===-1&&uArr.length>0)pool[0]={c:pick(uArr),t:'upper'};
+  }else if(startAlpha&&pool.length>0){
+    var ai=-1;for(var i=0;i<pool.length;i++){if(pool[i].t==='lower'||pool[i].t==='upper'){ai=i;break;}}
+    if(ai>0){var tmp=pool[0];pool[0]=pool[ai];pool[ai]=tmp;}
+    else if(ai===-1)pool[0]={c:pick(lArr),t:'lower'};
+  }
+
+  var last=pool.length-1;
+  if(endSym){
+    var si=-1;for(var i=pool.length-1;i>=0;i--){if(pool[i].t==='sym'){si=i;break;}}
+    if(si>=0&&si!==last){var tmp=pool[last];pool[last]=pool[si];pool[si]=tmp;}
+    else if(si===-1)pool[last]={c:pick(symArr),t:'sym'};
+  }else if(endNum&&pool.length>0){
+    var ni=-1;for(var i=pool.length-1;i>=0;i--){if(pool[i].t==='num'){ni=i;break;}}
+    if(ni>=0&&ni!==last){var tmp=pool[last];pool[last]=pool[ni];pool[ni]=tmp;}
+    else if(ni===-1&&nArr.length>0)pool[last]={c:pick(nArr),t:'num'};
+  }
+
+  var plain=pool.map(function(p){return p.c;}).join('');
+  var html=pool.map(function(p){
+    var cls=p.t==='num'?'c-num':p.t==='sym'?'c-sym':p.t==='upper'?'c-upper':p.t==='lower'?'c-lower':'';
+    var ch=p.c.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    return cls?'<span class="'+cls+'">'+ch+'</span>':ch;
+  }).join('');
+  return{html:html,plain:plain,pctN:pctN,pctS:pctS,pctU:pctU,symLen:symArr.length};
+}
+
+/* 平文パスワードから色分けHTMLを生成（メモ用。記号は現在の選択記号で判定） */
+function colorizePlain(plain){
+  var symSet = getActiveSymsArray();
+  return String(plain).split('').map(function(ch){
+    var cls='';
+    if(ch>='0'&&ch<='9') cls='c-num';
+    else if(ch>='A'&&ch<='Z') cls='c-upper';
+    else if(ch>='a'&&ch<='z') cls='c-lower';     /* 小文字 */
+    else cls='c-sym';                             /* それ以外は記号扱い */
+    var e=ch.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    return cls ? '<span class="'+cls+'">'+e+'</span>' : e;
+  }).join('');
+}
+
+/* ===== GENERATE ===== */
+function getAvailableWidth(){
+  var listW = gv('pw-list').offsetWidth || (window.innerWidth - 32);
+  /* 番号(20px) + gap(6px) + 左右padding(24px) */
+  return listW - 50;
+}
+
+function calcFontSize(){
+  var tester = document.getElementById('font-tester');
+  if(!tester){
+    tester = document.createElement('span');
+    tester.id = 'font-tester';
+    tester.style.cssText = 'position:fixed;top:-999px;left:-999px;font-family:"Courier New",monospace;font-weight:600;white-space:pre;visibility:hidden;';
+    document.body.appendChild(tester);
+  }
+  var available = getAvailableWidth();
+  var mobile = window.innerWidth < 541;
+
+  var sample = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*()';
+  for(var px = 18; px >= 8; px--){
+    tester.style.fontSize = px + 'px';
+    tester.textContent = sample;
+    if(tester.offsetWidth <= available) return px;
+  }
+  return 8;
+}
+
+function findBreakPoint(plain, fs){
+  var tester = document.getElementById('font-tester');
+  tester.style.fontSize = fs;
+  var available = getAvailableWidth() * 0.88;
+  tester.textContent = plain;
+  if(tester.offsetWidth <= available) return -1;
+  for(var n = 1; n <= plain.length; n++){
+    tester.textContent = plain.slice(0, n);
+    if(tester.offsetWidth > available) return n - 1;
+  }
+  return plain.length;
+}
+
+function pwConfig(len){
+  var fs     = calcFontSize();
+  var mobile = window.innerWidth < 541;
+  var lineH  = Math.round(fs * 1.6);
+  var pad    = 10;
+  var rows   = 2;
+  var rowH   = lineH * rows + pad;
+  /* スマホは行高さ1.8倍、フォントも大きめ */
+  var mobileRowH = Math.round((lineH * rows + 20) * 2.0);
+  var mobilefs   = Math.min(fs + 5, 24);
+  return {
+    fs:      mobile ? mobilefs+'px' : fs+'px',
+    fsLarge: mobile ? (mobilefs+4)+'px' : (fs+3)+'px',
+    rowH:    mobile ? mobileRowH+'px' : rowH+'px'
+  };
+}
+
+/* 現在の生成条件を素の値で取得（メモ・履歴に保存する用） */
+function getCondObj(){
+  var symArr = getActiveSymsArray();
+  var pctU = parseInt(gv('pct-upper').value,10)||0;
+  var pctN = parseInt(gv('pct-num').value,10)||0;
+  var pctS = parseInt(gv('pct-sym').value,10)||0;
+  var pctL = Math.max(0, 100 - pctU - pctN - pctS);  /* 残りが小文字 */
+  return {
+    len: parseInt(gv('len').value,10) || 16,
+    pctU: pctU,
+    pctN: pctN,
+    pctS: pctS,
+    pctL: pctL,
+    startUpper: gv('start-upper').checked,
+    startAlpha: gv('start-alpha').checked,
+    endNum: gv('end-num').checked,
+    endSym: gv('end-sym').checked && symArr.length>0,
+    syms: symArr.slice()
+  };
+}
+/* 条件オブジェクト→色付きHTML（色は色トグルに連動する c-* クラス） */
+function condToHtml(c){
+  if(!c) return '<span style="color:#bbb;">条件不明</span>';
+  function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+  function tag(cls, inner){ return '<span class="c-'+cls+'" style="font-size:0.85em;font-weight:700;">【'+inner+'】</span>'; }
+  function ch(cls, x){ return '<span class="c-'+cls+'" style="font-weight:700;">'+x+'</span>'; }
+  var U=tag('upper','A'), N=tag('num','1'), S=tag('sym','#'), L=tag('lower','a');
+  var Uc=ch('upper','A'), Nc=ch('num','1'), Sc=ch('sym','#'), Lc=ch('lower','a');
+  var sep='<span style="color:#ccc;"> : </span>';
+  var parts=[];
+  parts.push('<b style="color:#666;">'+(c.len||'?')+'桁</b>');
+  /* 並び：数字・記号・大文字・小文字 */
+  var pctL = (typeof c.pctL==='number') ? c.pctL : Math.max(0,100-(c.pctU||0)-(c.pctN||0)-(c.pctS||0));
+  parts.push(N+': '+(c.pctN||0)+'%  '+S+': '+(c.pctS||0)+'%  '+U+': '+(c.pctU||0)+'%  '+L+': '+pctL+'%');
+  var head='', tail='';
+  if(c.startUpper) head=Uc; else if(c.startAlpha) head=Lc;
+  if(c.endNum) tail=Nc; else if(c.endSym) tail=Sc;
+  if(head || tail){
+    parts.push((head||'<span style="color:#bbb;">?</span>')+'<span style="color:#ccc;">...</span>'+(tail||'<span style="color:#bbb;">?</span>'));
+  }
+  var html=parts.join(sep);
+  if(c.syms && c.syms.length>0){
+    /* 記号の割合が0%のときは記号一覧をグレーアウト */
+    var symStyle = ((c.pctS||0) === 0) ? ' style="color:#bbb;"' : '';
+    var symCls = ((c.pctS||0) === 0) ? '' : ' class="c-sym"';
+    html += sep + '記号 <span'+symCls+symStyle+'>' + c.syms.map(esc).join(' ') + '</span>';
+  }
+  return html;
+}
+
+/* 生成条件のサマリーを1行で表示（大文字=緑【A】 / 数字=青【1】 / 記号=赤茶【#】） */
+function renderCondSummary(){
+  var el = gv('cond-summary'); if(!el) return;
+  el.innerHTML = condToHtml(getCondObj());
+}
+
+function generate(){
+  renderCondSummary();
+  var count = Math.min(50, Math.max(1, parseInt(gv('pw-count').value,10)||10));
+  var results = [];
+  for(var i=0;i<count;i++) results.push(buildOne());
+  results.sort(function(a,b){
+    if(sortOrder === 'asc')  return a.plain < b.plain ? -1 : a.plain > b.plain ? 1 : 0;
+    if(sortOrder === 'desc') return a.plain > b.plain ? -1 : a.plain < b.plain ? 1 : 0;
+    return 0; /* none: 生成順そのまま */
+  });
+
+  var len = parseInt(gv('len').value,10) || 16;
+  var cfg = pwConfig(len);
+  var list = gv('pw-list');
+  list.innerHTML = '';
+
+  for(var i=0; i<results.length; i++){
+    var r = results[i];
+    var row = document.createElement('div');
+    row.className = 'pw-row';
+    row.dataset.plain = r.plain;
+    row.style.height = cfg.rowH;
+
+    var mobile = window.innerWidth < 541;
+
+    /* スマホも固定高さを適用 */
+    row.style.height = cfg.rowH;
+
+    /* 実幅で折り返し位置を決定（PCのみ） */
+    var bp = mobile ? -1 : findBreakPoint(r.plain, cfg.fs);
+    var threshold = mobile ? 70 : 55;
+    var usedFs = (bp < 0 && r.plain.length <= threshold) ? cfg.fsLarge : cfg.fs;
+    /* debug: show font size on first row */
+    if(i===0){ console.log('mobile:'+mobile+' len:'+r.plain.length+' fs:'+cfg.fs+' fsLarge:'+cfg.fsLarge+' used:'+usedFs); }
+
+    /* html文字列のn番目の平文文字の直後のインデックスを返す */
+    function htmlSplitAt(html, n){
+      var cnt=0, inT=false;
+      for(var k=0; k<html.length; k++){
+        if(html[k]==='<') inT=true;
+        if(!inT) cnt++;
+        if(!inT && cnt===n) return k+1;
+        if(html[k]==='>') inT=false;
+      }
+      return html.length;
+    }
+
+    var displayHtml;
+    if(mobile){
+      /* スマホ: そのまま渡してCSSのword-breakで折り返す */
+      displayHtml = r.html;
+    } else if(bp < 0){
+      displayHtml = r.html;
+    } else {
+      var pcSi = htmlSplitAt(r.html, bp);
+      displayHtml = r.html.slice(0,pcSi) + '\n' + r.html.slice(pcSi);
+    }
+
+    var numEl  = document.createElement('span');
+    numEl.className = 'pw-num';
+    numEl.textContent = i+1;
+
+    var txtEl  = document.createElement('span');
+    txtEl.className = 'pw-text';
+    txtEl.style.fontSize = usedFs;
+    if(mobile){
+      txtEl.style.whiteSpace = 'normal';
+      txtEl.style.wordBreak  = 'break-all';
+    } else {
+      txtEl.style.whiteSpace = 'pre';
+      txtEl.style.overflow   = 'hidden';
+    }
+    txtEl.innerHTML = displayHtml;
+
+    var badgeEl = document.createElement('span');
+    badgeEl.className = 'pw-copied-badge';
+    badgeEl.textContent = 'COPIED';
+
+    row.appendChild(numEl);
+    row.appendChild(txtEl);
+    row.appendChild(badgeEl);
+
+    /* 行全体クリックでコピー（長押し＝メモ追加） */
+    (function(plain, rowEl, badge){
+      var lpTimer=null, lpFired=false, sx=0, sy=0;
+      function startPress(x,y){
+        lpFired=false; sx=x; sy=y;
+        clearTimeout(lpTimer);
+        lpTimer=setTimeout(function(){
+          lpFired=true;
+          withScrollCompensation(function(){
+            addMemo(plain);
+            addHistory(plain);                                       /* 履歴にも記録 */
+          }, rowEl);
+          copyText(plain, {textContent:'',set textContent(v){}});  /* メモと同時にコピー */
+          /* メモ＋コピーのフィードバック（ピンク/赤系で一瞬光らせる） */
+          rowEl.classList.remove('copied');
+          rowEl.classList.add('memoed');
+          badge.textContent='MEMO + COPIED';
+          badge.style.opacity='1';
+          clearTimeout(rowEl._ct);
+          rowEl._ct=setTimeout(function(){ rowEl.classList.remove('memoed'); badge.style.opacity='0'; badge.textContent='COPIED'; }, 1300);
+        }, 550);
+      }
+      function moveCancel(x,y){
+        if(Math.abs(x-sx)>8 || Math.abs(y-sy)>8) clearTimeout(lpTimer);
+      }
+      function endPress(){ clearTimeout(lpTimer); }
+
+      rowEl.addEventListener('mousedown', function(e){ startPress(e.clientX,e.clientY); });
+      rowEl.addEventListener('mousemove', function(e){ moveCancel(e.clientX,e.clientY); });
+      rowEl.addEventListener('mouseup', endPress);
+      rowEl.addEventListener('mouseleave', endPress);
+      rowEl.addEventListener('touchstart', function(e){ var t=e.touches[0]; startPress(t.clientX,t.clientY); }, {passive:true});
+      rowEl.addEventListener('touchmove', function(e){ var t=e.touches[0]; moveCancel(t.clientX,t.clientY); }, {passive:true});
+      rowEl.addEventListener('touchend', endPress);
+
+      rowEl.addEventListener('click', function(){
+        if(lpFired){ lpFired=false; return; }  /* 長押しでメモ追加済み → コピーしない */
+        copyText(plain, {textContent:'',set textContent(v){}});
+        withScrollCompensation(function(){ addHistory(plain); }, rowEl);  /* 履歴に記録 */
+        rowEl.classList.add('copied');
+        badge.style.opacity = '1';
+        clearTimeout(rowEl._ct);
+        rowEl._ct = setTimeout(function(){
+          rowEl.classList.remove('copied');
+          badge.style.opacity = '0';
+        }, 1500);
+      });
+    })(r.plain, row, badgeEl);
+
+    list.appendChild(row);
+  }
+  if(results.length) updateStrength(results[0]);
+}
+
+function updateStrength(r){
+  var len=parseInt(gv('len').value,10),score=0;
+  if(len>=8)score++;if(len>=12)score++;if(len>=20)score++;
+  if(r.pctN>0)score+=0.5;if(r.pctS>0&&r.symLen>0)score+=0.5;
+  if(r.pctU>0)score+=0.5;if(r.pctN>0&&r.pctS>0&&r.pctU>0&&r.symLen>0)score+=0.5;
+  var lvl=Math.min(5,Math.floor(score));
+  var colors=['#ddd','#993C1D','#BA7517','#185FA5','#3B6D11','#3B6D11'];
+  var labels=['','弱い','やや弱い','普通','強い','非常に強い'];
+  for(var i=0;i<5;i++) gv('s'+i).style.background=i<lvl?colors[lvl]:'#ddd';
+  gv('strength-label').textContent=labels[lvl]||'';
+}
+
+function copyText(text, btn, label){
+  label = label || 'コピー';
+  function done(){
+    var old = btn.textContent; btn.textContent = '✓';
+    setTimeout(function(){ btn.textContent = old; }, 1400);
+  }
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(text).then(done).catch(function(){
+      fallbackCopy(text, btn, done);
+    });
+  } else {
+    fallbackCopy(text, btn, done);
+  }
+}
+function fallbackCopy(text, btn, done){
+  var ta = document.createElement('textarea');
+  ta.value = text;
+  ta.style.cssText = 'position:fixed;top:-9999px;left:-9999px;opacity:0;';
+  document.body.appendChild(ta);
+  ta.focus(); ta.select();
+  try { document.execCommand('copy'); done(); } catch(e){ alert('コピー失敗: '+e); }
+  document.body.removeChild(ta);
+}
+
+function copyAll(){
+  var rows = document.querySelectorAll('#pw-list .pw-row');
+  var all = Array.prototype.map.call(rows, function(r){ return r.dataset.plain||''; }).join('\n');
+  var btn = document.querySelectorAll('.top-controls .btn')[0];
+  copyText(all, btn);
+}
+
+/* ===== レイアウト変化のスクロール補正 ===== */
+/* 触っている要素(anchor)の画面上の位置を操作前後で測り、ずれたぶんだけスクロールを足して
+   anchorが画面上で動かないようにする。増えた場所が上でも下でも有効。 */
+function withScrollCompensation(fn, anchor){
+  var se = document.scrollingElement || document.documentElement;
+  if(!anchor){
+    /* anchorが無い場合は従来の高さ差分方式にフォールバック */
+    var beforeH = se.scrollHeight, beforeTop = se.scrollTop;
+    fn();
+    requestAnimationFrame(function(){ requestAnimationFrame(function(){
+      var d = se.scrollHeight - beforeH; if(d) se.scrollTop = beforeTop + d;
+    });});
+    return;
+  }
+  var beforeY = anchor.getBoundingClientRect().top;  /* 操作前の画面上Y */
+  fn();
+  requestAnimationFrame(function(){ requestAnimationFrame(function(){
+    var afterY = anchor.getBoundingClientRect().top; /* 操作後の画面上Y */
+    var delta = afterY - beforeY;
+    if(delta !== 0){ se.scrollTop += delta; }        /* ずれたぶんを相殺 */
+  });});
+}
+
+/* ===== 記録設定（メモ・履歴の共通設定） ===== */
+var RECSET_KEY = 'pwgen_recset_v1';
+/* 既定値 */
+var recClearLink = false;
+var recClearConfirm = true;   /* クリア時に確認を出すか */
+
+function clampInt(v, mn, mx, def){
+  v = parseInt(v,10);
+  if(isNaN(v)) v = def;
+  return Math.max(mn, Math.min(mx, v));
+}
+/* 「直近◯◯」のミリ秒。pは 'memo' or 'hist' */
+function recWindowMs(p){
+  var hh = clampInt(gv('rec-'+p+'-hh') && gv('rec-'+p+'-hh').value, 0, 999, 0);
+  var mm = clampInt(gv('rec-'+p+'-mm') && gv('rec-'+p+'-mm').value, 0, 59, 0);
+  var ss = clampInt(gv('rec-'+p+'-ss') && gv('rec-'+p+'-ss').value, 0, 59, 0);
+  return ((hh*3600)+(mm*60)+ss) * 1000;
+}
+/* 「直近1時間30分」のように整形（0の単位は省く）。pは 'memo' or 'hist' */
+function recWindowLabel(p){
+  var hh = clampInt(gv('rec-'+p+'-hh') && gv('rec-'+p+'-hh').value, 0, 999, 0);
+  var mm = clampInt(gv('rec-'+p+'-mm') && gv('rec-'+p+'-mm').value, 0, 59, 0);
+  var ss = clampInt(gv('rec-'+p+'-ss') && gv('rec-'+p+'-ss').value, 0, 59, 0);
+  var parts = [];
+  if(hh) parts.push(hh+'時間');
+  if(mm) parts.push(mm+'分');
+  if(ss) parts.push(ss+'秒');
+  if(parts.length === 0) parts.push('0秒');
+  return '直近' + parts.join('');
+}
+/* 「最新◯件のみ」の件数。pは 'memo' or 'hist'（1以上） */
+function recLatestN(p){
+  return clampInt(gv('rec-'+p+'-latest') && gv('rec-'+p+'-latest').value, 1, 500, 1);
+}
+/* 先頭何件まで詳細を強制表示するか。pは 'memo' or 'hist'（0で表示しない） */
+function recDetailN(p){
+  return clampInt(gv('rec-'+p+'-detail') && gv('rec-'+p+'-detail').value, 0, 500, 0);
+}
+function onRecDetailInput(){
+  saveRecSettings();
+  if(typeof renderMemos==='function') renderMemos();
+  if(typeof renderHistory==='function') renderHistory();
+}
+/* リアルタイム失効：直近◯◯のフィルタON時、時間経過で表示が変わるよう定期再描画 */
+var recRealtimeTimer = null;
+function recRealtimeOn(){ var c=gv('rec-realtime-expire'); return c && c.checked; }
+function startRecRealtime(){
+  if(recRealtimeTimer) return;
+  recRealtimeTimer = setInterval(function(){
+    if(!recRealtimeOn()){ stopRecRealtime(); return; }
+    /* 直近◯◯フィルタが効いているときだけ再描画（軽く） */
+    var mh=gv('memo-filter-hour'), hh=gv('hist-filter-hour');
+    if(mh && mh.checked && typeof renderMemos==='function') renderMemos();
+    if(hh && hh.checked && typeof renderHistory==='function') renderHistory();
+  }, 1000);
+}
+function stopRecRealtime(){
+  if(recRealtimeTimer){ clearInterval(recRealtimeTimer); recRealtimeTimer=null; }
+}
+function onRecRealtimeToggle(){
+  saveRecSettings();
+  if(recRealtimeOn()) startRecRealtime(); else stopRecRealtime();
+  if(typeof renderMemos==='function') renderMemos();
+  if(typeof renderHistory==='function') renderHistory();
+}
+function refreshRecLabels(){
+  var ml = gv('memo-hour-label'); if(ml) ml.textContent = recWindowLabel('memo');
+  var hl = gv('hist-hour-label'); if(hl) hl.textContent = recWindowLabel('hist');
+  var mpv = gv('rec-memo-time-preview'); if(mpv) mpv.textContent = '= ' + recWindowLabel('memo');
+  var hpv = gv('rec-hist-time-preview'); if(hpv) hpv.textContent = '= ' + recWindowLabel('hist');
+  var mc = gv('memo-max-cap'); if(mc) mc.textContent = MEMO_MAX;
+  var hc = gv('hist-max-cap'); if(hc) hc.textContent = HIST_MAX;
+  var mll = gv('memo-latest-label'); if(mll) mll.textContent = recLatestN('memo');
+  var hll = gv('hist-latest-label'); if(hll) hll.textContent = recLatestN('hist');
+  /* クリア連動ONなら「Wクリア」、OFFなら「クリア」 */
+  var linked = !!(gv('rec-clear-link') && gv('rec-clear-link').checked);
+  var mb = gv('memo-clear-btn'); if(mb) mb.textContent = linked ? 'Wクリア' : 'クリア';
+  var hb = gv('hist-clear-btn'); if(hb) hb.textContent = linked ? 'Wクリア' : 'クリア';
+}
+function getRecSettingsObj(){
+  return {
+    memoHH: clampInt(gv('rec-memo-hh').value,0,999,1),
+    memoMM: clampInt(gv('rec-memo-mm').value,0,59,0),
+    memoSS: clampInt(gv('rec-memo-ss').value,0,59,0),
+    memoLatest: recLatestN('memo'),
+    histHH: clampInt(gv('rec-hist-hh').value,0,999,1),
+    histMM: clampInt(gv('rec-hist-mm').value,0,59,0),
+    histSS: clampInt(gv('rec-hist-ss').value,0,59,0),
+    histLatest: recLatestN('hist'),
+    memoDetail: recDetailN('memo'),
+    histDetail: recDetailN('hist'),
+    realtimeExpire: !!(gv('rec-realtime-expire') && gv('rec-realtime-expire').checked),
+    clearLink: !!(gv('rec-clear-link') && gv('rec-clear-link').checked),
+    clearConfirm: !(gv('rec-clear-confirm')) ? true : gv('rec-clear-confirm').checked,
+    memoMax: MEMO_MAX,
+    histMax: HIST_MAX
+  };
+}
+function applyRecSettingsObj(o){
+  if(!o) return;
+  function setv(id, val){ var e=gv(id); if(e) e.value = val; }
+  if(typeof o.memoHH !== 'undefined') setv('rec-memo-hh', clampInt(o.memoHH,0,999,1));
+  if(typeof o.memoMM !== 'undefined') setv('rec-memo-mm', clampInt(o.memoMM,0,59,0));
+  if(typeof o.memoSS !== 'undefined') setv('rec-memo-ss', clampInt(o.memoSS,0,59,0));
+  if(o.memoLatest) setv('rec-memo-latest', clampInt(o.memoLatest,1,500,1));
+  if(typeof o.histHH !== 'undefined') setv('rec-hist-hh', clampInt(o.histHH,0,999,1));
+  if(typeof o.histMM !== 'undefined') setv('rec-hist-mm', clampInt(o.histMM,0,59,0));
+  if(typeof o.histSS !== 'undefined') setv('rec-hist-ss', clampInt(o.histSS,0,59,0));
+  if(o.histLatest) setv('rec-hist-latest', clampInt(o.histLatest,1,500,1));
+  if(typeof o.memoDetail !== 'undefined') setv('rec-memo-detail', clampInt(o.memoDetail,0,500,0));
+  if(typeof o.histDetail !== 'undefined') setv('rec-hist-detail', clampInt(o.histDetail,0,500,0));
+  if(typeof o.realtimeExpire !== 'undefined'){ var re=gv('rec-realtime-expire'); if(re) re.checked=!!o.realtimeExpire; }
+  if(typeof o.clearLink !== 'undefined'){ recClearLink = !!o.clearLink; var cl=gv('rec-clear-link'); if(cl) cl.checked = recClearLink; }
+  if(typeof o.clearConfirm !== 'undefined'){ recClearConfirm = !!o.clearConfirm; var cc=gv('rec-clear-confirm'); if(cc) cc.checked = recClearConfirm; }
+  if(o.memoMax){ MEMO_MAX = clampInt(o.memoMax,1,500,30); var rm=gv('rec-memo-max'); if(rm) rm.value = MEMO_MAX; }
+  if(o.histMax){ HIST_MAX = clampInt(o.histMax,1,500,30); var rh=gv('rec-hist-max'); if(rh) rh.value = HIST_MAX; }
+}
+function saveRecSettings(){
+  recClearLink = !!(gv('rec-clear-link') && gv('rec-clear-link').checked);
+  recClearConfirm = !(gv('rec-clear-confirm')) ? true : gv('rec-clear-confirm').checked;
+  try{ localStorage.setItem(RECSET_KEY, JSON.stringify(getRecSettingsObj())); }catch(e){}
+  scheduleCloudSave();
+}
+function loadRecSettings(){
+  var raw; try{ raw = localStorage.getItem(RECSET_KEY); }catch(e){}
+  if(raw){
+    try{ applyRecSettingsObj(JSON.parse(raw)); }catch(e){}
+  }
+  refreshRecLabels();
+}
+/* 直近時間の入力変更 */
+function onRecTimeInput(){
+  saveRecSettings();
+  refreshRecLabels();
+  if(typeof renderMemos === 'function') renderMemos();
+  if(typeof renderHistory === 'function') renderHistory();
+}
+/* 「最新◯件のみ」の件数変更 */
+function onRecLatestInput(){
+  saveRecSettings();
+  refreshRecLabels();
+  if(typeof renderMemos === 'function') renderMemos();
+  if(typeof renderHistory === 'function') renderHistory();
+}
+/* 保存件数の変更 */
+function onRecMaxInput(){
+  MEMO_MAX = clampInt(gv('rec-memo-max').value, 1, 500, 30);
+  HIST_MAX = clampInt(gv('rec-hist-max').value, 1, 500, 30);
+  /* 既存配列を新上限にトリム */
+  if(memos.length > MEMO_MAX) memos = memos.slice(0, MEMO_MAX);
+  if(pwHistory.length > HIST_MAX) pwHistory = pwHistory.slice(0, HIST_MAX);
+  saveMemos(); saveHistory();
+  saveRecSettings();
+  refreshRecLabels();
+  renderMemos(); renderHistory();
+}
+/* 記録（メモ・履歴）だけをエクスポート */
+function exportRecords(){
+  downloadJson({
+    "_comment": "PASSWORD GENERATOR 記録（メモ・履歴）",
+    memos: memos,
+    history: pwHistory
+  });
+  var st = gv('rec-export-status');
+  if(st){ st.textContent = '✓ 書き出しました'; setTimeout(function(){ st.textContent=''; }, 2500); }
+}
+
+/* ===== MEMO ===== */
+var MEMO_KEY = 'pwgen_memos_v1';
+var MEMO_COLOR_KEY = 'pwgen_memo_color_v1';
+var MEMO_FILTER_KEY = 'pwgen_memo_filter_v1';
+var MEMO_MAX = 30;
+var MEMO_HOUR_MS = 60*60*1000;
+var memos = [];   /* [{plain, html, ts}] */
+
+/* 旧形式（文字列）や {plain} だけの項目も正規化 */
+function normMemo(item){
+  if(typeof item === 'string') return { plain:item, html:colorizePlain(item), ts:0, cond:null };
+  if(item && typeof item.plain === 'string'){
+    return {
+      plain:item.plain,
+      html:(typeof item.html==='string' && item.html) ? item.html : colorizePlain(item.plain),
+      ts:(typeof item.ts==='number') ? item.ts : 0,
+      cond:(item.cond && typeof item.cond==='object') ? item.cond : null
+    };
+  }
+  return null;
+}
+function loadMemos(){
+  var raw; try{ raw = localStorage.getItem(MEMO_KEY); }catch(e){}
+  if(raw){
+    try{
+      var a = JSON.parse(raw);
+      if(Array.isArray(a)) memos = a.map(normMemo).filter(Boolean).slice(0, MEMO_MAX);
+    }catch(e){}
+  }
+  /* 色ON/OFFの復元 */
+  var c; try{ c = localStorage.getItem(MEMO_COLOR_KEY); }catch(e){}
+  if(c !== null && c !== undefined){
+    var cb = gv('memo-color-on'); if(cb) cb.checked = (c === '1');
+  }
+  /* 表示フィルタの復元 */
+  var f; try{ f = localStorage.getItem(MEMO_FILTER_KEY); }catch(e){}
+  if(f){
+    try{
+      var fo = JSON.parse(f);
+      var fl = gv('memo-filter-latest'); if(fl) fl.checked = !!fo.latest;
+      var fh = gv('memo-filter-hour');   if(fh) fh.checked = !!fo.hour;
+    }catch(e){}
+  }
+}
+function saveMemos(){
+  try{ localStorage.setItem(MEMO_KEY, JSON.stringify(memos)); }catch(e){}
+  scheduleCloudSave();
+}
+function saveMemoColorPref(){
+  try{ localStorage.setItem(MEMO_COLOR_KEY, gv('memo-color-on').checked ? '1' : '0'); }catch(e){}
+}
+function addMemo(plain){
+  if(!plain) return;
+  /* 重複：既存の同じパスワードは削除してから先頭に再追加（最新扱い） */
+  memos = memos.filter(function(m){ return m.plain !== plain; });
+  memos.unshift({ plain:plain, html:colorizePlain(plain), ts:Date.now(), cond:getCondObj() });
+  /* リング：最大件数を超えたら古いものを押し出す */
+  if(memos.length > MEMO_MAX) memos = memos.slice(0, MEMO_MAX);
+  saveMemos();
+  renderMemos();
+}
+/* yyyy/mm/dd hh:mm:ss 形式 */
+function fmtTs(ts){
+  if(!ts) return '日時不明';
+  var d=new Date(ts), z=function(n){return (n<10?'0':'')+n;};
+  return d.getFullYear()+'/'+z(d.getMonth()+1)+'/'+z(d.getDate())+' '+z(d.getHours())+':'+z(d.getMinutes())+':'+z(d.getSeconds());
+}
+function clearMemos(){
+  if(recClearLink){
+    if(memos.length === 0 && pwHistory.length === 0) return;
+    if(recClearConfirm && !window.confirm('メモと履歴の両方をすべて削除しますか？（クリア連動が有効です）')) return;
+    memos = []; pwHistory = [];
+    saveMemos(); saveHistory();
+    renderMemos(); renderHistory();
+    return;
+  }
+  if(memos.length === 0) return;
+  if(recClearConfirm && !window.confirm('メモをすべて削除しますか？')) return;
+  memos = [];
+  saveMemos();
+  renderMemos();
+}
+function deleteMemo(target){
+  /* target はメモオブジェクト参照（フィルタ表示でもズレない） */
+  var i = memos.indexOf(target);
+  if(i === -1) return;
+  memos.splice(i, 1);
+  saveMemos();
+  renderMemos();
+}
+function toggleMemoColor(){
+  saveMemoColorPref();
+  renderMemos();
+}
+function saveMemoFilterPref(){
+  try{
+    localStorage.setItem(MEMO_FILTER_KEY, JSON.stringify({
+      latest: gv('memo-filter-latest').checked,
+      hour:   gv('memo-filter-hour').checked
+    }));
+  }catch(e){}
+}
+function toggleMemoFilter(){
+  saveMemoFilterPref();
+  renderMemos();
+}
+/* 表示対象のメモ（フィルタ適用後）。
+   両方ON＝AND（積集合：最新1件 かつ 直近1時間）、片方のみ＝その条件、両OFF＝全件 */
+function getVisibleMemos(){
+  var latest = (function(){ var c=gv('memo-filter-latest'); return c && c.checked; })();
+  var hour   = (function(){ var c=gv('memo-filter-hour');   return c && c.checked; })();
+  if(!latest && !hour) return memos.slice();
+  var now = Date.now();
+  var nLatest = recLatestN('memo');
+  return memos.filter(function(m, i){
+    var passLatest = (i < nLatest);                              /* 先頭からN件が最新 */
+    var passHour   = (!!m.ts && (now - m.ts) <= recWindowMs('memo'));    /* 直近◯◯（記録設定） */
+    if(latest && hour) return passLatest && passHour;             /* AND（積集合） */
+    if(latest) return passLatest;
+    return passHour;
+  });
+}
+function renderMemos(){
+  var list = gv('memo-list'); if(!list) return;
+  list.innerHTML = '';
+  var visible = getVisibleMemos();
+  var filtering = (memos.length !== visible.length);
+  var cnt = gv('memo-count');
+  if(cnt) cnt.textContent = (filtering ? (visible.length + '/' + memos.length + '件 (全' + MEMO_MAX + ')') : (memos.length + '/' + MEMO_MAX));
+  var empty = gv('memo-empty');
+  if(empty){
+    if(memos.length === 0){ empty.style.display=''; empty.textContent='メモはまだありません。'; }
+    else if(visible.length === 0){ empty.style.display=''; empty.textContent='表示条件に合うメモがありません。'; }
+    else empty.style.display='none';
+  }
+  var colorOn = (function(){ var cb=gv('memo-color-on'); return cb ? cb.checked : true; })();
+  visible.forEach(function(m, vi){
+    var row = document.createElement('div');
+    row.className = 'memo-row';
+    row.dataset.plain = m.plain;
+
+    var txt = document.createElement('span');
+    txt.className = 'memo-text' + (colorOn ? ' colored' : '');
+    txt.innerHTML = m.html || colorizePlain(m.plain);
+
+    var badge = document.createElement('span');
+    badge.className = 'pw-copied-badge';
+    badge.textContent = 'COPIED';
+
+    var del = document.createElement('button');
+    del.className = 'memo-del';
+    del.textContent = '\u00d7';
+    del.title = '削除';
+    del.addEventListener('click', function(e){
+      e.stopPropagation();
+      deleteMemo(m);
+    });
+
+    /* 詳細パネル（日付＋生成条件）。長押し/右クリックでトグル。
+       先頭N件（記録設定）は強制表示 */
+    var forceOpen = (vi < recDetailN('memo'));
+    var detail = document.createElement('div');
+    detail.className = 'rec-detail';
+    detail.style.display = forceOpen ? 'block' : 'none';
+    detail.innerHTML = '<div style="color:#888;margin-bottom:3px;">追加: ' + fmtTs(m.ts) + '</div>' + condToHtml(m.cond);
+
+    function toggleDetail(){
+      detail.style.display = (detail.style.display==='none') ? 'block' : 'none';
+    }
+
+    /* メモ行：短タップ＝コピー、長押し/右クリック＝詳細パネル開閉 */
+    (function(plain){
+      var lpTimer=null, lpFired=false, sx=0, sy=0;
+      function start(x,y){
+        lpFired=false; sx=x; sy=y; clearTimeout(lpTimer);
+        lpTimer=setTimeout(function(){ lpFired=true; toggleDetail(); }, 550);
+      }
+      function moveCancel(x,y){ if(Math.abs(x-sx)>8||Math.abs(y-sy)>8) clearTimeout(lpTimer); }
+      function end(){ clearTimeout(lpTimer); }
+      row.addEventListener('mousedown', function(e){ if(e.button!==2) start(e.clientX,e.clientY); });
+      row.addEventListener('mousemove', function(e){ moveCancel(e.clientX,e.clientY); });
+      row.addEventListener('mouseup', end);
+      row.addEventListener('mouseleave', end);
+      row.addEventListener('touchstart', function(e){ var t=e.touches[0]; start(t.clientX,t.clientY); }, {passive:true});
+      row.addEventListener('touchmove', function(e){ var t=e.touches[0]; moveCancel(t.clientX,t.clientY); }, {passive:true});
+      row.addEventListener('touchend', end);
+      row.addEventListener('contextmenu', function(e){ e.preventDefault(); toggleDetail(); });
+
+      row.addEventListener('click', function(){
+        if(lpFired){ lpFired=false; return; }  /* 長押し → コピーしない */
+        copyText(plain, {textContent:'',set textContent(v){}});
+        row.classList.add('copied');
+        badge.textContent='COPIED';
+        badge.style.opacity = '1';
+        clearTimeout(row._ct);
+        row._ct = setTimeout(function(){ row.classList.remove('copied'); badge.style.opacity='0'; }, 1500);
+      });
+    })(m.plain);
+
+    row.appendChild(txt);
+    row.appendChild(badge);
+    row.appendChild(del);
+    list.appendChild(row);
+    list.appendChild(detail);
+  });
+  /* メモ内容が変わると「メモにあるものを除く」表示も変わるので履歴も更新 */
+  if(typeof renderHistory === 'function') renderHistory();
+}
+
+/* ===== HISTORY ===== */
+var HIST_KEY = 'pwgen_history_v1';
+var HIST_COLOR_KEY = 'pwgen_hist_color_v1';
+var HIST_FILTER_KEY = 'pwgen_hist_filter_v1';
+var HIST_MAX = 30;
+var pwHistory = [];   /* [{plain, html, ts}] */
+
+function loadHistory(){
+  var raw; try{ raw = localStorage.getItem(HIST_KEY); }catch(e){}
+  if(raw){
+    try{
+      var a = JSON.parse(raw);
+      if(Array.isArray(a)) pwHistory = a.map(normMemo).filter(Boolean).slice(0, HIST_MAX);
+    }catch(e){}
+  }
+  var c; try{ c = localStorage.getItem(HIST_COLOR_KEY); }catch(e){}
+  if(c !== null && c !== undefined){ var cb=gv('hist-color-on'); if(cb) cb.checked=(c==='1'); }
+  var f; try{ f = localStorage.getItem(HIST_FILTER_KEY); }catch(e){}
+  if(f){
+    try{
+      var fo=JSON.parse(f);
+      var fl=gv('hist-filter-latest');  if(fl) fl.checked=!!fo.latest;
+      var fh=gv('hist-filter-hour');    if(fh) fh.checked=!!fo.hour;
+      var fn=gv('hist-filter-notmemo'); if(fn) fn.checked=!!fo.notmemo;
+    }catch(e){}
+  }
+}
+function saveHistory(){
+  try{ localStorage.setItem(HIST_KEY, JSON.stringify(pwHistory)); }catch(e){}
+  scheduleCloudSave();
+}
+function saveHistColorPref(){
+  try{ localStorage.setItem(HIST_COLOR_KEY, gv('hist-color-on').checked ? '1' : '0'); }catch(e){}
+}
+function saveHistFilterPref(){
+  try{
+    localStorage.setItem(HIST_FILTER_KEY, JSON.stringify({
+      latest: gv('hist-filter-latest').checked,
+      hour:   gv('hist-filter-hour').checked,
+      notmemo:gv('hist-filter-notmemo').checked
+    }));
+  }catch(e){}
+}
+function addHistory(plain){
+  if(!plain) return;
+  /* 重複：既存の同じ値は削除して先頭に再追加（最新扱い） */
+  pwHistory = pwHistory.filter(function(h){ return h.plain !== plain; });
+  pwHistory.unshift({ plain:plain, html:colorizePlain(plain), ts:Date.now(), cond:getCondObj() });
+  if(pwHistory.length > HIST_MAX) pwHistory = pwHistory.slice(0, HIST_MAX);
+  saveHistory();
+  renderHistory();
+}
+function clearHistory(){
+  if(recClearLink){
+    if(memos.length === 0 && pwHistory.length === 0) return;
+    if(recClearConfirm && !window.confirm('履歴とメモの両方をすべて削除しますか？（クリア連動が有効です）')) return;
+    pwHistory = []; memos = [];
+    saveHistory(); saveMemos();
+    renderHistory(); renderMemos();
+    return;
+  }
+  if(pwHistory.length === 0) return;
+  if(recClearConfirm && !window.confirm('履歴をすべて削除しますか？')) return;
+  pwHistory = [];
+  saveHistory();
+  renderHistory();
+}
+function deleteHistory(target){
+  var i = pwHistory.indexOf(target);
+  if(i === -1) return;
+  pwHistory.splice(i, 1);
+  saveHistory();
+  renderHistory();
+}
+function toggleHistColor(){ saveHistColorPref(); renderHistory(); }
+function toggleHistFilter(){ saveHistFilterPref(); renderHistory(); }
+
+/* 表示対象の履歴。最新1件／直近1時間は両ONでAND、片方のみ＝その条件。
+   さらに「メモにあるものを除く」が独立に AND で効く */
+function getVisibleHistory(){
+  var latest  = (function(){ var c=gv('hist-filter-latest');  return c && c.checked; })();
+  var hour    = (function(){ var c=gv('hist-filter-hour');    return c && c.checked; })();
+  var notmemo = (function(){ var c=gv('hist-filter-notmemo'); return c && c.checked; })();
+  var now = Date.now();
+  var nLatest = recLatestN('hist');
+  var memoSet = {};
+  if(notmemo){ memos.forEach(function(m){ memoSet[m.plain]=true; }); }
+
+  /* 1) 先に「メモにあるものを除く」と「直近◯◯」で絞り込む */
+  var pool = pwHistory.filter(function(h){
+    if(notmemo && memoSet[h.plain]) return false;
+    if(hour){
+      var within = (!!h.ts && (now - h.ts) <= recWindowMs('hist'));
+      if(!within) return false;
+    }
+    return true;
+  });
+
+  /* 2) 残ったリストの先頭から「最新◯件」を取る（除外で繰り上がる） */
+  if(latest) return pool.slice(0, nLatest);
+  return pool;
+}
+function renderHistory(){
+  var list = gv('hist-list'); if(!list) return;
+  list.innerHTML = '';
+  var visible = getVisibleHistory();
+  var filtering = (pwHistory.length !== visible.length);
+  var cnt = gv('hist-count');
+  if(cnt) cnt.textContent = (filtering ? (visible.length + '/' + pwHistory.length + '件 (全' + HIST_MAX + ')') : (pwHistory.length + '/' + HIST_MAX));
+  var empty = gv('hist-empty');
+  if(empty){
+    if(pwHistory.length === 0){ empty.style.display=''; empty.textContent='履歴はまだありません。'; }
+    else if(visible.length === 0){ empty.style.display=''; empty.textContent='表示条件に合う履歴がありません。'; }
+    else empty.style.display='none';
+  }
+  var colorOn = (function(){ var cb=gv('hist-color-on'); return cb ? cb.checked : true; })();
+  visible.forEach(function(m, vi){
+    var row = document.createElement('div');
+    row.className = 'memo-row';
+    row.dataset.plain = m.plain;
+
+    var txt = document.createElement('span');
+    txt.className = 'memo-text' + (colorOn ? ' colored' : '');
+    txt.innerHTML = m.html || colorizePlain(m.plain);
+
+    var badge = document.createElement('span');
+    badge.className = 'pw-copied-badge';
+    badge.textContent = 'COPIED';
+
+    var del = document.createElement('button');
+    del.className = 'memo-del';
+    del.textContent = '\u00d7';
+    del.title = '削除';
+    del.addEventListener('click', function(e){ e.stopPropagation(); deleteHistory(m); });
+
+    var forceOpen = (vi < recDetailN('hist'));
+    var detail = document.createElement('div');
+    detail.className = 'rec-detail';
+    detail.style.display = forceOpen ? 'block' : 'none';
+    detail.innerHTML = '<div style="color:#888;margin-bottom:3px;">記録: ' + fmtTs(m.ts) + '</div>' + condToHtml(m.cond);
+
+    function toggleDetail(){
+      detail.style.display = (detail.style.display==='none') ? 'block' : 'none';
+    }
+
+    (function(plain){
+      var lpTimer=null, lpFired=false, sx=0, sy=0;
+      function start(x,y){
+        lpFired=false; sx=x; sy=y; clearTimeout(lpTimer);
+        lpTimer=setTimeout(function(){ lpFired=true; toggleDetail(); }, 550);
+      }
+      function moveCancel(x,y){ if(Math.abs(x-sx)>8||Math.abs(y-sy)>8) clearTimeout(lpTimer); }
+      function end(){ clearTimeout(lpTimer); }
+      row.addEventListener('mousedown', function(e){ if(e.button!==2) start(e.clientX,e.clientY); });
+      row.addEventListener('mousemove', function(e){ moveCancel(e.clientX,e.clientY); });
+      row.addEventListener('mouseup', end);
+      row.addEventListener('mouseleave', end);
+      row.addEventListener('touchstart', function(e){ var t=e.touches[0]; start(t.clientX,t.clientY); }, {passive:true});
+      row.addEventListener('touchmove', function(e){ var t=e.touches[0]; moveCancel(t.clientX,t.clientY); }, {passive:true});
+      row.addEventListener('touchend', end);
+      row.addEventListener('contextmenu', function(e){ e.preventDefault(); toggleDetail(); });
+
+      row.addEventListener('click', function(){
+        if(lpFired){ lpFired=false; return; }
+        copyText(plain, {textContent:'',set textContent(v){}});
+        row.classList.add('copied');
+        badge.textContent='COPIED';
+        badge.style.opacity = '1';
+        clearTimeout(row._ct);
+        row._ct = setTimeout(function(){ row.classList.remove('copied'); badge.style.opacity='0'; }, 1500);
+      });
+    })(m.plain);
+
+    row.appendChild(txt);
+    row.appendChild(badge);
+    row.appendChild(del);
+    list.appendChild(row);
+    list.appendChild(detail);
+  });
+}
+
+/* ===== SUPABASE クラウド同期 ===== */
+var SUPABASE_URL = 'https://jkpiaqrxuygqtonfikkc.supabase.co';
+var SUPABASE_KEY = 'sb_publishable_IjpsktD0soa2FptBa91wPw_aYRdvMT4';
+var SUPABASE_TABLE = 'password_config';
+var CLOUD_ROW_ID = 1;              /* 使う行のid（int8）。後で複数人対応する場合はここを分ける */
+var cloudReady = false;            /* 初回ロード完了まで自動保存を抑止 */
+var cloudSaveTimer = null;
+var cloudSuppress = false;         /* クラウド/JSON適用中の自動保存抑止 */
+var sbClient = null;               /* supabase-js クライアント */
+var sbChannel = null;              /* Realtime購読チャンネル */
+var lastSavedJson = null;          /* 最後に自分が保存したsettingsのJSON（ループ防止） */
+
+/* 保存対象の全データを1オブジェクトにまとめる */
+function collectAllData(){
+  var obj;
+  if(profiles.length > 0){
+    obj = {
+      defaultProfile: currentProfileId || profiles[0].id,
+      profiles: profiles,
+      layout: getLayoutForExport(),
+      memos: memos,
+      history: pwHistory,
+      recSettings: getRecSettingsObj()
+    };
+  } else {
+    obj = Object.assign({}, getCurrentSettingsObj());
+    obj.layout = getLayoutForExport();
+    obj.memos = memos;
+    obj.history = pwHistory;
+    obj.recSettings = getRecSettingsObj();
+  }
+  return obj;
+}
+
+function setCloudStatus(msg, color){
+  var el = gv('cloud-status');
+  if(!el) return;
+  el.textContent = msg || '';
+  el.style.color = color || '#888';
+  el.style.opacity = msg ? '1' : '0';
+}
+
+/* クラウドへ保存（upsert）。デバウンスして呼ぶ */
+function scheduleCloudSave(){
+  if(!cloudReady || cloudSuppress) return;
+  if(cloudSaveTimer) clearTimeout(cloudSaveTimer);
+  cloudSaveTimer = setTimeout(doCloudSave, 1500);
+}
+function doCloudSave(){
+  if(!cloudReady || cloudSuppress) return;
+  var settingsObj = collectAllData();
+  lastSavedJson = JSON.stringify(settingsObj);   /* 自分の保存を識別（Realtimeループ防止） */
+  var body = [{ id: CLOUD_ROW_ID, settings: settingsObj }];
+  setCloudStatus('保存中…', '#888');
+  fetch(SUPABASE_URL + '/rest/v1/' + SUPABASE_TABLE + '?on_conflict=id', {
+    method: 'POST',
+    headers: {
+      'apikey': SUPABASE_KEY,
+      'Authorization': 'Bearer ' + SUPABASE_KEY,
+      'Content-Type': 'application/json',
+      'Prefer': 'resolution=merge-duplicates'
+    },
+    body: JSON.stringify(body)
+  }).then(function(r){
+    if(r.ok){ setCloudStatus('✓ クラウド保存済', '#3B6D11'); setTimeout(function(){ setCloudStatus('', '#888'); }, 2000); }
+    else { r.text().then(function(t){ setCloudStatus('保存失敗: ' + r.status, '#993C1D'); console.error('cloud save', r.status, t); }); }
+  }).catch(function(e){ setCloudStatus('保存失敗（通信エラー）', '#993C1D'); console.error(e); });
+}
+
+/* クラウドから読み込み。成功したら applyCloudData に渡す */
+function loadFromCloud(){
+  setCloudStatus('クラウドから読込中…', '#888');
+  return fetch(SUPABASE_URL + '/rest/v1/' + SUPABASE_TABLE + '?id=eq.' + encodeURIComponent(CLOUD_ROW_ID) + '&select=settings', {
+    method: 'GET',
+    headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
+  }).then(function(r){
+    if(!r.ok) throw new Error('HTTP ' + r.status);
+    return r.json();
+  }).then(function(rows){
+    if(Array.isArray(rows) && rows.length > 0 && rows[0].settings && Object.keys(rows[0].settings).length > 0){
+      applyCloudData(rows[0].settings);
+      setCloudStatus('✓ クラウドから復元', '#3B6D11');
+      setTimeout(function(){ setCloudStatus('', '#888'); }, 2000);
+      return true;
+    }
+    setCloudStatus('クラウドにデータなし（新規）', '#888');
+    return false;
+  }).catch(function(e){
+    setCloudStatus('クラウド読込失敗（ローカル設定を使用）', '#993C1D');
+    console.error('cloud load', e);
+    return false;
+  });
+}
+
+/* Realtime購読：他端末がid=1の行を更新したら自動で画面へ反映 */
+function startRealtimeSync(){
+  if(!(window.supabase && window.supabase.createClient)){
+    console.warn('supabase-js 未読込のためRealtime無効');
+    return;
+  }
+  try{
+    if(!sbClient) sbClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+    if(sbChannel) return;  /* 二重購読防止 */
+    sbChannel = sbClient
+      .channel('pwgen-config')
+      .on('postgres_changes',
+        { event: '*', schema: 'public', table: SUPABASE_TABLE, filter: 'id=eq.' + CLOUD_ROW_ID },
+        function(payload){
+          var row = payload.new || {};
+          var settings = row.settings;
+          if(!settings || typeof settings !== 'object') return;
+          /* 自分が今保存した内容と同じなら無視（ループ防止） */
+          if(JSON.stringify(settings) === lastSavedJson) return;
+          applyCloudData(settings);
+          setCloudStatus('✓ 他の端末の変更を反映', '#185FA5');
+          setTimeout(function(){ setCloudStatus('', '#888'); }, 2000);
+        })
+      .subscribe();
+  }catch(e){ console.error('realtime init', e); }
+}
+
+/* クラウド/JSONのデータオブジェクトを画面へ適用（確認ダイアログなしで反映） */
+function applyCloudData(data){
+  cloudSuppress = true;
+  try{
+    var colorSrc = data;   /* 色設定の取得元（プロファイル時は適用プロファイル） */
+    if(data.profiles && data.profiles.length > 0){
+      profiles = data.profiles;
+      currentProfileId = data.defaultProfile || (profiles[0] && profiles[0].id) || null;
+      renderProfileBtns();
+      var cur = profiles.filter(function(p){ return p.id === currentProfileId; })[0] || profiles[0];
+      if(cur){ applyRemoteConfig(cur); colorSrc = cur; }
+    } else {
+      applyRemoteConfig(data);
+    }
+    /* 色設定はクラウド復元では「色指定も反映」に関係なく常に戻す */
+    if(colorSrc){
+      var sc2=function(id,v){ var e=gv(id); if(e && typeof v!=='undefined') e.checked=!!v; };
+      sc2('color-upper-on', colorSrc.colorUpperOn);
+      sc2('color-num-on',   colorSrc.colorNumOn);
+      sc2('color-sym-on',   colorSrc.colorSymOn);
+      sc2('color-lower-on', colorSrc.colorLowerOn);
+      var lc2=function(t,v){ if(!v) return; currentColors[t]=v; var c=gv('color-'+t); if(c)c.value=v; var sw=gv('swatch-'+t); if(sw)sw.style.background=v; var hx=gv('hex-'+t); if(hx)hx.value=v.toUpperCase(); };
+      lc2('upper', colorSrc.colorUpper);
+      lc2('num',   colorSrc.colorNum);
+      lc2('sym',   colorSrc.colorSym);
+      lc2('lower', colorSrc.colorLower);
+    }
+    if(data.layout){ applyLayout(data.layout); saveLayout(); }
+    if(data.recSettings){ applyRecSettingsObj(data.recSettings); }
+    /* プロファイル系トグル（applyRemoteConfigでは扱わないので明示的に復元） */
+    if(typeof data.ignorePwCount !== 'undefined'){ var ip=gv('ignore-pwcount'); if(ip) ip.checked=!!data.ignorePwCount; }
+    if(typeof data.applyProfileColors !== 'undefined'){ var ap=gv('apply-profile-colors'); if(ap) ap.checked=!!data.applyProfileColors; }
+    if(Array.isArray(data.memos)){ memos = data.memos.map(normMemo).filter(Boolean).slice(0, MEMO_MAX); saveMemos(); }
+    if(Array.isArray(data.history)){ pwHistory = data.history.map(normMemo).filter(Boolean).slice(0, HIST_MAX); saveHistory(); }
+    if(memos.length > MEMO_MAX) memos = memos.slice(0, MEMO_MAX);
+    if(pwHistory.length > HIST_MAX) pwHistory = pwHistory.slice(0, HIST_MAX);
+    refreshRecLabels();
+    renderMemos(); renderHistory();
+    applyColors(); generate();
+  } finally {
+    cloudSuppress = false;
+  }
+}
+
+/* ===== STORAGE ===== */
+var STORAGE_KEY = 'pwgen_v5';
+var PROFILES_KEY = 'pwgen_profiles_v1';
+
+function saveSettings(){
+  var s={
+    len:gv('len').value,pwCount:gv('pw-count').value,
+    pctNum:gv('pct-num').value,pctSym:gv('pct-sym').value,pctUpper:gv('pct-upper').value,
+    startUpper:gv('start-upper').checked,startAlpha:gv('start-alpha').checked,
+    endNum:gv('end-num').checked,endSym:gv('end-sym').checked,
+    excludeAmbig:gv('exclude-ambig').checked,
+    noRepeat:gv('no-repeat').checked,minOne:gv('min-one').checked,
+    maxSeq:gv('max-seq').value,activeSyms:Array.from(activeSyms),
+    colorUpperOn:gv('color-upper-on').checked,colorNumOn:gv('color-num-on').checked,colorSymOn:gv('color-sym-on').checked,colorLowerOn:gv('color-lower-on').checked,
+    colorUpper:currentColors.upper,colorNum:currentColors.num,colorSym:currentColors.sym,colorLower:currentColors.lower,
+    sortOrder:sortOrder,
+    ratioLock:gv('ratio-lock').checked,
+    snap5:gv('ratio-snap5').checked,
+    ignorePwCount:(function(){var c=gv('ignore-pwcount');return c&&c.checked;})(),
+    applyProfileColors:(function(){var c=gv('apply-profile-colors');return c&&c.checked;})()
+  };
+  try{localStorage.setItem(STORAGE_KEY,JSON.stringify(s));}catch(e){}
+  /* プロファイルも保存 */
+  if(profiles.length > 0){
+    try{localStorage.setItem(PROFILES_KEY,JSON.stringify({profiles:profiles,currentProfileId:currentProfileId}));}catch(e){}
+  }
+  scheduleCloudSave();
+}
+
+function saveProfilesToStorage(){
+  if(profiles.length > 0){
+    try{localStorage.setItem(PROFILES_KEY,JSON.stringify({profiles:profiles,currentProfileId:currentProfileId}));}catch(e){}
+  } else {
+    try{localStorage.removeItem(PROFILES_KEY);}catch(e){}
+  }
+}
+
+function loadSettings(){
+  var raw;try{raw=localStorage.getItem(STORAGE_KEY);}catch(e){}
+  if(!raw)return false;
+  var s;try{s=JSON.parse(raw);}catch(e){return false;}
+  function sr(id,mn,mx,val){
+    var sl=gv(id),nm=gv(id+'-num');if(!sl)return;
+    var v=Math.max(mn,Math.min(mx,parseInt(val,10)||mn));
+    sl.value=v;if(nm)nm.value=v;
+  }
+  function sc(id,val){var el=gv(id);if(el)el.checked=!!val;}
+  sr('len',4,128,s.len);
+  sr('pct-num',0,100,s.pctNum);sr('pct-sym',0,100,s.pctSym);sr('pct-upper',0,100,s.pctUpper);
+  sr('max-seq',1,10,s.maxSeq);
+  if(s.pwCount){var pc=gv('pw-count');if(pc)pc.value=Math.max(1,Math.min(50,parseInt(s.pwCount,10)||10));}
+  sc('start-upper',s.startUpper);sc('start-alpha',s.startAlpha);
+  sc('end-num',s.endNum);sc('end-sym',s.endSym);sc('exclude-ambig',s.excludeAmbig);
+  sc('no-repeat',s.noRepeat);sc('min-one',s.minOne);
+  if(Array.isArray(s.activeSyms))activeSyms=new Set(s.activeSyms);
+  if(s.colorUpperOn!==undefined)sc('color-upper-on',s.colorUpperOn);
+  if(s.colorNumOn!==undefined)sc('color-num-on',s.colorNumOn);
+  if(s.colorSymOn!==undefined)sc('color-sym-on',s.colorSymOn);
+  if(s.colorLowerOn!==undefined)sc('color-lower-on',s.colorLowerOn);
+  function lc(t,v){if(!v)return;currentColors[t]=v;gv('color-'+t).value=v;gv('swatch-'+t).style.background=v;gv('hex-'+t).value=v.toUpperCase();}
+  lc('upper',s.colorUpper);lc('num',s.colorNum);lc('sym',s.colorSym);lc('lower',s.colorLower);
+  if(s.sortOrder){
+    var orders=['asc','desc','none'],labels=['昇順 ↑','降順 ↓','生成順'];
+    if(orders.indexOf(s.sortOrder)!==-1){
+      sortOrder=s.sortOrder;
+      var sb=gv('sort-btn');if(sb)sb.textContent=labels[orders.indexOf(sortOrder)];
+    }
+  }
+  if(s.ratioLock!==undefined){
+    sc('ratio-lock',s.ratioLock);
+    if(s.ratioLock) gv('ratio-section').classList.add('ratio-locked');
+  }
+  if(s.snap5!==undefined){
+    sc('ratio-snap5', s.snap5);
+    applySnap5State();
+  }
+  if(s.ignorePwCount!==undefined) sc('ignore-pwcount', s.ignorePwCount);
+  if(s.applyProfileColors!==undefined) sc('apply-profile-colors', s.applyProfileColors);
+  return true;
+}
+
+function loadProfilesFromStorage(){
+  var raw;try{raw=localStorage.getItem(PROFILES_KEY);}catch(e){}
+  if(!raw) return;
+  var data;try{data=JSON.parse(raw);}catch(e){return;}
+  if(!Array.isArray(data.profiles)||!data.profiles.length) return;
+  profiles = data.profiles;
+  currentProfileId = data.currentProfileId || profiles[0].id;
+  renderProfileBtns();
+}
+function showSaveFlash(){
+  var el=gv('save-flash');if(!el)return;
+  el.style.opacity='1';clearTimeout(el._t);
+  el._t=setTimeout(function(){el.style.opacity='0';},1400);
+}
+
+/* ===== RATIO LOCK ===== */
+function toggleRatioLock(){
+  var locked = gv('ratio-lock').checked;
+  var sec = gv('ratio-section');
+  if(locked) sec.classList.add('ratio-locked');
+  else sec.classList.remove('ratio-locked');
+  saveSettings();
+}
+
+/* ===== 5%刻みスナップ ===== */
+function applySnap5State(){
+  var on = snap5On();
+  ['pct-num','pct-sym','pct-upper'].forEach(function(id){
+    var sl=gv(id), nm=gv(id+'-num');
+    if(!sl) return;
+    sl.step = on ? 5 : 1;
+    if(on){
+      var v=Math.round((parseInt(sl.value,10)||0)/5)*5;
+      sl.value=v; if(nm) nm.value=v;
+    }
+  });
+}
+function toggleSnap5(){
+  applySnap5State();
+  updateTotal();
+  saveSettings();
+  generate();
+}
+
+/* ===== ファイル読み込み ===== */
+function processFile(file){
+  if(!file){
+    gv('config-status').textContent = 'ファイルが取得できませんでした';
+    gv('config-status').style.color = '#993C1D';
+    return;
+  }
+  if(!file.name.match(/\.json$/i)){
+    gv('config-status').textContent = 'JSONファイルを選択してください（' + file.name + '）';
+    gv('config-status').style.color = '#993C1D';
+    return;
+  }
+  var reader = new FileReader();
+  reader.onload = function(e){
+    try {
+      var data = JSON.parse(e.target.result);
+      if(Array.isArray(data.profiles) && data.profiles.length){
+        profiles = data.profiles;
+        var defId = data.defaultProfile || data.profiles[0].id;
+        var defProfile = profiles.filter(function(p){ return p.id===defId; })[0] || profiles[0];
+        currentProfileId = defProfile.id;
+        applyRemoteConfig(defProfile);
+        renderProfileBtns();
+        if(data.layout){ applyLayout(data.layout); saveLayout(); }
+        saveProfilesToStorage();
+        gv('config-status').textContent = '✓ '+profiles.length+'個のプロファイルを読み込みました';
+      } else {
+        profiles = []; renderProfileBtns();
+        applyRemoteConfig(data);
+        gv('config-status').textContent = '✓ ' + file.name + ' 読み込み完了';
+      }
+      gv('config-status').style.color = '#3B6D11';
+      setTimeout(function(){ gv('config-status').textContent=''; }, 3000);
+      maybeRestoreMemos(data);
+      maybeRestoreHistory(data);
+      maybeRestoreRecSettings(data);
+    } catch(err) {
+      gv('config-status').textContent = 'JSONパースエラー: ' + err.message;
+      gv('config-status').style.color = '#993C1D';
+    }
+  };
+  reader.readAsText(file);
+}
+function loadFileConfig(){ processFile(gv('config-file').files[0]); }
+function handleDroppedFile(file){ processFile(file); }
+
+function saveToStorage(){
+  saveSettings();
+  saveProfilesToStorage();
+  showSaveFlash();
+}
+
+/* ===== 設定エクスポート ===== */
+function getCurrentSettingsObj(){
+  return {
+    len:          +gv('len').value,
+    pwCount:      +gv('pw-count').value,
+    pctNum:       +gv('pct-num').value,
+    pctSym:       +gv('pct-sym').value,
+    pctUpper:     +gv('pct-upper').value,
+    startUpper:   gv('start-upper').checked,
+    startAlpha:   gv('start-alpha').checked,
+    endNum:       gv('end-num').checked,
+    endSym:       gv('end-sym').checked,
+    excludeAmbig: gv('exclude-ambig').checked,
+    noRepeat:     gv('no-repeat').checked,
+    minOne:       gv('min-one').checked,
+    maxSeq:       +gv('max-seq').value,
+    activeSyms:   Array.from(activeSyms),
+    colorUpperOn: gv('color-upper-on').checked,
+    colorUpper:   currentColors.upper,
+    colorNumOn:   gv('color-num-on').checked,
+    colorNum:     currentColors.num,
+    colorSymOn:   gv('color-sym-on').checked,
+    colorSym:     currentColors.sym,
+    colorLowerOn: gv('color-lower-on').checked,
+    colorLower:   currentColors.lower,
+    sortOrder:    sortOrder,
+    ratioLock:    gv('ratio-lock').checked,
+    snap5:        gv('ratio-snap5').checked,
+    ignorePwCount:(function(){var c=gv('ignore-pwcount');return c&&c.checked;})(),
+    applyProfileColors:(function(){var c=gv('apply-profile-colors');return c&&c.checked;})()
+  };
+}
+
+function downloadJson(obj){
+  var json = JSON.stringify(obj, null, 2);
+  var a = document.createElement('a');
+  a.href = 'data:application/json;charset=utf-8,' + encodeURIComponent(json);
+  a.download = 'password_config.json';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+}
+
+function exportSettings(){
+  if(profiles.length > 0){
+    downloadJson({
+      "_comment": "PASSWORD GENERATOR 設定ファイル",
+      defaultProfile: currentProfileId || profiles[0].id,
+      profiles: profiles,
+      layout: getLayoutForExport(),
+      memos: memos,
+      history: pwHistory,
+      recSettings: getRecSettingsObj()
+    });
+  } else {
+    var obj = Object.assign({ "_comment": "PASSWORD GENERATOR 設定ファイル" }, getCurrentSettingsObj());
+    obj.layout = getLayoutForExport();
+    obj.memos = memos;
+    obj.history = pwHistory;
+    obj.recSettings = getRecSettingsObj();
+    downloadJson(obj);
+  }
+}
+
+/* JSON読み込み時：historyが含まれていれば既存にマージするか確認して反映 */
+function maybeRestoreHistory(data){
+  if(!data || !Array.isArray(data.history)) return;
+  var incoming = data.history.map(normMemo).filter(Boolean);
+  if(incoming.length === 0) return;
+  var ok = window.confirm('このファイルには履歴が ' + incoming.length + ' 件含まれています。\n今の履歴に追記（マージ）しますか？\n（OK：今の履歴に追加／キャンセル：履歴は変更しない）\n※合計が最大' + HIST_MAX + '件を超えた分は古いものから削除されます。');
+  if(!ok) return;
+  var seen = {};
+  pwHistory.forEach(function(h){ seen[h.plain] = true; });
+  var merged = [];
+  incoming.forEach(function(h){ if(!seen[h.plain]){ merged.push(h); seen[h.plain]=true; } });
+  pwHistory = merged.concat(pwHistory).slice(0, HIST_MAX);
+  saveHistory();
+  renderHistory();
+}
+
+/* JSON読み込み時：memosが含まれていれば既存にマージ（追記）するか確認して反映 */
+function maybeRestoreMemos(data){
+  if(!data || !Array.isArray(data.memos)) return;
+  var incoming = data.memos.map(normMemo).filter(Boolean);
+  if(incoming.length === 0) return;
+  var ok = window.confirm('このファイルにはメモが ' + incoming.length + ' 件含まれています。\n今のメモに追記（マージ）しますか？\n（OK：今のメモに追加／キャンセル：メモは変更しない）\n※合計が最大' + MEMO_MAX + '件を超えた分は古いものから削除されます。');
+  if(!ok) return;
+  /* 既存の平文集合（重複は追加しない） */
+  var seen = {};
+  memos.forEach(function(m){ seen[m.plain] = true; });
+  /* 読み込み分を「新しいもの」として先頭側に積む（ファイル内の並び順を保ったまま既存の前に） */
+  var merged = [];
+  incoming.forEach(function(m){ if(!seen[m.plain]){ merged.push(m); seen[m.plain]=true; } });
+  memos = merged.concat(memos).slice(0, MEMO_MAX);
+  saveMemos();
+  renderMemos();
+}
+
+/* JSON読み込み時：recSettingsがあれば反映（確認なし・静かに適用） */
+function maybeRestoreRecSettings(data){
+  if(!data || !data.recSettings || typeof data.recSettings !== 'object') return;
+  applyRecSettingsObj(data.recSettings);
+  /* 件数変更に伴うトリム */
+  if(memos.length > MEMO_MAX) memos = memos.slice(0, MEMO_MAX);
+  if(pwHistory.length > HIST_MAX) pwHistory = pwHistory.slice(0, HIST_MAX);
+  saveRecSettings();
+  saveMemos(); saveHistory();
+  refreshRecLabels();
+  renderMemos(); renderHistory();
+}
+
+/* ===== プロファイル ===== */
+var profiles = [];
+var currentProfileId = null;
+var defaultConfigUrl = 'https://gist.githubusercontent.com/nonisgh/b169e3f8cbd74d73f46f902058557799/raw/password_config.json';
+
+function applyProfileById(id){
+  var p = profiles.filter(function(p){ return p.id === id; })[0];
+  if(!p){
+    var sorted = profiles.slice().sort(function(a,b){ return Math.abs(a.id-id)-Math.abs(b.id-id); });
+    if(!sorted.length) return;
+    p = sorted[0];
+  }
+  currentProfileId = p.id;
+  applyRemoteConfig(p);
+  renderProfileBtns();
+  saveProfilesToStorage();
+}
+
+function deleteCurrentProfile(){
+  if(!profiles.length || currentProfileId === null) return;
+  var name = (profiles.filter(function(p){ return p.id===currentProfileId; })[0]||{}).name || 'プロファイル'+currentProfileId;
+  if(!window.confirm('"' + name + '" を削除しますか？')) return;
+
+  /* 削除 */
+  profiles = profiles.filter(function(p){ return p.id !== currentProfileId; });
+
+  /* IDを1から振り直し */
+  profiles = profiles.map(function(p, i){ return Object.assign({}, p, {id: i+1}); });
+
+  if(profiles.length === 0){
+    currentProfileId = null;
+    renderProfileBtns();
+    saveProfilesToStorage();
+    return;
+  }
+
+  /* 削除後は最初のプロファイルを選択 */
+  currentProfileId = profiles[0].id;
+  applyRemoteConfig(profiles[0]);
+  renderProfileBtns();
+  saveProfilesToStorage();
+}
+
+/* ===== プロファイル コンテキストメニュー ===== */
+var ctxMenu = null;
+
+function showProfileContextMenu(p, x, y){
+  hideContextMenu();
+  var menu = document.createElement('div');
+  menu.id = 'profile-ctx-menu';
+  var isMobile = window.innerWidth < 541;
+  menu.style.cssText = 'position:fixed;left:'+x+'px;top:'+y+'px;background:#fff;border:1px solid #ddd;border-radius:9px;box-shadow:0 4px 16px rgba(0,0,0,0.12);z-index:9999;min-width:'+(isMobile?'200':'160')+'px;overflow:hidden;font-family:inherit;';
+
+  function item(label, color, fn){
+    var d = document.createElement('div');
+    d.textContent = label;
+    var isMobile = window.innerWidth < 541;
+    d.style.cssText = 'padding:'+(isMobile?'14px 18px':'10px 16px')+';font-size:'+(isMobile?'15px':'13px')+';cursor:pointer;color:'+(color||'#333')+';';
+    d.addEventListener('mouseenter', function(){ d.style.background='#f5f5f3'; });
+    d.addEventListener('mouseleave', function(){ d.style.background=''; });
+    d.addEventListener('click', function(){ hideContextMenu(); fn(); });
+    menu.appendChild(d);
+  }
+
+  item('✏️  名前を変更', '#333', function(){
+    var name = window.prompt('新しい名前:', p.name || 'プロファイル'+p.id);
+    if(name === null || name.trim() === '') return;
+    profiles = profiles.map(function(q){ return q.id===p.id ? Object.assign({},q,{name:name.trim()}) : q; });
+    renderProfileBtns(); saveProfilesToStorage();
+  });
+  item('💾  現在の設定で上書き', '#185FA5', function(){
+    profiles = profiles.map(function(q){ return q.id===p.id ? Object.assign({},q,getCurrentSettingsObj()) : q; });
+    currentProfileId = p.id;
+    renderProfileBtns(); saveProfilesToStorage(); showSaveFlash();
+  });
+  item('🗑  削除', '#993C1D', function(){
+    if(!window.confirm('"'+(p.name||'プロファイル'+p.id)+'" を削除しますか？')) return;
+    profiles = profiles.filter(function(q){ return q.id !== p.id; });
+    profiles = profiles.map(function(q,i){ return Object.assign({},q,{id:i+1}); });
+    if(profiles.length){ currentProfileId=profiles[0].id; applyRemoteConfig(profiles[0]); }
+    else currentProfileId=null;
+    renderProfileBtns(); saveProfilesToStorage();
+  });
+
+  document.body.appendChild(menu);
+  ctxMenu = menu;
+
+  /* 画面端補正 */
+  var r = menu.getBoundingClientRect();
+  if(r.right > window.innerWidth)  menu.style.left = (window.innerWidth - r.width - 8) + 'px';
+  if(r.bottom > window.innerHeight) menu.style.top  = (y - r.height) + 'px';
+}
+
+function hideContextMenu(){
+  if(ctxMenu){ ctxMenu.remove(); ctxMenu=null; }
+}
+document.addEventListener('click', hideContextMenu);
+document.addEventListener('keydown', function(e){ if(e.key==='Escape') hideContextMenu(); });
+
+function reorderProfiles(fromIdx, toIdx){
+  var moved = profiles.splice(fromIdx, 1)[0];
+  profiles.splice(toIdx, 0, moved);
+  /* IDを振り直し */
+  profiles = profiles.map(function(p, i){ return Object.assign({}, p, {id: i+1}); });
+  /* currentProfileIdも更新 */
+  var curName = moved.name;
+  var updated = profiles.filter(function(p){ return p.name===curName && p.id===toIdx+1; })[0];
+  if(updated) currentProfileId = updated.id;
+  renderProfileBtns();
+  saveProfilesToStorage();
+}
+
+function addProfile(){
+  var name = window.prompt('プロファイル名を入力してください:', 'プロファイル' + (profiles.length + 1));
+  if(name === null || name.trim() === '') return;
+  var maxId = profiles.length ? Math.max.apply(null, profiles.map(function(p){ return p.id; })) : 0;
+  var newId = maxId + 1;
+  var newProfile = Object.assign({ id: newId, name: name.trim() }, getCurrentSettingsObj());
+  profiles.push(newProfile);
+  currentProfileId = newId;
+  renderProfileBtns();
+  saveProfilesToStorage();
+}
+
+function renderProfileBtns(){
+  var bar  = gv('profile-bar');
+  var btns = gv('profile-btns');
+  /* profile-barは常にsection内に表示 */
+  btns.innerHTML = '';
+
+  profiles.forEach(function(p, idx){
+    var b = document.createElement('button');
+    b.className = 'btn' + (p.id === currentProfileId ? ' btn-primary' : '');
+    b.textContent = p.id + '. ' + (p.name || 'プロファイル'+p.id);
+    b.style.cssText = 'font-size:12px;padding:0 12px;height:30px;cursor:grab;touch-action:none;';
+    b.className += ' profile-btn';
+    b.dataset.idx = idx;
+
+    /* 左クリック: 選択 */
+    b.addEventListener('click', function(e){
+      if(b._dragged) return;
+      currentProfileId = p.id;
+      applyRemoteConfig(p);
+      renderProfileBtns();
+      saveProfilesToStorage();
+    });
+
+    /* 右クリック: コンテキストメニュー */
+    b.addEventListener('contextmenu', function(e){
+      e.preventDefault();
+      showProfileContextMenu(p, e.clientX, e.clientY);
+    });
+
+    /* ===== PC ドラッグ ===== */
+    b.draggable = true;
+    b.addEventListener('dragstart', function(e){
+      e.stopPropagation();
+      b._dragged = true;
+      e.dataTransfer.effectAllowed = 'move';
+      e.dataTransfer.setData('text/plain', idx);
+      b.style.opacity = '0.4';
+    });
+    b.addEventListener('dragend', function(e){
+      e.stopPropagation();
+      b.style.opacity = '';
+      setTimeout(function(){ b._dragged = false; }, 50);
+    });
+    b.addEventListener('dragover', function(e){
+      e.stopPropagation();
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+      b.style.outline = '2px solid #185FA5';
+    });
+    b.addEventListener('dragleave', function(e){
+      e.stopPropagation();
+      b.style.outline = '';
+    });
+    b.addEventListener('drop', function(e){
+      e.stopPropagation();
+      e.preventDefault();
+      b.style.outline = '';
+      var fromIdx = parseInt(e.dataTransfer.getData('text/plain'), 10);
+      var toIdx   = parseInt(b.dataset.idx, 10);
+      if(fromIdx === toIdx) return;
+      reorderProfiles(fromIdx, toIdx);
+    });
+
+    /* ===== スマホ: 長押し → 動かさない=メニュー、動かす=ドラッグ ===== */
+    (function(b, p, idx){
+      var _timer = null;
+      var _ready = false;   /* 長押し検知済み */
+      var _dragging = false;
+      var _ghost = null;
+      var _startX, _startY;
+      var _menuShown = false;
+
+      b.addEventListener('touchstart', function(e){
+        var t = e.touches[0];
+        _startX = t.clientX; _startY = t.clientY;
+        _ready = false; _dragging = false; _menuShown = false;
+        _timer = setTimeout(function(){
+          _ready = true;
+          /* まだ動いていなければコンテキストメニュー表示 */
+          _menuShown = true;
+          showProfileContextMenu(p, _startX, _startY);
+        }, 500);
+      }, {passive:true});
+
+      b.addEventListener('touchmove', function(e){
+        var t = e.touches[0];
+        var dx = Math.abs(t.clientX - _startX);
+        var dy = Math.abs(t.clientY - _startY);
+
+        if(!_ready){
+          /* 長押し前に動いたらキャンセル */
+          if(dx > 5 || dy > 5){ clearTimeout(_timer); }
+          return;
+        }
+
+        /* 長押し後に動いた → メニューを閉じてドラッグ開始 */
+        if(_menuShown){ hideContextMenu(); _menuShown = false; }
+        e.preventDefault();
+
+        if(!_dragging){
+          _dragging = true;
+          b._dragged = true;
+          b.style.opacity = '0.4';
+          _ghost = b.cloneNode(true);
+          _ghost.style.cssText = 'position:fixed;pointer-events:none;opacity:0.7;z-index:9999;font-family:inherit;font-size:14px;padding:0 16px;height:40px;border-radius:7px;background:#eef3ff;border:1px solid #185FA5;display:flex;align-items:center;';
+          document.body.appendChild(_ghost);
+        }
+
+        if(_ghost){
+          _ghost.style.left = (t.clientX - b.offsetWidth/2) + 'px';
+          _ghost.style.top  = (t.clientY - 15) + 'px';
+        }
+        btns.querySelectorAll('button').forEach(function(btn){ btn.style.outline=''; });
+        var els = document.elementsFromPoint(t.clientX, t.clientY);
+        for(var i=0;i<els.length;i++){
+          if(els[i].tagName==='BUTTON' && els[i]!==b && els[i].parentNode===btns){
+            els[i].style.outline = '2px solid #185FA5';
+            btns._dropTarget = els[i]; break;
+          }
+        }
+      }, {passive:false});
+
+      b.addEventListener('touchend', function(e){
+        clearTimeout(_timer);
+        if(_ghost){ _ghost.remove(); _ghost=null; }
+        btns.querySelectorAll('button').forEach(function(btn){ btn.style.outline=''; });
+        b.style.opacity='';
+
+        if(_dragging && btns._dropTarget){
+          var fromI = parseInt(b.dataset.idx, 10);
+          var toI   = parseInt(btns._dropTarget.dataset.idx, 10);
+          btns._dropTarget = null;
+          if(fromI !== toI) reorderProfiles(fromI, toI);
+        }
+        _ready = false; _dragging = false;
+        setTimeout(function(){ b._dragged=false; }, 50);
+      }, {passive:true});
+    })(b, p, idx);
+
+    btns.appendChild(b);
+  });
+}
+
+function loadConfigFromUrl(url, silent){
+  fetchWithFallback(url)
+    .then(function(data){
+      console.log('Config loaded:', data);
+      /* profiles配列がある場合はプロファイルモード */
+      if(Array.isArray(data.profiles) && data.profiles.length){
+        profiles = data.profiles;
+        var defId = data.defaultProfile || data.profiles[0].id;
+        var defProfile = profiles.filter(function(p){ return p.id===defId; })[0] || profiles[0];
+        currentProfileId = defProfile.id;
+        applyRemoteConfig(defProfile);
+        renderProfileBtns();
+        if(data.layout){ applyLayout(data.layout); saveLayout(); }
+        saveProfilesToStorage();
+        gv('config-status').textContent = '✓ '+profiles.length+'個のプロファイルを読み込みました';
+        gv('config-status').style.color = '#3B6D11';
+        setTimeout(function(){ gv('config-status').textContent=''; }, 3000);
+      } else {
+        profiles = [];
+        renderProfileBtns();
+        applyRemoteConfig(data);
+        if(!silent){
+          gv('config-status').textContent = '✓ 読み込み完了';
+          gv('config-status').style.color = '#3B6D11';
+          setTimeout(function(){ gv('config-status').textContent=''; }, 3000);
+        }
+      }
+      if(!silent) maybeRestoreMemos(data);
+      if(!silent) maybeRestoreHistory(data);
+      if(!silent) maybeRestoreRecSettings(data);
+    })
+    .catch(function(err){
+      console.error('Config load error:', err);
+      var msg = 'URLから読み込めませんでした';
+      if(location.protocol === 'file:') msg += '（ローカルファイルから開くと読み込めません。D&Dでファイルを読み込んでください）';
+      else msg += ': ' + err.message;
+      gv('config-status').textContent = msg;
+      gv('config-status').style.color = '#993C1D';
+    });
+}
+
+/* ===== リモート設定ファイル読み込み ===== */
+function normalizeUrl(url){
+  /* Google Drive の共有URLをダイレクトダウンロードURLに変換 */
+  var m = url.match(/\/file\/d\/([^/]+)/);
+  if(m) return 'https://drive.google.com/uc?export=download&id=' + m[1];
+  m = url.match(/[?&]id=([^&]+)/);
+  if(m) return 'https://drive.google.com/uc?export=download&id=' + m[1];
+  return url;
+}
+
+function fetchWithFallback(url){
+  var opts = { method: 'GET', cache: 'no-cache' };
+  return fetch(url, opts)
+    .then(function(res){
+      if(!res.ok) throw new Error('HTTP ' + res.status);
+      return res.json();
+    })
+    .catch(function(e1){
+      /* CORSプロキシ1: corsproxy.io */
+      var p1 = 'https://corsproxy.io/?' + encodeURIComponent(url);
+      return fetch(p1, opts)
+        .then(function(res){
+          if(!res.ok) throw new Error('HTTP ' + res.status);
+          return res.json();
+        })
+        .catch(function(e2){
+          /* CORSプロキシ2: allorigins */
+          var p2 = 'https://api.allorigins.win/raw?url=' + encodeURIComponent(url);
+          return fetch(p2, opts)
+            .then(function(res){
+              if(!res.ok) throw new Error('HTTP ' + res.status);
+              return res.json();
+            });
+        });
+    });
+}
+
+function loadRemoteConfig(){
+  var url = gv('config-url').value.trim();
+  var status = gv('config-status');
+  if(!url){ status.textContent = 'URLを入力してください'; status.style.color='#993C1D'; return; }
+  url = normalizeUrl(url);
+  status.textContent = '読み込み中...'; status.style.color='#888';
+  loadConfigFromUrl(url, false);
+}
+
+function applyRemoteConfig(s){
+  function sr(sliderId, numId, val, mn, mx){
+    var sl=gv(sliderId), nm=gv(numId);
+    if(!sl || val===undefined) return;
+    var v=Math.max(mn, Math.min(mx, +val));
+    sl.value=v; if(nm) nm.value=v;
+  }
+  function sc(id, val){
+    if(val===undefined) return;
+    var el=gv(id); if(el) el.checked=!!val;
+  }
+  if(s.len!==undefined)      sr('len',       'len-num',       s.len,      4,   128);
+  if(s.pwCount!==undefined){
+    var ignore = gv('ignore-pwcount');
+    if(ignore && ignore.checked){
+      var pc=gv('pw-count'); if(pc) pc.value=Math.max(1,Math.min(50,+s.pwCount));
+    }
+  }
+  if(s.pctNum!==undefined)   sr('pct-num',   'pct-num-num',   s.pctNum,   0,   100);
+  if(s.pctSym!==undefined)   sr('pct-sym',   'pct-sym-num',   s.pctSym,   0,   100);
+  if(s.pctUpper!==undefined) sr('pct-upper', 'pct-upper-num', s.pctUpper, 0,   100);
+  if(s.maxSeq!==undefined)   sr('max-seq',   'max-seq-num',   s.maxSeq,   1,   10);
+  sc('start-upper',   s.startUpper);
+  sc('start-alpha',   s.startAlpha);
+  sc('end-num',       s.endNum);
+  sc('end-sym',       s.endSym);
+  sc('exclude-ambig', s.excludeAmbig);
+  sc('no-repeat',     s.noRepeat);
+  sc('min-one',       s.minOne);
+  /* 色（on/off と 色値）は「色指定も反映」がONのときだけプロファイルから反映。
+     OFFのときは今の文字色設定（トグル・色）を維持する */
+  var applyColorsFromProfile = (function(){ var c=gv('apply-profile-colors'); return c && c.checked; })();
+  if(applyColorsFromProfile){
+    sc('color-upper-on', s.colorUpperOn);
+    sc('color-num-on',   s.colorNumOn);
+    sc('color-sym-on',   s.colorSymOn);
+    sc('color-lower-on', s.colorLowerOn);
+  }
+  if(Array.isArray(s.activeSyms)){
+    activeSyms = new Set(s.activeSyms);
+    syncSymButtonsFromSet();
+    syncTextInputFromSet();
+    updateSymPreview();
+  }
+  function lc(t, v){
+    if(!v) return;
+    currentColors[t]=v;
+    gv('color-'+t).value=v;
+    gv('swatch-'+t).style.background=v;
+    gv('hex-'+t).value=v.toUpperCase();
+  }
+  if(applyColorsFromProfile){
+    lc('upper', s.colorUpper);
+    lc('num',   s.colorNum);
+    lc('sym',   s.colorSym);
+    lc('lower', s.colorLower);
+  }
+  if(s.sortOrder !== undefined){
+    var ignoreSort = gv('ignore-pwcount');
+    if(ignoreSort && ignoreSort.checked){
+      var orders=['asc','desc','none'],labels=['昇順 ↑','降順 ↓','生成順'];
+      if(orders.indexOf(s.sortOrder)!==-1){
+        sortOrder=s.sortOrder;
+        var sb=gv('sort-btn');if(sb)sb.textContent=labels[orders.indexOf(sortOrder)];
+      }
+    }
+  }
+  if(s.ratioLock!==undefined){
+    var rl=gv('ratio-lock'); if(rl) rl.checked=!!s.ratioLock;
+    toggleRatioLock();
+  }
+  if(s.snap5!==undefined){
+    var s5=gv('ratio-snap5'); if(s5) s5.checked=!!s.snap5;
+    applySnap5State();
+  }
+  if(s.layout) { applyLayout(s.layout); saveLayout(); }
+  updateTotal(); applyColors(); generate();
+  saveSettings();   /* 読み込んだ設定をlocalStorageにも保存（閉じても残す） */
+}
+
+/* ===== セクション折りたたみ・並び替え ===== */
+var LAYOUT_KEY = 'pwgen_layout_v1';
+
+function toggleSection(headEl, e){
+  var evt = e || window.event;
+  if(evt && evt.target){
+    var tag = evt.target.tagName;
+    if(tag === 'INPUT' || tag === 'LABEL') return;
+  }
+  var sec = headEl.closest('.section');
+  sec.classList.toggle('collapsed');
+  saveLayout();
+}
+
+function saveLayout(){
+  var container = gv('sections-container');
+  if(!container) return;
+  var sections = container.querySelectorAll('.section[data-section-id]');
+  var layout = { order: [], collapsed: {} };
+  sections.forEach(function(s){
+    var id = s.dataset.sectionId;
+    layout.order.push(id);
+    layout.collapsed[id] = s.classList.contains('collapsed');
+  });
+  try{ localStorage.setItem(LAYOUT_KEY, JSON.stringify(layout)); }catch(e){}
+  scheduleCloudSave();
+}
+
+function loadLayout(){
+  var raw; try{ raw = localStorage.getItem(LAYOUT_KEY); }catch(e){}
+  if(!raw) return;
+  var layout; try{ layout = JSON.parse(raw); }catch(e){ return; }
+  applyLayout(layout);
+}
+
+function applyLayout(layout){
+  var container = gv('sections-container');
+  if(!container || !layout) return;
+  /* 並び順を適用 */
+  if(Array.isArray(layout.order)){
+    layout.order.forEach(function(id){
+      var sec = container.querySelector('[data-section-id="'+id+'"]');
+      if(sec) container.appendChild(sec);
+    });
+  }
+  /* 折りたたみ状態を適用 */
+  if(layout.collapsed){
+    Object.keys(layout.collapsed).forEach(function(id){
+      var sec = container.querySelector('[data-section-id="'+id+'"]');
+      if(sec){
+        if(layout.collapsed[id]) sec.classList.add('collapsed');
+        else sec.classList.remove('collapsed');
+      }
+    });
+  }
+}
+
+function getLayoutForExport(){
+  var container = gv('sections-container');
+  if(!container) return null;
+  var sections = container.querySelectorAll('.section[data-section-id]');
+  var layout = { order: [], collapsed: {} };
+  sections.forEach(function(s){
+    var id = s.dataset.sectionId;
+    layout.order.push(id);
+    layout.collapsed[id] = s.classList.contains('collapsed');
+  });
+  return layout;
+}
+
+/* セクションD&D */
+function initSectionDrag(){
+  var container = gv('sections-container');
+  if(!container) return;
+
+  /* 移動方向ベースで挿入位置を決定
+     ・fromSec が toSec より「後ろ」＝下から上へ動かした → toSec の上に配置
+     ・fromSec が toSec より「前」  ＝上から下へ動かした → toSec の下に配置 */
+  function placeSectionByDirection(fromSec, toSec){
+    if(!fromSec || !toSec || fromSec === toSec) return;
+    var pos = fromSec.compareDocumentPosition(toSec);
+    if(pos & Node.DOCUMENT_POSITION_FOLLOWING){
+      /* toSec が後ろ＝fromSec は上にある＝下方向へ移動 → toSec の下へ */
+      container.insertBefore(fromSec, toSec.nextSibling);
+    } else {
+      /* toSec が前＝fromSec は下にある＝上方向へ移動 → toSec の上へ */
+      container.insertBefore(fromSec, toSec);
+    }
+    saveLayout();
+  }
+
+  container.addEventListener('dragstart', function(e){
+    var handle = e.target.closest('.section-drag-handle');
+    if(!handle) return;
+    var sec = handle.closest('.section');
+    if(!sec) return;
+    sec._dragging = true;
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', sec.dataset.sectionId);
+    sec.style.opacity = '0.4';
+    /* dragイベントをsectionに伝搬させる */
+    sec.draggable = true;
+  });
+
+  /* dragstart on section itself */
+  container.querySelectorAll('.section[data-section-id]').forEach(function(sec){
+    var handle = sec.querySelector('.section-drag-handle');
+    if(handle){
+      handle.addEventListener('mousedown', function(){ sec.draggable = true; });
+      handle.addEventListener('mouseup', function(){ sec.draggable = false; });
+      /* グリップをクリック/タップ → セクション開閉（ドラッグ直後は無視） */
+      handle.addEventListener('click', function(e){
+        e.stopPropagation();   /* 親ヘッダのトグルと二重発火させない */
+        e.preventDefault();
+        if(sec._justDragged){ sec._justDragged = false; return; }
+        sec.classList.toggle('collapsed');
+        saveLayout();
+      });
+    }
+    sec.addEventListener('dragstart', function(e){
+      if(!sec.draggable && !e.target.closest('.section-drag-handle')) { e.preventDefault(); return; }
+      sec._justDragged = true;   /* ドラッグ発生 → 直後のクリック開閉を抑止 */
+      e.dataTransfer.effectAllowed = 'move';
+      e.dataTransfer.setData('text/plain', sec.dataset.sectionId);
+      sec.style.opacity = '0.4';
+    });
+    sec.addEventListener('dragend', function(){
+      sec.style.opacity = '';
+      sec.draggable = false;
+      /* クリックが来なかった場合に備えて少し遅れて解除 */
+      setTimeout(function(){ sec._justDragged = false; }, 60);
+    });
+    sec.addEventListener('dragover', function(e){
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+      sec.classList.add('dragging-over');
+    });
+    sec.addEventListener('dragleave', function(){
+      sec.classList.remove('dragging-over');
+    });
+    sec.addEventListener('drop', function(e){
+      e.preventDefault();
+      sec.classList.remove('dragging-over');
+      var fromId = e.dataTransfer.getData('text/plain');
+      var toId = sec.dataset.sectionId;
+      if(fromId === toId) return;
+      var fromSec = container.querySelector('[data-section-id="'+fromId+'"]');
+      if(!fromSec) return;
+      /* 挿入位置を決定（移動方向ベース） */
+      placeSectionByDirection(fromSec, sec);
+    });
+  });
+
+  /* スマホ: 長押しドラッグ */
+  container.querySelectorAll('.section-drag-handle').forEach(function(handle){
+    var _timer, _dragging=false, _ghost, _fromSec;
+    handle.addEventListener('touchstart', function(e){
+      var t = e.touches[0];
+      _fromSec = handle.closest('.section');
+      _timer = setTimeout(function(){
+        _dragging = true;
+        _fromSec.style.opacity = '0.4';
+        _ghost = document.createElement('div');
+        var _titleEl = _fromSec.querySelector('.section-title');
+        _ghost.textContent = _titleEl ? _titleEl.textContent : (_fromSec.dataset.sectionId || '');
+        _ghost.style.cssText = 'position:fixed;z-index:9999;background:#eef3ff;border:1px solid #185FA5;border-radius:8px;padding:8px 14px;font-size:11px;font-weight:700;color:#185FA5;pointer-events:none;';
+        _ghost.style.left = (t.clientX - 40) + 'px';
+        _ghost.style.top = (t.clientY - 15) + 'px';
+        document.body.appendChild(_ghost);
+      }, 400);
+    }, {passive:true});
+
+    handle.addEventListener('touchmove', function(e){
+      if(!_dragging){ clearTimeout(_timer); return; }
+      e.preventDefault();
+      var t = e.touches[0];
+      if(_ghost){
+        _ghost.style.left = (t.clientX - 40) + 'px';
+        _ghost.style.top = (t.clientY - 15) + 'px';
+      }
+      container.querySelectorAll('.section[data-section-id]').forEach(function(s){ s.classList.remove('dragging-over'); });
+      var els = document.elementsFromPoint(t.clientX, t.clientY);
+      for(var i=0;i<els.length;i++){
+        var s = els[i].closest('.section[data-section-id]');
+        if(s && s !== _fromSec){ s.classList.add('dragging-over'); break; }
+      }
+    }, {passive:false});
+
+    handle.addEventListener('touchend', function(e){
+      clearTimeout(_timer);
+      if(_ghost){ _ghost.remove(); _ghost = null; }
+      if(_fromSec) _fromSec.style.opacity = '';
+      if(!_dragging) return;
+      _dragging = false;
+      /* 長押しドラッグ直後のタップ開閉を抑止 */
+      if(_fromSec){
+        _fromSec._justDragged = true;
+        setTimeout(function(){ if(_fromSec) _fromSec._justDragged = false; }, 350);
+      }
+      var t = e.changedTouches[0];
+      container.querySelectorAll('.section[data-section-id]').forEach(function(s){ s.classList.remove('dragging-over'); });
+      var els = document.elementsFromPoint(t.clientX, t.clientY);
+      for(var i=0;i<els.length;i++){
+        var toSec = els[i].closest('.section[data-section-id]');
+        if(toSec && toSec !== _fromSec){
+          /* 移動方向ベースで配置 */
+          placeSectionByDirection(_fromSec, toSec);
+          break;
+        }
+      }
+    }, {passive:true});
+  });
+}
+
+/* ===== ショートカットキー ===== */
+document.addEventListener('keydown', function(e){
+  var tag = document.activeElement ? document.activeElement.tagName : '';
+  var isInput = (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT');
+  if(isInput) return;
+  /* Space または R で再生成 */
+  if(e.key === ' ' || e.key === 'r' || e.key === 'R'){
+    e.preventDefault();
+    generate();
+  }
+});
+
+/* ===== INIT ===== */
+initSymbols();
+loadSettings();
+applySnap5State();
+syncSymButtonsFromSet();syncTextInputFromSet();updateSymPreview();updateTotal();applyColors();
+initSliderTouch();
+loadProfilesFromStorage();
+loadMemos();
+loadHistory();
+loadRecSettings();
+if(memos.length > MEMO_MAX) memos = memos.slice(0, MEMO_MAX);
+if(pwHistory.length > HIST_MAX) pwHistory = pwHistory.slice(0, HIST_MAX);
+renderMemos();
+renderHistory();
+if(typeof recRealtimeOn==='function' && recRealtimeOn()) startRecRealtime();
+renderProfileBtns();
+loadLayout();
+initSectionDrag();
+
+var _gen=generate;
+generate=function(){
+  var scrollY = window.scrollY || window.pageYOffset;
+  var list = gv('pw-list');
+  var oldH = list ? list.offsetHeight : 0;
+  if(list && oldH > 0) list.style.minHeight = oldH + 'px';
+  _gen();
+  if(list) list.style.minHeight = '';
+  window.scrollTo(0, scrollY);
+  saveSettings();showSaveFlash();
+};
+generate();
+
+/* クラウドから読み込み（成功でローカルを上書き）→ 完了後に自動保存を有効化 → Realtime購読開始 */
+(function(){
+  function done(){
+    cloudReady = true;
+    if(typeof startRealtimeSync === 'function') startRealtimeSync();
+  }
+  if(typeof loadFromCloud === 'function'){ loadFromCloud().then(done).catch(done); }
+  else { done(); }
+})();
+</script>
+</body>
+</html>
