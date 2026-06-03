@@ -73,6 +73,27 @@ input { -webkit-tap-highlight-color: transparent; font-family: inherit; }
 .pw-row:hover { border-color: #aaa; background: #fafaf8; }
 .pw-row:active { background: #f0f0ec; }
 .pw-row.copied { border-color: #3B6D11; background: #f2f8ee; }
+/* ===== MEMO ===== */
+.memo-list { display: flex; flex-direction: column; gap: 6px; }
+.memo-row {
+  background: #fff; border: 1px solid #e0e0da; border-radius: 9px;
+  padding: 9px 8px 9px 10px; display: flex; align-items: center; gap: 8px;
+  cursor: pointer; position: relative; overflow: hidden;
+  transition: background 0.15s, border-color 0.15s;
+}
+.memo-row:hover { border-color: #aaa; background: #fafaf8; }
+.memo-row:active { background: #f0f0ec; }
+.memo-row.copied { border-color: #3B6D11; background: #f2f8ee; }
+.memo-text {
+  font-family: 'Courier New', Courier, monospace; font-weight: 600;
+  flex: 1; min-width: 0; letter-spacing: 0.04em; color: #1a1a1a;
+  word-break: break-all; line-height: 1.35; font-size: 13px; pointer-events: none;
+}
+.memo-del {
+  flex-shrink: 0; border: none; background: none; color: #c4c4be;
+  font-size: 18px; line-height: 1; padding: 2px 6px; border-radius: 6px; cursor: pointer;
+}
+.memo-del:hover { color: #993C1D; background: rgba(153,60,29,0.08); }
 .pw-num { font-size: 11px; color: #ddd; flex-shrink: 0; min-width: 16px; }
 .pw-text {
   font-family: 'Courier New', Courier, monospace;
@@ -573,6 +594,21 @@ input { -webkit-tap-highlight-color: transparent; font-family: inherit; }
       </div>
     </div>
   </div>
+
+  <!-- パスワードメモ -->
+  <div class="section" data-section-id="memo">
+    <div class="section-head" onclick="toggleSection(this,event)"><span class="section-drag-handle">⠿</span><span class="section-title">パスワードメモ</span></div>
+    <div class="section-body">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+        <span style="font-size:12px;color:#888;flex:1;">パスワード行を長押しでここに追加（最大30件）</span>
+        <label style="display:flex;align-items:center;gap:4px;cursor:pointer;font-size:11px;color:#888;white-space:nowrap;"><input type="checkbox" id="memo-color-on" checked onchange="toggleMemoColor()" style="margin:0;width:13px;height:13px;">色を付ける</label>
+        <span id="memo-count" style="font-size:11px;color:#aaa;">0/30</span>
+        <button class="btn" onclick="clearMemos()" style="height:32px;padding:0 12px;font-size:13px;">クリア</button>
+      </div>
+      <div class="memo-list" id="memo-list"></div>
+      <div id="memo-empty" style="font-size:12px;color:#bbb;padding:6px 2px;">メモはまだありません。</div>
+    </div>
+  </div>
   </div><!-- /sections-container -->
 
 </div>
@@ -717,10 +753,14 @@ function applyColors(){
   ['upper','num','sym'].forEach(function(t){
     var on=gv('color-'+t+'-on').checked, col=currentColors[t];
     css+='.pw-text .c-'+t+'{color:'+(on?col:'#1a1a1a')+'}\n';
+    /* メモ：coloredのときだけ色、OFFは黒（パスワードの色ON/OFFにも追従） */
+    css+='.memo-text.colored .c-'+t+'{color:'+(on?col:'#1a1a1a')+'}\n';
     var dot=gv('leg-'+t+'-dot'),leg=gv('leg-'+t);
     if(dot) dot.style.background=on?col:'#ccc';
     if(leg) leg.style.opacity=on?'1':'0.35';
   });
+  /* メモが非colored時は全span黒 */
+  css+='.memo-text:not(.colored) .c-upper,.memo-text:not(.colored) .c-num,.memo-text:not(.colored) .c-sym{color:#1a1a1a}\n';
   styleEl.textContent=css;
 }
 function onColorPick(t){
@@ -924,6 +964,20 @@ function buildOne(){
   return{html:html,plain:plain,pctN:pctN,pctS:pctS,pctU:pctU,symLen:symArr.length};
 }
 
+/* 平文パスワードから色分けHTMLを生成（メモ用。記号は現在の選択記号で判定） */
+function colorizePlain(plain){
+  var symSet = getActiveSymsArray();
+  return String(plain).split('').map(function(ch){
+    var cls='';
+    if(ch>='0'&&ch<='9') cls='c-num';
+    else if(ch>='A'&&ch<='Z') cls='c-upper';
+    else if(ch>='a'&&ch<='z') cls='';            /* 小文字は無色 */
+    else cls='c-sym';                             /* それ以外は記号扱い */
+    var e=ch.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    return cls ? '<span class="'+cls+'">'+e+'</span>' : e;
+  }).join('');
+}
+
 /* ===== GENERATE ===== */
 function getAvailableWidth(){
   var listW = gv('pw-list').offsetWidth || (window.innerWidth - 32);
@@ -1062,9 +1116,38 @@ function generate(){
     row.appendChild(txtEl);
     row.appendChild(badgeEl);
 
-    /* 行全体クリックでコピー */
-    row.addEventListener('click', (function(plain, rowEl, badge){
-      return function(){
+    /* 行全体クリックでコピー（長押し＝メモ追加） */
+    (function(plain, rowEl, badge){
+      var lpTimer=null, lpFired=false, sx=0, sy=0;
+      function startPress(x,y){
+        lpFired=false; sx=x; sy=y;
+        clearTimeout(lpTimer);
+        lpTimer=setTimeout(function(){
+          lpFired=true;
+          addMemo(plain);
+          /* メモ追加のフィードバック（コピーとは別色っぽく一瞬光らせる） */
+          rowEl.classList.add('copied');
+          badge.textContent='MEMO';
+          badge.style.opacity='1';
+          clearTimeout(rowEl._ct);
+          rowEl._ct=setTimeout(function(){ rowEl.classList.remove('copied'); badge.style.opacity='0'; badge.textContent='COPIED'; }, 1200);
+        }, 550);
+      }
+      function moveCancel(x,y){
+        if(Math.abs(x-sx)>8 || Math.abs(y-sy)>8) clearTimeout(lpTimer);
+      }
+      function endPress(){ clearTimeout(lpTimer); }
+
+      rowEl.addEventListener('mousedown', function(e){ startPress(e.clientX,e.clientY); });
+      rowEl.addEventListener('mousemove', function(e){ moveCancel(e.clientX,e.clientY); });
+      rowEl.addEventListener('mouseup', endPress);
+      rowEl.addEventListener('mouseleave', endPress);
+      rowEl.addEventListener('touchstart', function(e){ var t=e.touches[0]; startPress(t.clientX,t.clientY); }, {passive:true});
+      rowEl.addEventListener('touchmove', function(e){ var t=e.touches[0]; moveCancel(t.clientX,t.clientY); }, {passive:true});
+      rowEl.addEventListener('touchend', endPress);
+
+      rowEl.addEventListener('click', function(){
+        if(lpFired){ lpFired=false; return; }  /* 長押しでメモ追加済み → コピーしない */
         copyText(plain, {textContent:'',set textContent(v){}});
         rowEl.classList.add('copied');
         badge.style.opacity = '1';
@@ -1073,8 +1156,8 @@ function generate(){
           rowEl.classList.remove('copied');
           badge.style.opacity = '0';
         }, 1500);
-      };
-    })(r.plain, row, badgeEl));
+      });
+    })(r.plain, row, badgeEl);
 
     list.appendChild(row);
   }
@@ -1122,6 +1205,110 @@ function copyAll(){
   var all = Array.prototype.map.call(rows, function(r){ return r.dataset.plain||''; }).join('\n');
   var btn = document.querySelectorAll('.top-controls .btn')[0];
   copyText(all, btn);
+}
+
+/* ===== MEMO ===== */
+var MEMO_KEY = 'pwgen_memos_v1';
+var MEMO_COLOR_KEY = 'pwgen_memo_color_v1';
+var MEMO_MAX = 30;
+var memos = [];   /* [{plain, html}] */
+
+/* 旧形式（文字列）や {plain} だけの項目も正規化 */
+function normMemo(item){
+  if(typeof item === 'string') return { plain:item, html:colorizePlain(item) };
+  if(item && typeof item.plain === 'string'){
+    return { plain:item.plain, html:(typeof item.html==='string' && item.html) ? item.html : colorizePlain(item.plain) };
+  }
+  return null;
+}
+function loadMemos(){
+  var raw; try{ raw = localStorage.getItem(MEMO_KEY); }catch(e){}
+  if(raw){
+    try{
+      var a = JSON.parse(raw);
+      if(Array.isArray(a)) memos = a.map(normMemo).filter(Boolean).slice(0, MEMO_MAX);
+    }catch(e){}
+  }
+  /* 色ON/OFFの復元 */
+  var c; try{ c = localStorage.getItem(MEMO_COLOR_KEY); }catch(e){}
+  if(c !== null && c !== undefined){
+    var cb = gv('memo-color-on'); if(cb) cb.checked = (c === '1');
+  }
+}
+function saveMemos(){
+  try{ localStorage.setItem(MEMO_KEY, JSON.stringify(memos)); }catch(e){}
+}
+function saveMemoColorPref(){
+  try{ localStorage.setItem(MEMO_COLOR_KEY, gv('memo-color-on').checked ? '1' : '0'); }catch(e){}
+}
+function addMemo(plain){
+  if(!plain) return;
+  /* リング：先頭に追加し、最大件数を超えたら古いものを押し出す */
+  memos.unshift({ plain:plain, html:colorizePlain(plain) });
+  if(memos.length > MEMO_MAX) memos = memos.slice(0, MEMO_MAX);
+  saveMemos();
+  renderMemos();
+}
+function clearMemos(){
+  if(memos.length === 0) return;
+  if(!window.confirm('メモをすべて削除しますか？')) return;
+  memos = [];
+  saveMemos();
+  renderMemos();
+}
+function deleteMemo(idx){
+  memos.splice(idx, 1);
+  saveMemos();
+  renderMemos();
+}
+function toggleMemoColor(){
+  saveMemoColorPref();
+  renderMemos();
+}
+function renderMemos(){
+  var list = gv('memo-list'); if(!list) return;
+  list.innerHTML = '';
+  var cnt = gv('memo-count'); if(cnt) cnt.textContent = memos.length + '/' + MEMO_MAX;
+  var empty = gv('memo-empty'); if(empty) empty.style.display = memos.length ? 'none' : '';
+  var colorOn = (function(){ var cb=gv('memo-color-on'); return cb ? cb.checked : true; })();
+  memos.forEach(function(m, idx){
+    var row = document.createElement('div');
+    row.className = 'memo-row';
+    row.dataset.plain = m.plain;
+
+    var txt = document.createElement('span');
+    txt.className = 'memo-text' + (colorOn ? ' colored' : '');
+    txt.innerHTML = m.html || colorizePlain(m.plain);
+
+    var badge = document.createElement('span');
+    badge.className = 'pw-copied-badge';
+    badge.textContent = 'COPIED';
+
+    var del = document.createElement('button');
+    del.className = 'memo-del';
+    del.textContent = '\u00d7';
+    del.title = '削除';
+    del.addEventListener('click', function(e){
+      e.stopPropagation();
+      deleteMemo(idx);
+    });
+
+    /* メモ行クリックでコピー */
+    row.addEventListener('click', (function(plain){
+      return function(){
+        copyText(plain, {textContent:'',set textContent(v){}});
+        row.classList.add('copied');
+        badge.style.opacity = '1';
+        clearTimeout(row._ct);
+        row._ct = setTimeout(function(){ row.classList.remove('copied'); badge.style.opacity='0'; }, 1500);
+      };
+    })(m.plain));
+
+    row.appendChild(txt);
+    row.appendChild(badge);
+    row.appendChild(del);
+    list.appendChild(row);
+  });
 }
 
 /* ===== STORAGE ===== */
@@ -1276,6 +1463,7 @@ function processFile(file){
       }
       gv('config-status').style.color = '#3B6D11';
       setTimeout(function(){ gv('config-status').textContent=''; }, 3000);
+      maybeRestoreMemos(data);
     } catch(err) {
       gv('config-status').textContent = 'JSONパースエラー: ' + err.message;
       gv('config-status').style.color = '#993C1D';
@@ -1337,13 +1525,33 @@ function exportSettings(){
       "_comment": "PASSWORD GENERATOR 設定ファイル",
       defaultProfile: currentProfileId || profiles[0].id,
       profiles: profiles,
-      layout: getLayoutForExport()
+      layout: getLayoutForExport(),
+      memos: memos
     });
   } else {
     var obj = Object.assign({ "_comment": "PASSWORD GENERATOR 設定ファイル" }, getCurrentSettingsObj());
     obj.layout = getLayoutForExport();
+    obj.memos = memos;
     downloadJson(obj);
   }
+}
+
+/* JSON読み込み時：memosが含まれていれば既存にマージ（追記）するか確認して反映 */
+function maybeRestoreMemos(data){
+  if(!data || !Array.isArray(data.memos)) return;
+  var incoming = data.memos.map(normMemo).filter(Boolean);
+  if(incoming.length === 0) return;
+  var ok = window.confirm('このファイルにはメモが ' + incoming.length + ' 件含まれています。\n今のメモに追記（マージ）しますか？\n（OK：今のメモに追加／キャンセル：メモは変更しない）\n※合計が最大' + MEMO_MAX + '件を超えた分は古いものから削除されます。');
+  if(!ok) return;
+  /* 既存の平文集合（重複は追加しない） */
+  var seen = {};
+  memos.forEach(function(m){ seen[m.plain] = true; });
+  /* 読み込み分を「新しいもの」として先頭側に積む（ファイル内の並び順を保ったまま既存の前に） */
+  var merged = [];
+  incoming.forEach(function(m){ if(!seen[m.plain]){ merged.push(m); seen[m.plain]=true; } });
+  memos = merged.concat(memos).slice(0, MEMO_MAX);
+  saveMemos();
+  renderMemos();
 }
 
 /* ===== プロファイル ===== */
@@ -1640,6 +1848,7 @@ function loadConfigFromUrl(url, silent){
           setTimeout(function(){ gv('config-status').textContent=''; }, 3000);
         }
       }
+      if(!silent) maybeRestoreMemos(data);
     })
     .catch(function(err){
       console.error('Config load error:', err);
@@ -1999,6 +2208,8 @@ applySnap5State();
 syncSymButtonsFromSet();syncTextInputFromSet();updateSymPreview();updateTotal();applyColors();
 initSliderTouch();
 loadProfilesFromStorage();
+loadMemos();
+renderMemos();
 renderProfileBtns();
 loadLayout();
 initSectionDrag();
