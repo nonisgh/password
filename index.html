@@ -1640,6 +1640,7 @@ function saveMemos(){
 }
 function saveMemoColorPref(){
   try{ localStorage.setItem(MEMO_COLOR_KEY, gv('memo-color-on').checked ? '1' : '0'); }catch(e){}
+  if(typeof scheduleCloudSave==='function') scheduleCloudSave();
 }
 function addMemo(plain){
   if(!plain) return;
@@ -1691,6 +1692,7 @@ function saveMemoFilterPref(){
       hour:   gv('memo-filter-hour').checked
     }));
   }catch(e){}
+  if(typeof scheduleCloudSave==='function') scheduleCloudSave();
 }
 function toggleMemoFilter(){
   saveMemoFilterPref();
@@ -1832,6 +1834,7 @@ function saveHistory(){
 }
 function saveHistColorPref(){
   try{ localStorage.setItem(HIST_COLOR_KEY, gv('hist-color-on').checked ? '1' : '0'); }catch(e){}
+  if(typeof scheduleCloudSave==='function') scheduleCloudSave();
 }
 function saveHistFilterPref(){
   try{
@@ -1841,6 +1844,7 @@ function saveHistFilterPref(){
       notmemo:gv('hist-filter-notmemo').checked
     }));
   }catch(e){}
+  if(typeof scheduleCloudSave==='function') scheduleCloudSave();
 }
 function addHistory(plain){
   if(!plain) return;
@@ -1995,14 +1999,28 @@ var CLIENT_ID = 'c' + Date.now().toString(36) + Math.random().toString(36).slice
 var myWriteSeq = 0;                 /* 自分の保存に付ける連番 */
 var lastSeenWriter = '';            /* 最後に受信した書き込み元の印 */
 
-/* 保存対象の全データを1オブジェクトにまとめる。
-   プロファイルは同期しない（JSON書き出し/読み込み専用）。常に「今の画面の設定」を同期する。 */
+/* 保存対象の全データを1オブジェクトにまとめる。常に「今の画面の設定」を同期する。
+   プロファイル一覧も同期するが、受信時に自動適用はしない（ボタンを押したときだけ反映）。 */
+function uiChecked(id){ var e=gv(id); return e ? e.checked : undefined; }
 function collectAllData(){
   var obj = Object.assign({}, getCurrentSettingsObj());
   obj.layout = getLayoutForExport();
   obj.memos = memos;
   obj.history = pwHistory;
   obj.recSettings = getRecSettingsObj();
+  /* メモ・履歴のフィルタと色トグル */
+  obj.uiFilters = {
+    memoColor:   uiChecked('memo-color-on'),
+    memoLatest:  uiChecked('memo-filter-latest'),
+    memoHour:    uiChecked('memo-filter-hour'),
+    histColor:   uiChecked('hist-color-on'),
+    histLatest:  uiChecked('hist-filter-latest'),
+    histHour:    uiChecked('hist-filter-hour'),
+    histNotmemo: uiChecked('hist-filter-notmemo')
+  };
+  /* プロファイル一覧（適用はしない。一覧の共有のみ） */
+  obj.profiles = profiles;
+  obj.defaultProfile = currentProfileId;
   return obj;
 }
 
@@ -2125,6 +2143,8 @@ function applyCloudData(data){
   cloudSuppress = true;
   try{
     applyRemoteConfig(data);
+    /* 表示件数はクラウド同期では常に揃える（ignore-pwcountに関係なく） */
+    if(typeof data.pwCount !== 'undefined'){ var pc=gv('pw-count'); if(pc) pc.value=Math.max(1,Math.min(50,+data.pwCount)); }
     /* 色設定はクラウド復元では「色指定も反映」に関係なく常に戻す */
     var sc2=function(id,v){ var e=gv(id); if(e && typeof v!=='undefined') e.checked=!!v; };
     sc2('color-upper-on', data.colorUpperOn);
@@ -2144,6 +2164,27 @@ function applyCloudData(data){
     if(Array.isArray(data.history)){ pwHistory = data.history.map(normMemo).filter(Boolean).slice(0, HIST_MAX); saveHistory(); }
     if(memos.length > MEMO_MAX) memos = memos.slice(0, MEMO_MAX);
     if(pwHistory.length > HIST_MAX) pwHistory = pwHistory.slice(0, HIST_MAX);
+    /* メモ・履歴のフィルタ・色トグルを復元 */
+    if(data.uiFilters){
+      var f=data.uiFilters;
+      sc2('memo-color-on',    f.memoColor);
+      sc2('memo-filter-latest', f.memoLatest);
+      sc2('memo-filter-hour',   f.memoHour);
+      sc2('hist-color-on',    f.histColor);
+      sc2('hist-filter-latest', f.histLatest);
+      sc2('hist-filter-hour',   f.histHour);
+      sc2('hist-filter-notmemo', f.histNotmemo);
+      if(typeof saveMemoColorPref==='function') saveMemoColorPref();
+      if(typeof saveMemoFilterPref==='function') saveMemoFilterPref();
+      if(typeof saveHistColorPref==='function') saveHistColorPref();
+      if(typeof saveHistFilterPref==='function') saveHistFilterPref();
+    }
+    /* プロファイル一覧を共有（自動適用はしない。ボタンの並びだけ揃える） */
+    if(Array.isArray(data.profiles)){
+      profiles = data.profiles;
+      currentProfileId = data.defaultProfile || currentProfileId;
+      if(typeof renderProfileBtns==='function') renderProfileBtns();
+    }
     refreshRecLabels();
     renderMemos(); renderHistory();
     applyColors(); generate();
@@ -2187,6 +2228,7 @@ function saveProfilesToStorage(){
   } else {
     try{localStorage.removeItem(PROFILES_KEY);}catch(e){}
   }
+  if(typeof scheduleCloudSave==='function') scheduleCloudSave();
 }
 
 function loadSettings(){
