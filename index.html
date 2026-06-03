@@ -402,7 +402,10 @@ input { -webkit-tap-highlight-color: transparent; font-family: inherit; }
       <div id="profile-bar" style="margin-bottom:0;">
         <div style="display:flex;align-items:center;margin-bottom:8px;gap:6px;flex-wrap:wrap;justify-content:flex-end;">
           <label style="font-size:11px;color:#aaa;display:flex;align-items:center;gap:4px;cursor:pointer;">
-            <input type="checkbox" id="ignore-pwcount" style="margin:0;"> 生成件数も切り替え
+            <input type="checkbox" id="ignore-pwcount" style="margin:0;" onchange="saveSettings()"> 生成件数も切り替え
+          </label>
+          <label style="font-size:11px;color:#aaa;display:flex;align-items:center;gap:4px;cursor:pointer;">
+            <input type="checkbox" id="apply-profile-colors" style="margin:0;" onchange="saveSettings()"> 色指定も反映
           </label>
           <button onclick="addProfile()"
             style="background:none;border:1px solid #ddd;border-radius:6px;padding:2px 10px;font-size:14px;cursor:pointer;color:#888;touch-action:manipulation;"
@@ -652,20 +655,33 @@ input { -webkit-tap-highlight-color: transparent; font-family: inherit; }
   <div class="section" data-section-id="recset">
     <div class="section-head" onclick="toggleSection(this,event)"><span class="section-drag-handle">⠿</span><span class="section-title">記録設定</span></div>
     <div class="section-body">
-      <div style="font-size:11px;color:#aaa;margin-bottom:2px;">「直近◯◯」の対象時間（メモ・履歴 共通）</div>
+      <div style="font-size:11px;color:#888;font-weight:700;margin-bottom:4px;">メモの絞り込み</div>
+      <div style="font-size:11px;color:#aaa;margin-bottom:2px;">「直近◯◯」の対象時間</div>
       <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
-        <div class="recset-time"><input type="text" inputmode="numeric" id="rec-hh" value="1" onchange="onRecTimeInput()" oninput="onRecTimeInput()"><span>時間</span></div>
-        <div class="recset-time"><input type="text" inputmode="numeric" id="rec-mm" value="0" onchange="onRecTimeInput()" oninput="onRecTimeInput()"><span>分</span></div>
-        <div class="recset-time"><input type="text" inputmode="numeric" id="rec-ss" value="0" onchange="onRecTimeInput()" oninput="onRecTimeInput()"><span>秒</span></div>
-        <span id="rec-time-preview" style="font-size:11px;color:#888;margin-left:4px;"></span>
+        <div class="recset-time"><input type="text" inputmode="numeric" id="rec-memo-hh" value="1" onchange="onRecTimeInput()" oninput="onRecTimeInput()"><span>時間</span></div>
+        <div class="recset-time"><input type="text" inputmode="numeric" id="rec-memo-mm" value="0" onchange="onRecTimeInput()" oninput="onRecTimeInput()"><span>分</span></div>
+        <div class="recset-time"><input type="text" inputmode="numeric" id="rec-memo-ss" value="0" onchange="onRecTimeInput()" oninput="onRecTimeInput()"><span>秒</span></div>
+        <span id="rec-memo-time-preview" style="font-size:11px;color:#888;margin-left:4px;"></span>
+      </div>
+      <div style="font-size:11px;color:#aaa;margin-top:6px;margin-bottom:2px;">「最新◯件のみ」の件数</div>
+      <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+        <div class="recset-time"><span style="color:#888;">最新</span><input type="text" inputmode="numeric" id="rec-memo-latest" value="1" onchange="onRecLatestInput()" oninput="onRecLatestInput()"><span>件</span></div>
       </div>
 
-      <div style="font-size:11px;color:#aaa;margin-top:10px;margin-bottom:2px;">「最新◯件のみ」の件数（メモ・履歴 共通）</div>
+      <div style="font-size:11px;color:#888;font-weight:700;margin-top:14px;margin-bottom:4px;">履歴の絞り込み</div>
+      <div style="font-size:11px;color:#aaa;margin-bottom:2px;">「直近◯◯」の対象時間</div>
       <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
-        <div class="recset-time"><span style="color:#888;">最新</span><input type="text" inputmode="numeric" id="rec-latest-n" value="1" onchange="onRecLatestInput()" oninput="onRecLatestInput()"><span>件</span></div>
+        <div class="recset-time"><input type="text" inputmode="numeric" id="rec-hist-hh" value="1" onchange="onRecTimeInput()" oninput="onRecTimeInput()"><span>時間</span></div>
+        <div class="recset-time"><input type="text" inputmode="numeric" id="rec-hist-mm" value="0" onchange="onRecTimeInput()" oninput="onRecTimeInput()"><span>分</span></div>
+        <div class="recset-time"><input type="text" inputmode="numeric" id="rec-hist-ss" value="0" onchange="onRecTimeInput()" oninput="onRecTimeInput()"><span>秒</span></div>
+        <span id="rec-hist-time-preview" style="font-size:11px;color:#888;margin-left:4px;"></span>
+      </div>
+      <div style="font-size:11px;color:#aaa;margin-top:6px;margin-bottom:2px;">「最新◯件のみ」の件数</div>
+      <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+        <div class="recset-time"><span style="color:#888;">最新</span><input type="text" inputmode="numeric" id="rec-hist-latest" value="1" onchange="onRecLatestInput()" oninput="onRecLatestInput()"><span>件</span></div>
       </div>
 
-      <div class="row-toggle" style="margin-top:10px;">
+      <div class="row-toggle" style="margin-top:14px;">
         <span class="lbl">クリアを連動（片方を消すと両方消す）</span>
         <label class="toggle"><input type="checkbox" id="rec-clear-link" onchange="saveRecSettings();refreshRecLabels()"><span class="slider-tog"></span></label>
       </div>
@@ -1326,18 +1342,18 @@ function clampInt(v, mn, mx, def){
   if(isNaN(v)) v = def;
   return Math.max(mn, Math.min(mx, v));
 }
-/* 「直近◯◯」のミリ秒（時/分/秒の合計）。0なら従来の1時間にフォールバックしない＝0は「0秒」 */
-function recWindowMs(){
-  var hh = clampInt(gv('rec-hh') && gv('rec-hh').value, 0, 999, 0);
-  var mm = clampInt(gv('rec-mm') && gv('rec-mm').value, 0, 59, 0);
-  var ss = clampInt(gv('rec-ss') && gv('rec-ss').value, 0, 59, 0);
+/* 「直近◯◯」のミリ秒。pは 'memo' or 'hist' */
+function recWindowMs(p){
+  var hh = clampInt(gv('rec-'+p+'-hh') && gv('rec-'+p+'-hh').value, 0, 999, 0);
+  var mm = clampInt(gv('rec-'+p+'-mm') && gv('rec-'+p+'-mm').value, 0, 59, 0);
+  var ss = clampInt(gv('rec-'+p+'-ss') && gv('rec-'+p+'-ss').value, 0, 59, 0);
   return ((hh*3600)+(mm*60)+ss) * 1000;
 }
-/* 冗長にならないよう、0の単位を省いて「直近1時間30分」のように整形 */
-function recWindowLabel(){
-  var hh = clampInt(gv('rec-hh') && gv('rec-hh').value, 0, 999, 0);
-  var mm = clampInt(gv('rec-mm') && gv('rec-mm').value, 0, 59, 0);
-  var ss = clampInt(gv('rec-ss') && gv('rec-ss').value, 0, 59, 0);
+/* 「直近1時間30分」のように整形（0の単位は省く）。pは 'memo' or 'hist' */
+function recWindowLabel(p){
+  var hh = clampInt(gv('rec-'+p+'-hh') && gv('rec-'+p+'-hh').value, 0, 999, 0);
+  var mm = clampInt(gv('rec-'+p+'-mm') && gv('rec-'+p+'-mm').value, 0, 59, 0);
+  var ss = clampInt(gv('rec-'+p+'-ss') && gv('rec-'+p+'-ss').value, 0, 59, 0);
   var parts = [];
   if(hh) parts.push(hh+'時間');
   if(mm) parts.push(mm+'分');
@@ -1345,46 +1361,53 @@ function recWindowLabel(){
   if(parts.length === 0) parts.push('0秒');
   return '直近' + parts.join('');
 }
+/* 「最新◯件のみ」の件数。pは 'memo' or 'hist'（1以上） */
+function recLatestN(p){
+  return clampInt(gv('rec-'+p+'-latest') && gv('rec-'+p+'-latest').value, 1, 500, 1);
+}
 function refreshRecLabels(){
-  var lbl = recWindowLabel();
-  var ml = gv('memo-hour-label'); if(ml) ml.textContent = lbl;
-  var hl = gv('hist-hour-label'); if(hl) hl.textContent = lbl;
-  var pv = gv('rec-time-preview'); if(pv) pv.textContent = '= ' + lbl;
+  var ml = gv('memo-hour-label'); if(ml) ml.textContent = recWindowLabel('memo');
+  var hl = gv('hist-hour-label'); if(hl) hl.textContent = recWindowLabel('hist');
+  var mpv = gv('rec-memo-time-preview'); if(mpv) mpv.textContent = '= ' + recWindowLabel('memo');
+  var hpv = gv('rec-hist-time-preview'); if(hpv) hpv.textContent = '= ' + recWindowLabel('hist');
   var mc = gv('memo-max-cap'); if(mc) mc.textContent = MEMO_MAX;
   var hc = gv('hist-max-cap'); if(hc) hc.textContent = HIST_MAX;
-  /* 最新◯件ラベル */
-  var n = recLatestN();
-  var mll = gv('memo-latest-label'); if(mll) mll.textContent = n;
-  var hll = gv('hist-latest-label'); if(hll) hll.textContent = n;
+  var mll = gv('memo-latest-label'); if(mll) mll.textContent = recLatestN('memo');
+  var hll = gv('hist-latest-label'); if(hll) hll.textContent = recLatestN('hist');
   /* クリア連動ONなら「Wクリア」、OFFなら「クリア」 */
   var linked = !!(gv('rec-clear-link') && gv('rec-clear-link').checked);
   var mb = gv('memo-clear-btn'); if(mb) mb.textContent = linked ? 'Wクリア' : 'クリア';
   var hb = gv('hist-clear-btn'); if(hb) hb.textContent = linked ? 'Wクリア' : 'クリア';
 }
-/* 「最新◯件のみ」の件数（メモ・履歴共通、1以上） */
-function recLatestN(){
-  return clampInt(gv('rec-latest-n') && gv('rec-latest-n').value, 1, 500, 1);
-}
 function getRecSettingsObj(){
   return {
-    hh: clampInt(gv('rec-hh').value,0,999,1),
-    mm: clampInt(gv('rec-mm').value,0,59,0),
-    ss: clampInt(gv('rec-ss').value,0,59,0),
+    memoHH: clampInt(gv('rec-memo-hh').value,0,999,1),
+    memoMM: clampInt(gv('rec-memo-mm').value,0,59,0),
+    memoSS: clampInt(gv('rec-memo-ss').value,0,59,0),
+    memoLatest: recLatestN('memo'),
+    histHH: clampInt(gv('rec-hist-hh').value,0,999,1),
+    histMM: clampInt(gv('rec-hist-mm').value,0,59,0),
+    histSS: clampInt(gv('rec-hist-ss').value,0,59,0),
+    histLatest: recLatestN('hist'),
     clearLink: !!(gv('rec-clear-link') && gv('rec-clear-link').checked),
     clearConfirm: !(gv('rec-clear-confirm')) ? true : gv('rec-clear-confirm').checked,
-    latestN: recLatestN(),
     memoMax: MEMO_MAX,
     histMax: HIST_MAX
   };
 }
 function applyRecSettingsObj(o){
   if(!o) return;
-  if(gv('rec-hh') && typeof o.hh !== 'undefined') gv('rec-hh').value = clampInt(o.hh,0,999,1);
-  if(gv('rec-mm') && typeof o.mm !== 'undefined') gv('rec-mm').value = clampInt(o.mm,0,59,0);
-  if(gv('rec-ss') && typeof o.ss !== 'undefined') gv('rec-ss').value = clampInt(o.ss,0,59,0);
+  function setv(id, val){ var e=gv(id); if(e) e.value = val; }
+  if(typeof o.memoHH !== 'undefined') setv('rec-memo-hh', clampInt(o.memoHH,0,999,1));
+  if(typeof o.memoMM !== 'undefined') setv('rec-memo-mm', clampInt(o.memoMM,0,59,0));
+  if(typeof o.memoSS !== 'undefined') setv('rec-memo-ss', clampInt(o.memoSS,0,59,0));
+  if(o.memoLatest) setv('rec-memo-latest', clampInt(o.memoLatest,1,500,1));
+  if(typeof o.histHH !== 'undefined') setv('rec-hist-hh', clampInt(o.histHH,0,999,1));
+  if(typeof o.histMM !== 'undefined') setv('rec-hist-mm', clampInt(o.histMM,0,59,0));
+  if(typeof o.histSS !== 'undefined') setv('rec-hist-ss', clampInt(o.histSS,0,59,0));
+  if(o.histLatest) setv('rec-hist-latest', clampInt(o.histLatest,1,500,1));
   if(typeof o.clearLink !== 'undefined'){ recClearLink = !!o.clearLink; var cl=gv('rec-clear-link'); if(cl) cl.checked = recClearLink; }
   if(typeof o.clearConfirm !== 'undefined'){ recClearConfirm = !!o.clearConfirm; var cc=gv('rec-clear-confirm'); if(cc) cc.checked = recClearConfirm; }
-  if(o.latestN){ var rn=gv('rec-latest-n'); if(rn) rn.value = clampInt(o.latestN,1,500,1); }
   if(o.memoMax){ MEMO_MAX = clampInt(o.memoMax,1,500,30); var rm=gv('rec-memo-max'); if(rm) rm.value = MEMO_MAX; }
   if(o.histMax){ HIST_MAX = clampInt(o.histMax,1,500,30); var rh=gv('rec-hist-max'); if(rh) rh.value = HIST_MAX; }
 }
@@ -1521,7 +1544,6 @@ function deleteMemo(target){
   /* target はメモオブジェクト参照（フィルタ表示でもズレない） */
   var i = memos.indexOf(target);
   if(i === -1) return;
-  if(!window.confirm('このメモを削除しますか？')) return;
   memos.splice(i, 1);
   saveMemos();
   renderMemos();
@@ -1549,10 +1571,10 @@ function getVisibleMemos(){
   var hour   = (function(){ var c=gv('memo-filter-hour');   return c && c.checked; })();
   if(!latest && !hour) return memos.slice();
   var now = Date.now();
-  var nLatest = recLatestN();
+  var nLatest = recLatestN('memo');
   return memos.filter(function(m, i){
     var passLatest = (i < nLatest);                              /* 先頭からN件が最新 */
-    var passHour   = (!!m.ts && (now - m.ts) <= recWindowMs());    /* 直近◯◯（記録設定） */
+    var passHour   = (!!m.ts && (now - m.ts) <= recWindowMs('memo'));    /* 直近◯◯（記録設定） */
     if(latest && hour) return passLatest && passHour;             /* AND（積集合） */
     if(latest) return passLatest;
     return passHour;
@@ -1708,7 +1730,6 @@ function clearHistory(){
 function deleteHistory(target){
   var i = pwHistory.indexOf(target);
   if(i === -1) return;
-  if(!window.confirm('この履歴を削除しますか？')) return;
   pwHistory.splice(i, 1);
   saveHistory();
   renderHistory();
@@ -1723,24 +1744,23 @@ function getVisibleHistory(){
   var hour    = (function(){ var c=gv('hist-filter-hour');    return c && c.checked; })();
   var notmemo = (function(){ var c=gv('hist-filter-notmemo'); return c && c.checked; })();
   var now = Date.now();
-  var nLatest = recLatestN();
+  var nLatest = recLatestN('hist');
   var memoSet = {};
   if(notmemo){ memos.forEach(function(m){ memoSet[m.plain]=true; }); }
-  return pwHistory.filter(function(h, i){
-    /* 時間/最新の絞り込み */
-    if(latest || hour){
-      var passLatest = (i < nLatest);
-      var passHour   = (!!h.ts && (now - h.ts) <= recWindowMs());
-      var passTime;
-      if(latest && hour) passTime = passLatest && passHour;
-      else if(latest) passTime = passLatest;
-      else passTime = passHour;
-      if(!passTime) return false;
-    }
-    /* メモにあるものを除く */
+
+  /* 1) 先に「メモにあるものを除く」と「直近◯◯」で絞り込む */
+  var pool = pwHistory.filter(function(h){
     if(notmemo && memoSet[h.plain]) return false;
+    if(hour){
+      var within = (!!h.ts && (now - h.ts) <= recWindowMs('hist'));
+      if(!within) return false;
+    }
     return true;
   });
+
+  /* 2) 残ったリストの先頭から「最新◯件」を取る（除外で繰り上がる） */
+  if(latest) return pool.slice(0, nLatest);
+  return pool;
 }
 function renderHistory(){
   var list = gv('hist-list'); if(!list) return;
@@ -1817,6 +1837,10 @@ function renderHistory(){
   });
 }
 
+/* ===== STORAGE ===== */
+var STORAGE_KEY = 'pwgen_v5';
+var PROFILES_KEY = 'pwgen_profiles_v1';
+
 function saveSettings(){
   var s={
     len:gv('len').value,pwCount:gv('pw-count').value,
@@ -1830,7 +1854,9 @@ function saveSettings(){
     colorUpper:currentColors.upper,colorNum:currentColors.num,colorSym:currentColors.sym,
     sortOrder:sortOrder,
     ratioLock:gv('ratio-lock').checked,
-    snap5:gv('ratio-snap5').checked
+    snap5:gv('ratio-snap5').checked,
+    ignorePwCount:(function(){var c=gv('ignore-pwcount');return c&&c.checked;})(),
+    applyProfileColors:(function(){var c=gv('apply-profile-colors');return c&&c.checked;})()
   };
   try{localStorage.setItem(STORAGE_KEY,JSON.stringify(s));}catch(e){}
   /* プロファイルも保存 */
@@ -1885,6 +1911,8 @@ function loadSettings(){
     sc('ratio-snap5', s.snap5);
     applySnap5State();
   }
+  if(s.ignorePwCount!==undefined) sc('ignore-pwcount', s.ignorePwCount);
+  if(s.applyProfileColors!==undefined) sc('apply-profile-colors', s.applyProfileColors);
   return true;
 }
 
@@ -2474,9 +2502,14 @@ function applyRemoteConfig(s){
   sc('exclude-ambig', s.excludeAmbig);
   sc('no-repeat',     s.noRepeat);
   sc('min-one',       s.minOne);
-  sc('color-upper-on', s.colorUpperOn);
-  sc('color-num-on',   s.colorNumOn);
-  sc('color-sym-on',   s.colorSymOn);
+  /* 色（on/off と 色値）は「色指定も反映」がONのときだけプロファイルから反映。
+     OFFのときは今の文字色設定（トグル・色）を維持する */
+  var applyColorsFromProfile = (function(){ var c=gv('apply-profile-colors'); return c && c.checked; })();
+  if(applyColorsFromProfile){
+    sc('color-upper-on', s.colorUpperOn);
+    sc('color-num-on',   s.colorNumOn);
+    sc('color-sym-on',   s.colorSymOn);
+  }
   if(Array.isArray(s.activeSyms)){
     activeSyms = new Set(s.activeSyms);
     syncSymButtonsFromSet();
@@ -2490,9 +2523,11 @@ function applyRemoteConfig(s){
     gv('swatch-'+t).style.background=v;
     gv('hex-'+t).value=v.toUpperCase();
   }
-  lc('upper', s.colorUpper);
-  lc('num',   s.colorNum);
-  lc('sym',   s.colorSym);
+  if(applyColorsFromProfile){
+    lc('upper', s.colorUpper);
+    lc('num',   s.colorNum);
+    lc('sym',   s.colorSym);
+  }
   if(s.sortOrder !== undefined){
     var ignoreSort = gv('ignore-pwcount');
     if(ignoreSort && ignoreSort.checked){
@@ -2513,6 +2548,7 @@ function applyRemoteConfig(s){
   }
   if(s.layout) { applyLayout(s.layout); saveLayout(); }
   updateTotal(); applyColors(); generate();
+  saveSettings();   /* 読み込んだ設定をlocalStorageにも保存（閉じても残す） */
 }
 
 /* ===== セクション折りたたみ・並び替え ===== */
