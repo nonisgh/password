@@ -390,9 +390,10 @@ input { -webkit-tap-highlight-color: transparent; font-family: inherit; }
         <span class="strength-label" id="strength-label">—</span>
       </div>
       <div class="legend" style="margin-bottom:0;">
-        <div class="legend-item" id="leg-upper"><div class="legend-dot" id="leg-upper-dot" style="background:#3B6D11"></div>大文字</div>
         <div class="legend-item" id="leg-num"><div class="legend-dot" id="leg-num-dot" style="background:#185FA5"></div>数字</div>
         <div class="legend-item" id="leg-sym"><div class="legend-dot" id="leg-sym-dot" style="background:#993C1D"></div>記号</div>
+        <div class="legend-item" id="leg-upper"><div class="legend-dot" id="leg-upper-dot" style="background:#3B6D11"></div>大文字</div>
+        <div class="legend-item" id="leg-lower"><div class="legend-dot" id="leg-lower-dot" style="background:#1a1a1a"></div>小文字</div>
       </div>
     </div>
   </div>
@@ -419,7 +420,11 @@ input { -webkit-tap-highlight-color: transparent; font-family: inherit; }
           <button onclick="exportSettings()"
             style="background:none;border:1px solid #ddd;border-radius:6px;padding:2px 8px;font-size:12px;cursor:pointer;color:#888;touch-action:manipulation;"
             title="プロファイルをJSONファイルに書き出し">JSON書き出し</button>
+          <button onclick="doCloudSave()"
+            style="background:none;border:1px solid #ddd;border-radius:6px;padding:2px 8px;font-size:12px;cursor:pointer;color:#888;touch-action:manipulation;"
+            title="今すぐクラウドに保存">☁ 保存</button>
         </div>
+        <div style="display:flex;justify-content:flex-end;margin-top:4px;"><span id="cloud-status" style="font-size:11px;color:#888;"></span></div>
         <div id="profile-btns" style="display:flex;gap:6px;flex-wrap:wrap;"></div>
       </div>
     </div>
@@ -540,15 +545,6 @@ input { -webkit-tap-highlight-color: transparent; font-family: inherit; }
     <div class="section-head" onclick="toggleSection(this,event)"><span class="section-drag-handle">⠿</span><span class="section-title">文字色の設定</span></div>
     <div class="section-body">
       <div class="color-row">
-        <span class="lbl">大文字に色を付ける</span>
-        <div class="color-right">
-          <label class="toggle"><input type="checkbox" id="color-upper-on" checked onchange="applyColors();generate()"><span class="slider-tog"></span></label>
-          <div class="color-picker-wrap"><div class="color-swatch" id="swatch-upper" style="background:#3B6D11"></div><input type="color" id="color-upper" value="#3B6D11" oninput="onColorPick('upper')"></div>
-          <input type="text" class="color-hex-input" id="hex-upper" value="#3B6D11" oninput="onHexInput('upper')" maxlength="7">
-          <button class="color-reset" onclick="resetColor('upper')">↩</button>
-        </div>
-      </div>
-      <div class="color-row">
         <span class="lbl">数字に色を付ける</span>
         <div class="color-right">
           <label class="toggle"><input type="checkbox" id="color-num-on" checked onchange="applyColors();generate()"><span class="slider-tog"></span></label>
@@ -564,6 +560,24 @@ input { -webkit-tap-highlight-color: transparent; font-family: inherit; }
           <div class="color-picker-wrap"><div class="color-swatch" id="swatch-sym" style="background:#993C1D"></div><input type="color" id="color-sym" value="#993C1D" oninput="onColorPick('sym')"></div>
           <input type="text" class="color-hex-input" id="hex-sym" value="#993C1D" oninput="onHexInput('sym')" maxlength="7">
           <button class="color-reset" onclick="resetColor('sym')">↩</button>
+        </div>
+      </div>
+      <div class="color-row">
+        <span class="lbl">大文字に色を付ける</span>
+        <div class="color-right">
+          <label class="toggle"><input type="checkbox" id="color-upper-on" checked onchange="applyColors();generate()"><span class="slider-tog"></span></label>
+          <div class="color-picker-wrap"><div class="color-swatch" id="swatch-upper" style="background:#3B6D11"></div><input type="color" id="color-upper" value="#3B6D11" oninput="onColorPick('upper')"></div>
+          <input type="text" class="color-hex-input" id="hex-upper" value="#3B6D11" oninput="onHexInput('upper')" maxlength="7">
+          <button class="color-reset" onclick="resetColor('upper')">↩</button>
+        </div>
+      </div>
+      <div class="color-row">
+        <span class="lbl">小文字に色を付ける</span>
+        <div class="color-right">
+          <label class="toggle"><input type="checkbox" id="color-lower-on" checked onchange="applyColors();generate()"><span class="slider-tog"></span></label>
+          <div class="color-picker-wrap"><div class="color-swatch" id="swatch-lower" style="background:#1a1a1a"></div><input type="color" id="color-lower" value="#1a1a1a" oninput="onColorPick('lower')"></div>
+          <input type="text" class="color-hex-input" id="hex-lower" value="#1a1a1a" oninput="onHexInput('lower')" maxlength="7">
+          <button class="color-reset" onclick="resetColor('lower')">↩</button>
         </div>
       </div>
     </div>
@@ -669,6 +683,10 @@ input { -webkit-tap-highlight-color: transparent; font-family: inherit; }
       <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
         <div class="recset-time"><span style="color:#888;">最新</span><input type="text" inputmode="numeric" id="rec-memo-latest" value="1" onchange="onRecLatestInput()" oninput="onRecLatestInput()"><span>件</span></div>
       </div>
+      <div style="font-size:11px;color:#aaa;margin-top:6px;margin-bottom:2px;">先頭何件目まで詳細（日時・条件）を常に表示（0で表示しない）</div>
+      <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+        <div class="recset-time"><span style="color:#888;">先頭</span><input type="text" inputmode="numeric" id="rec-memo-detail" value="0" onchange="onRecDetailInput()" oninput="onRecDetailInput()"><span>件</span></div>
+      </div>
 
       <div style="font-size:11px;color:#888;font-weight:700;margin-top:14px;margin-bottom:4px;">履歴の絞り込み</div>
       <div style="font-size:11px;color:#aaa;margin-bottom:2px;">「直近◯◯」の対象時間</div>
@@ -681,6 +699,15 @@ input { -webkit-tap-highlight-color: transparent; font-family: inherit; }
       <div style="font-size:11px;color:#aaa;margin-top:6px;margin-bottom:2px;">「最新◯件のみ」の件数</div>
       <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
         <div class="recset-time"><span style="color:#888;">最新</span><input type="text" inputmode="numeric" id="rec-hist-latest" value="1" onchange="onRecLatestInput()" oninput="onRecLatestInput()"><span>件</span></div>
+      </div>
+      <div style="font-size:11px;color:#aaa;margin-top:6px;margin-bottom:2px;">先頭何件目まで詳細（日時・条件）を常に表示（0で表示しない）</div>
+      <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+        <div class="recset-time"><span style="color:#888;">先頭</span><input type="text" inputmode="numeric" id="rec-hist-detail" value="0" onchange="onRecDetailInput()" oninput="onRecDetailInput()"><span>件</span></div>
+      </div>
+
+      <div class="row-toggle" style="margin-top:14px;">
+        <span class="lbl">「直近◯◯」を過ぎたらリアルタイムで自動的に消す</span>
+        <label class="toggle"><input type="checkbox" id="rec-realtime-expire" onchange="onRecRealtimeToggle()"><span class="slider-tog"></span></label>
       </div>
 
       <div class="row-toggle" style="margin-top:14px;">
@@ -759,8 +786,8 @@ function toggleSort(){
 
 var ALL_SYMS=['!','@','#','$','%','^','&','*','(',')','_','-','+','=','[',']','{','}','|',';',':',',','.','<','>','?','/','"',"'","\\","~","`"];
 var activeSyms=new Set(['!','@','#','$','%','^','&','*','?']);
-var DEFAULTS={upper:'#3B6D11',num:'#185FA5',sym:'#993C1D'};
-var currentColors={upper:'#3B6D11',num:'#185FA5',sym:'#993C1D'};
+var DEFAULTS={upper:'#3B6D11',num:'#185FA5',sym:'#993C1D',lower:'#1a1a1a'};
+var currentColors={upper:'#3B6D11',num:'#185FA5',sym:'#993C1D',lower:'#1a1a1a'};
 
 function gv(id){return document.getElementById(id);}
 function pick(arr){return arr[Math.floor(Math.random()*arr.length)];}
@@ -847,7 +874,7 @@ function applyColors(){
   var styleEl=gv('dyn-colors');
   if(!styleEl){styleEl=document.createElement('style');styleEl.id='dyn-colors';document.head.appendChild(styleEl);}
   var css='';
-  ['upper','num','sym'].forEach(function(t){
+  ['upper','num','sym','lower'].forEach(function(t){
     var on=gv('color-'+t+'-on').checked, col=currentColors[t];
     css+='.pw-text .c-'+t+'{color:'+(on?col:'#1a1a1a')+'}\n';
     /* メモ：coloredのときだけ色、OFFは黒（パスワードの色ON/OFFにも追従） */
@@ -861,7 +888,7 @@ function applyColors(){
     if(leg) leg.style.opacity=on?'1':'0.35';
   });
   /* メモが非colored時は全span黒 */
-  css+='.memo-text:not(.colored) .c-upper,.memo-text:not(.colored) .c-num,.memo-text:not(.colored) .c-sym{color:#1a1a1a}\n';
+  css+='.memo-text:not(.colored) .c-upper,.memo-text:not(.colored) .c-num,.memo-text:not(.colored) .c-sym,.memo-text:not(.colored) .c-lower{color:#1a1a1a}\n';
   styleEl.textContent=css;
   if(typeof renderCondSummary==='function') renderCondSummary();
 }
@@ -1059,7 +1086,7 @@ function buildOne(){
 
   var plain=pool.map(function(p){return p.c;}).join('');
   var html=pool.map(function(p){
-    var cls=p.t==='num'?'c-num':p.t==='sym'?'c-sym':p.t==='upper'?'c-upper':'';
+    var cls=p.t==='num'?'c-num':p.t==='sym'?'c-sym':p.t==='upper'?'c-upper':p.t==='lower'?'c-lower':'';
     var ch=p.c.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
     return cls?'<span class="'+cls+'">'+ch+'</span>':ch;
   }).join('');
@@ -1073,7 +1100,7 @@ function colorizePlain(plain){
     var cls='';
     if(ch>='0'&&ch<='9') cls='c-num';
     else if(ch>='A'&&ch<='Z') cls='c-upper';
-    else if(ch>='a'&&ch<='z') cls='';            /* 小文字は無色 */
+    else if(ch>='a'&&ch<='z') cls='c-lower';     /* 小文字 */
     else cls='c-sym';                             /* それ以外は記号扱い */
     var e=ch.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
     return cls ? '<span class="'+cls+'">'+e+'</span>' : e;
@@ -1140,11 +1167,16 @@ function pwConfig(len){
 /* 現在の生成条件を素の値で取得（メモ・履歴に保存する用） */
 function getCondObj(){
   var symArr = getActiveSymsArray();
+  var pctU = parseInt(gv('pct-upper').value,10)||0;
+  var pctN = parseInt(gv('pct-num').value,10)||0;
+  var pctS = parseInt(gv('pct-sym').value,10)||0;
+  var pctL = Math.max(0, 100 - pctU - pctN - pctS);  /* 残りが小文字 */
   return {
     len: parseInt(gv('len').value,10) || 16,
-    pctU: parseInt(gv('pct-upper').value,10)||0,
-    pctN: parseInt(gv('pct-num').value,10)||0,
-    pctS: parseInt(gv('pct-sym').value,10)||0,
+    pctU: pctU,
+    pctN: pctN,
+    pctS: pctS,
+    pctL: pctL,
     startUpper: gv('start-upper').checked,
     startAlpha: gv('start-alpha').checked,
     endNum: gv('end-num').checked,
@@ -1158,15 +1190,16 @@ function condToHtml(c){
   function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
   function tag(cls, inner){ return '<span class="c-'+cls+'" style="font-size:0.85em;font-weight:700;">【'+inner+'】</span>'; }
   function ch(cls, x){ return '<span class="c-'+cls+'" style="font-weight:700;">'+x+'</span>'; }
-  var U=tag('upper','A'), N=tag('num','1'), S=tag('sym','#');
-  var Uc=ch('upper','A'), Nc=ch('num','1'), Sc=ch('sym','#');
-  var ac='<span style="font-weight:700;color:#1a1a1a;">a</span>';
+  var U=tag('upper','A'), N=tag('num','1'), S=tag('sym','#'), L=tag('lower','a');
+  var Uc=ch('upper','A'), Nc=ch('num','1'), Sc=ch('sym','#'), Lc=ch('lower','a');
   var sep='<span style="color:#ccc;"> : </span>';
   var parts=[];
   parts.push('<b style="color:#666;">'+(c.len||'?')+'桁</b>');
-  parts.push(U+': '+(c.pctU||0)+'%  '+N+': '+(c.pctN||0)+'%  '+S+': '+(c.pctS||0)+'%');
+  /* 並び：数字・記号・大文字・小文字 */
+  var pctL = (typeof c.pctL==='number') ? c.pctL : Math.max(0,100-(c.pctU||0)-(c.pctN||0)-(c.pctS||0));
+  parts.push(N+': '+(c.pctN||0)+'%  '+S+': '+(c.pctS||0)+'%  '+U+': '+(c.pctU||0)+'%  '+L+': '+pctL+'%');
   var head='', tail='';
-  if(c.startUpper) head=Uc; else if(c.startAlpha) head=ac;
+  if(c.startUpper) head=Uc; else if(c.startAlpha) head=Lc;
   if(c.endNum) tail=Nc; else if(c.endSym) tail=Sc;
   if(head || tail){
     parts.push((head||'<span style="color:#bbb;">?</span>')+'<span style="color:#ccc;">...</span>'+(tail||'<span style="color:#bbb;">?</span>'));
@@ -1423,6 +1456,37 @@ function recWindowLabel(p){
 function recLatestN(p){
   return clampInt(gv('rec-'+p+'-latest') && gv('rec-'+p+'-latest').value, 1, 500, 1);
 }
+/* 先頭何件まで詳細を強制表示するか。pは 'memo' or 'hist'（0で表示しない） */
+function recDetailN(p){
+  return clampInt(gv('rec-'+p+'-detail') && gv('rec-'+p+'-detail').value, 0, 500, 0);
+}
+function onRecDetailInput(){
+  saveRecSettings();
+  if(typeof renderMemos==='function') renderMemos();
+  if(typeof renderHistory==='function') renderHistory();
+}
+/* リアルタイム失効：直近◯◯のフィルタON時、時間経過で表示が変わるよう定期再描画 */
+var recRealtimeTimer = null;
+function recRealtimeOn(){ var c=gv('rec-realtime-expire'); return c && c.checked; }
+function startRecRealtime(){
+  if(recRealtimeTimer) return;
+  recRealtimeTimer = setInterval(function(){
+    if(!recRealtimeOn()){ stopRecRealtime(); return; }
+    /* 直近◯◯フィルタが効いているときだけ再描画（軽く） */
+    var mh=gv('memo-filter-hour'), hh=gv('hist-filter-hour');
+    if(mh && mh.checked && typeof renderMemos==='function') renderMemos();
+    if(hh && hh.checked && typeof renderHistory==='function') renderHistory();
+  }, 1000);
+}
+function stopRecRealtime(){
+  if(recRealtimeTimer){ clearInterval(recRealtimeTimer); recRealtimeTimer=null; }
+}
+function onRecRealtimeToggle(){
+  saveRecSettings();
+  if(recRealtimeOn()) startRecRealtime(); else stopRecRealtime();
+  if(typeof renderMemos==='function') renderMemos();
+  if(typeof renderHistory==='function') renderHistory();
+}
 function refreshRecLabels(){
   var ml = gv('memo-hour-label'); if(ml) ml.textContent = recWindowLabel('memo');
   var hl = gv('hist-hour-label'); if(hl) hl.textContent = recWindowLabel('hist');
@@ -1447,6 +1511,9 @@ function getRecSettingsObj(){
     histMM: clampInt(gv('rec-hist-mm').value,0,59,0),
     histSS: clampInt(gv('rec-hist-ss').value,0,59,0),
     histLatest: recLatestN('hist'),
+    memoDetail: recDetailN('memo'),
+    histDetail: recDetailN('hist'),
+    realtimeExpire: !!(gv('rec-realtime-expire') && gv('rec-realtime-expire').checked),
     clearLink: !!(gv('rec-clear-link') && gv('rec-clear-link').checked),
     clearConfirm: !(gv('rec-clear-confirm')) ? true : gv('rec-clear-confirm').checked,
     memoMax: MEMO_MAX,
@@ -1464,6 +1531,9 @@ function applyRecSettingsObj(o){
   if(typeof o.histMM !== 'undefined') setv('rec-hist-mm', clampInt(o.histMM,0,59,0));
   if(typeof o.histSS !== 'undefined') setv('rec-hist-ss', clampInt(o.histSS,0,59,0));
   if(o.histLatest) setv('rec-hist-latest', clampInt(o.histLatest,1,500,1));
+  if(typeof o.memoDetail !== 'undefined') setv('rec-memo-detail', clampInt(o.memoDetail,0,500,0));
+  if(typeof o.histDetail !== 'undefined') setv('rec-hist-detail', clampInt(o.histDetail,0,500,0));
+  if(typeof o.realtimeExpire !== 'undefined'){ var re=gv('rec-realtime-expire'); if(re) re.checked=!!o.realtimeExpire; }
   if(typeof o.clearLink !== 'undefined'){ recClearLink = !!o.clearLink; var cl=gv('rec-clear-link'); if(cl) cl.checked = recClearLink; }
   if(typeof o.clearConfirm !== 'undefined'){ recClearConfirm = !!o.clearConfirm; var cc=gv('rec-clear-confirm'); if(cc) cc.checked = recClearConfirm; }
   if(o.memoMax){ MEMO_MAX = clampInt(o.memoMax,1,500,30); var rm=gv('rec-memo-max'); if(rm) rm.value = MEMO_MAX; }
@@ -1473,6 +1543,7 @@ function saveRecSettings(){
   recClearLink = !!(gv('rec-clear-link') && gv('rec-clear-link').checked);
   recClearConfirm = !(gv('rec-clear-confirm')) ? true : gv('rec-clear-confirm').checked;
   try{ localStorage.setItem(RECSET_KEY, JSON.stringify(getRecSettingsObj())); }catch(e){}
+  scheduleCloudSave();
 }
 function loadRecSettings(){
   var raw; try{ raw = localStorage.getItem(RECSET_KEY); }catch(e){}
@@ -1564,6 +1635,7 @@ function loadMemos(){
 }
 function saveMemos(){
   try{ localStorage.setItem(MEMO_KEY, JSON.stringify(memos)); }catch(e){}
+  scheduleCloudSave();
 }
 function saveMemoColorPref(){
   try{ localStorage.setItem(MEMO_COLOR_KEY, gv('memo-color-on').checked ? '1' : '0'); }catch(e){}
@@ -1653,7 +1725,7 @@ function renderMemos(){
     else empty.style.display='none';
   }
   var colorOn = (function(){ var cb=gv('memo-color-on'); return cb ? cb.checked : true; })();
-  visible.forEach(function(m){
+  visible.forEach(function(m, vi){
     var row = document.createElement('div');
     row.className = 'memo-row';
     row.dataset.plain = m.plain;
@@ -1675,10 +1747,12 @@ function renderMemos(){
       deleteMemo(m);
     });
 
-    /* 詳細パネル（日付＋生成条件）。長押し/右クリックでトグル */
+    /* 詳細パネル（日付＋生成条件）。長押し/右クリックでトグル。
+       先頭N件（記録設定）は強制表示 */
+    var forceOpen = (vi < recDetailN('memo'));
     var detail = document.createElement('div');
     detail.className = 'rec-detail';
-    detail.style.display = 'none';
+    detail.style.display = forceOpen ? 'block' : 'none';
     detail.innerHTML = '<div style="color:#888;margin-bottom:3px;">追加: ' + fmtTs(m.ts) + '</div>' + condToHtml(m.cond);
 
     function toggleDetail(){
@@ -1753,6 +1827,7 @@ function loadHistory(){
 }
 function saveHistory(){
   try{ localStorage.setItem(HIST_KEY, JSON.stringify(pwHistory)); }catch(e){}
+  scheduleCloudSave();
 }
 function saveHistColorPref(){
   try{ localStorage.setItem(HIST_COLOR_KEY, gv('hist-color-on').checked ? '1' : '0'); }catch(e){}
@@ -1839,7 +1914,7 @@ function renderHistory(){
     else empty.style.display='none';
   }
   var colorOn = (function(){ var cb=gv('hist-color-on'); return cb ? cb.checked : true; })();
-  visible.forEach(function(m){
+  visible.forEach(function(m, vi){
     var row = document.createElement('div');
     row.className = 'memo-row';
     row.dataset.plain = m.plain;
@@ -1858,9 +1933,10 @@ function renderHistory(){
     del.title = '削除';
     del.addEventListener('click', function(e){ e.stopPropagation(); deleteHistory(m); });
 
+    var forceOpen = (vi < recDetailN('hist'));
     var detail = document.createElement('div');
     detail.className = 'rec-detail';
-    detail.style.display = 'none';
+    detail.style.display = forceOpen ? 'block' : 'none';
     detail.innerHTML = '<div style="color:#888;margin-bottom:3px;">記録: ' + fmtTs(m.ts) + '</div>' + condToHtml(m.cond);
 
     function toggleDetail(){
@@ -1903,6 +1979,119 @@ function renderHistory(){
   });
 }
 
+/* ===== SUPABASE クラウド同期 ===== */
+var SUPABASE_URL = 'https://jkpiaqrxuygqtonfikkc.supabase.co';
+var SUPABASE_KEY = 'sb_publishable_IjpsktD0soa2FptBa91wPw_aYRdvMT4';
+var SUPABASE_TABLE = 'password_config';
+var CLOUD_CONFIG_ID = 'default';   /* 後で複数人対応する場合はここを変える */
+var cloudReady = false;            /* 初回ロード完了まで自動保存を抑止 */
+var cloudSaveTimer = null;
+var cloudSuppress = false;         /* クラウド/JSON適用中の自動保存抑止 */
+
+/* 保存対象の全データを1オブジェクトにまとめる */
+function collectAllData(){
+  var obj;
+  if(profiles.length > 0){
+    obj = {
+      defaultProfile: currentProfileId || profiles[0].id,
+      profiles: profiles,
+      layout: getLayoutForExport(),
+      memos: memos,
+      history: pwHistory,
+      recSettings: getRecSettingsObj()
+    };
+  } else {
+    obj = Object.assign({}, getCurrentSettingsObj());
+    obj.layout = getLayoutForExport();
+    obj.memos = memos;
+    obj.history = pwHistory;
+    obj.recSettings = getRecSettingsObj();
+  }
+  return obj;
+}
+
+function setCloudStatus(msg, color){
+  var el = gv('cloud-status');
+  if(el){ el.textContent = msg; el.style.color = color || '#888'; }
+}
+
+/* クラウドへ保存（upsert）。デバウンスして呼ぶ */
+function scheduleCloudSave(){
+  if(!cloudReady || cloudSuppress) return;
+  if(cloudSaveTimer) clearTimeout(cloudSaveTimer);
+  cloudSaveTimer = setTimeout(doCloudSave, 1500);
+}
+function doCloudSave(){
+  if(!cloudReady || cloudSuppress) return;
+  var body = [{ config_id: CLOUD_CONFIG_ID, data: collectAllData() }];
+  setCloudStatus('保存中…', '#888');
+  fetch(SUPABASE_URL + '/rest/v1/' + SUPABASE_TABLE + '?on_conflict=config_id', {
+    method: 'POST',
+    headers: {
+      'apikey': SUPABASE_KEY,
+      'Authorization': 'Bearer ' + SUPABASE_KEY,
+      'Content-Type': 'application/json',
+      'Prefer': 'resolution=merge-duplicates'
+    },
+    body: JSON.stringify(body)
+  }).then(function(r){
+    if(r.ok){ setCloudStatus('✓ クラウド保存済', '#3B6D11'); setTimeout(function(){ setCloudStatus('', '#888'); }, 2000); }
+    else { r.text().then(function(t){ setCloudStatus('保存失敗: ' + r.status, '#993C1D'); console.error('cloud save', r.status, t); }); }
+  }).catch(function(e){ setCloudStatus('保存失敗（通信エラー）', '#993C1D'); console.error(e); });
+}
+
+/* クラウドから読み込み。成功したら applyCloudData に渡す */
+function loadFromCloud(){
+  setCloudStatus('クラウドから読込中…', '#888');
+  return fetch(SUPABASE_URL + '/rest/v1/' + SUPABASE_TABLE + '?config_id=eq.' + encodeURIComponent(CLOUD_CONFIG_ID) + '&select=data', {
+    method: 'GET',
+    headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
+  }).then(function(r){
+    if(!r.ok) throw new Error('HTTP ' + r.status);
+    return r.json();
+  }).then(function(rows){
+    if(Array.isArray(rows) && rows.length > 0 && rows[0].data){
+      applyCloudData(rows[0].data);
+      setCloudStatus('✓ クラウドから復元', '#3B6D11');
+      setTimeout(function(){ setCloudStatus('', '#888'); }, 2000);
+      return true;
+    }
+    setCloudStatus('クラウドにデータなし（新規）', '#888');
+    return false;
+  }).catch(function(e){
+    setCloudStatus('クラウド読込失敗（ローカル設定を使用）', '#993C1D');
+    console.error('cloud load', e);
+    return false;
+  });
+}
+
+/* クラウド/JSONのデータオブジェクトを画面へ適用（確認ダイアログなしで反映） */
+function applyCloudData(data){
+  cloudSuppress = true;
+  try{
+    if(data.profiles && data.profiles.length > 0){
+      profiles = data.profiles;
+      currentProfileId = data.defaultProfile || (profiles[0] && profiles[0].id) || null;
+      renderProfileBtns();
+      var cur = profiles.filter(function(p){ return p.id === currentProfileId; })[0] || profiles[0];
+      if(cur) applyRemoteConfig(cur);
+    } else {
+      applyRemoteConfig(data);
+    }
+    if(data.layout){ applyLayout(data.layout); saveLayout(); }
+    if(data.recSettings){ applyRecSettingsObj(data.recSettings); }
+    if(Array.isArray(data.memos)){ memos = data.memos.map(normMemo).filter(Boolean).slice(0, MEMO_MAX); saveMemos(); }
+    if(Array.isArray(data.history)){ pwHistory = data.history.map(normMemo).filter(Boolean).slice(0, HIST_MAX); saveHistory(); }
+    if(memos.length > MEMO_MAX) memos = memos.slice(0, MEMO_MAX);
+    if(pwHistory.length > HIST_MAX) pwHistory = pwHistory.slice(0, HIST_MAX);
+    refreshRecLabels();
+    renderMemos(); renderHistory();
+    applyColors(); generate();
+  } finally {
+    cloudSuppress = false;
+  }
+}
+
 /* ===== STORAGE ===== */
 var STORAGE_KEY = 'pwgen_v5';
 var PROFILES_KEY = 'pwgen_profiles_v1';
@@ -1916,8 +2105,8 @@ function saveSettings(){
     excludeAmbig:gv('exclude-ambig').checked,
     noRepeat:gv('no-repeat').checked,minOne:gv('min-one').checked,
     maxSeq:gv('max-seq').value,activeSyms:Array.from(activeSyms),
-    colorUpperOn:gv('color-upper-on').checked,colorNumOn:gv('color-num-on').checked,colorSymOn:gv('color-sym-on').checked,
-    colorUpper:currentColors.upper,colorNum:currentColors.num,colorSym:currentColors.sym,
+    colorUpperOn:gv('color-upper-on').checked,colorNumOn:gv('color-num-on').checked,colorSymOn:gv('color-sym-on').checked,colorLowerOn:gv('color-lower-on').checked,
+    colorUpper:currentColors.upper,colorNum:currentColors.num,colorSym:currentColors.sym,colorLower:currentColors.lower,
     sortOrder:sortOrder,
     ratioLock:gv('ratio-lock').checked,
     snap5:gv('ratio-snap5').checked,
@@ -1929,6 +2118,7 @@ function saveSettings(){
   if(profiles.length > 0){
     try{localStorage.setItem(PROFILES_KEY,JSON.stringify({profiles:profiles,currentProfileId:currentProfileId}));}catch(e){}
   }
+  scheduleCloudSave();
 }
 
 function saveProfilesToStorage(){
@@ -1960,8 +2150,9 @@ function loadSettings(){
   if(s.colorUpperOn!==undefined)sc('color-upper-on',s.colorUpperOn);
   if(s.colorNumOn!==undefined)sc('color-num-on',s.colorNumOn);
   if(s.colorSymOn!==undefined)sc('color-sym-on',s.colorSymOn);
+  if(s.colorLowerOn!==undefined)sc('color-lower-on',s.colorLowerOn);
   function lc(t,v){if(!v)return;currentColors[t]=v;gv('color-'+t).value=v;gv('swatch-'+t).style.background=v;gv('hex-'+t).value=v.toUpperCase();}
-  lc('upper',s.colorUpper);lc('num',s.colorNum);lc('sym',s.colorSym);
+  lc('upper',s.colorUpper);lc('num',s.colorNum);lc('sym',s.colorSym);lc('lower',s.colorLower);
   if(s.sortOrder){
     var orders=['asc','desc','none'],labels=['昇順 ↑','降順 ↓','生成順'];
     if(orders.indexOf(s.sortOrder)!==-1){
@@ -2101,6 +2292,8 @@ function getCurrentSettingsObj(){
     colorNum:     currentColors.num,
     colorSymOn:   gv('color-sym-on').checked,
     colorSym:     currentColors.sym,
+    colorLowerOn: gv('color-lower-on').checked,
+    colorLower:   currentColors.lower,
     sortOrder:    sortOrder,
     ratioLock:    gv('ratio-lock').checked,
     snap5:        gv('ratio-snap5').checked
@@ -2575,6 +2768,7 @@ function applyRemoteConfig(s){
     sc('color-upper-on', s.colorUpperOn);
     sc('color-num-on',   s.colorNumOn);
     sc('color-sym-on',   s.colorSymOn);
+    sc('color-lower-on', s.colorLowerOn);
   }
   if(Array.isArray(s.activeSyms)){
     activeSyms = new Set(s.activeSyms);
@@ -2593,6 +2787,7 @@ function applyRemoteConfig(s){
     lc('upper', s.colorUpper);
     lc('num',   s.colorNum);
     lc('sym',   s.colorSym);
+    lc('lower', s.colorLower);
   }
   if(s.sortOrder !== undefined){
     var ignoreSort = gv('ignore-pwcount');
@@ -2642,6 +2837,7 @@ function saveLayout(){
     layout.collapsed[id] = s.classList.contains('collapsed');
   });
   try{ localStorage.setItem(LAYOUT_KEY, JSON.stringify(layout)); }catch(e){}
+  scheduleCloudSave();
 }
 
 function loadLayout(){
@@ -2856,6 +3052,7 @@ if(memos.length > MEMO_MAX) memos = memos.slice(0, MEMO_MAX);
 if(pwHistory.length > HIST_MAX) pwHistory = pwHistory.slice(0, HIST_MAX);
 renderMemos();
 renderHistory();
+if(typeof recRealtimeOn==='function' && recRealtimeOn()) startRecRealtime();
 renderProfileBtns();
 loadLayout();
 initSectionDrag();
@@ -2872,6 +3069,13 @@ generate=function(){
   saveSettings();showSaveFlash();
 };
 generate();
+
+/* クラウドから読み込み（成功でローカルを上書き）→ 完了後に自動保存を有効化 */
+(function(){
+  function done(){ cloudReady = true; }
+  if(typeof loadFromCloud === 'function'){ loadFromCloud().then(done).catch(done); }
+  else { done(); }
+})();
 </script>
 </body>
 </html>
