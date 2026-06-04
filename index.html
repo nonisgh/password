@@ -2000,7 +2000,7 @@ function renderMemos(){
 
     /* メモ行：シングルタップ＝コピー、ダブルタップ/右クリック＝詳細パネル開閉 */
     (function(plain){
-      var lastTap=0, singleTimer=null, sx=0, sy=0, moved=false, DBL=250;
+      var lastTap=0, singleTimer=null, sx=0, sy=0, moved=false, DBL=400;
       function downXY(x,y){ sx=x; sy=y; moved=false; }
       function moveCancel(x,y){ if(Math.abs(x-sx)>10||Math.abs(y-sy)>10) moved=true; }
       function doCopy(){
@@ -2203,7 +2203,7 @@ function renderHistory(){
 
     /* 履歴行：シングルタップ＝コピー、ダブルタップ/右クリック＝詳細、長押し＝メモへ移動 */
     (function(itemObj, plain){
-      var lpTimer=null, lpFired=false, lastTap=0, singleTimer=null, sx=0, sy=0, moved=false, DBL=250, LP=550;
+      var lpTimer=null, lpFired=false, lastTap=0, singleTimer=null, sx=0, sy=0, moved=false, DBL=400, LP=550;
       function downXY(x,y){
         sx=x; sy=y; moved=false; lpFired=false;
         clearTimeout(lpTimer);
