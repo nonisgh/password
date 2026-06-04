@@ -460,7 +460,7 @@ input { -webkit-tap-highlight-color: transparent; font-family: inherit; }
         </div>
         <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
           <label class="se-opt"><input type="checkbox" id="start-custom-on" onchange="onStartPick('custom')">文字を指定</label>
-          <input type="text" id="start-custom" placeholder="文字種問わず複数可" oninput="onStartCustomInput()" style="flex:1;min-width:120px;padding:3px 6px;font-size:13px;border:1px solid #ddd;border-radius:6px;">
+          <input type="text" id="start-custom" placeholder="例: Brr23（複数文字OK）" oninput="onStartCustomInput()" style="flex:1;min-width:120px;padding:3px 6px;font-size:13px;border:1px solid #ddd;border-radius:6px;">
         </div>
       </div>
       <div class="startend-block" style="margin-bottom:6px;">
@@ -473,7 +473,7 @@ input { -webkit-tap-highlight-color: transparent; font-family: inherit; }
         </div>
         <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
           <label class="se-opt"><input type="checkbox" id="end-custom-on" onchange="onEndPick('custom')">文字を指定</label>
-          <input type="text" id="end-custom" placeholder="文字種問わず複数可" oninput="onEndCustomInput()" style="flex:1;min-width:120px;padding:3px 6px;font-size:13px;border:1px solid #ddd;border-radius:6px;">
+          <input type="text" id="end-custom" placeholder="例: 234PP（複数文字OK）" oninput="onEndCustomInput()" style="flex:1;min-width:120px;padding:3px 6px;font-size:13px;border:1px solid #ddd;border-radius:6px;">
         </div>
       </div>
       <div class="row-toggle">
@@ -1072,26 +1072,42 @@ function applyStartEndSpec(prefix, mode, custom){
   if(mode==='custom'){ if(custom){ var on=gv(prefix+'-custom-on'); if(on) on.checked=true; } }
   else { var e=gv(prefix+'-'+mode); if(e) e.checked=true; }
 }
+/* 「文字を指定」に ALL_SYMS の記号（例: #）が含まれていたら、
+   その記号を使用記号へ自動追加してボタンをオンにする */
+function autoEnableSymsFromText(str){
+  if(!str) return false;
+  var changed=false;
+  for(var i=0;i<str.length;i++){
+    var ch=str[i];
+    if(ALL_SYMS.indexOf(ch)!==-1 && !activeSyms.has(ch)){ activeSyms.add(ch); changed=true; }
+  }
+  if(changed){
+    if(typeof syncSymButtonsFromSet==='function') syncSymButtonsFromSet();
+    if(typeof syncTextInputFromSet==='function') syncTextInputFromSet();
+    if(typeof updateSymPreview==='function') updateSymPreview();
+  }
+  return changed;
+}
 function onStartPick(which){
   setExclusive('start', which);
-  if(which==='custom'){ var c=gv('start-custom'); if(c && !c.value){ gv('start-custom-on').checked=false; } }
+  if(which==='custom'){ var c=gv('start-custom'); if(c && !c.value){ gv('start-custom-on').checked=false; } else if(c){ autoEnableSymsFromText(c.value); } }
   saveSettings(); generate();
 }
 function onEndPick(which){
   setExclusive('end', which);
-  if(which==='custom'){ var c=gv('end-custom'); if(c && !c.value){ gv('end-custom-on').checked=false; } }
+  if(which==='custom'){ var c=gv('end-custom'); if(c && !c.value){ gv('end-custom-on').checked=false; } else if(c){ autoEnableSymsFromText(c.value); } }
   saveSettings(); generate();
 }
 function onStartCustomInput(){
   var v=gv('start-custom').value, on=gv('start-custom-on');
   if(!v){ if(on) on.checked=false; }
-  else { setExclusive('start','custom'); if(on) on.checked=true; }
+  else { setExclusive('start','custom'); if(on) on.checked=true; autoEnableSymsFromText(v); }
   saveSettings(); generate();
 }
 function onEndCustomInput(){
   var v=gv('end-custom').value, on=gv('end-custom-on');
   if(!v){ if(on) on.checked=false; }
-  else { setExclusive('end','custom'); if(on) on.checked=true; }
+  else { setExclusive('end','custom'); if(on) on.checked=true; autoEnableSymsFromText(v); }
   saveSettings(); generate();
 }
 
@@ -1112,15 +1128,38 @@ function buildOne(){
   if(excludeAmbig){lower=lower.replace(/[ol]/g,'');upper=upper.replace(/[OI]/g,'');nums=nums.replace(/[01]/g,'');}
   var lArr=lower.split(''),uArr=upper.split(''),nArr=nums.split('');
 
-  var cntN=Math.round(len*pctN),cntS=Math.round(len*pctS),cntU=Math.round(len*pctU);
-  var cntL=len-cntN-cntS-cntU;
+  /* === 固定の先頭/末尾文字列（「文字を指定」＝複数文字対応・そのまま埋め込む） === */
+  var prefix = (sSpec.mode==='custom' && sSpec.custom) ? sSpec.custom : '';
+  var suffix = (eSpec.mode==='custom' && eSpec.custom) ? eSpec.custom : '';
+  var fixedLen = prefix.length + suffix.length;
+  /* 割合は「自動生成する中間部」に対して適用する。
+     固定分が桁数を超える場合は中間0（＝固定文字だけ。実桁数は固定分まで伸びる） */
+  var midLen = Math.max(0, len - fixedLen);
+
+  var cntN=Math.round(midLen*pctN),cntS=Math.round(midLen*pctS),cntU=Math.round(midLen*pctU);
+  var cntL=midLen-cntN-cntS-cntU;
   if(cntL<0){cntN+=cntL;cntL=0;} if(cntN<0)cntN=0;
-  if(minOne){
-    if(pctN>0&&nArr.length>0&&cntN<1){cntN=1;if(cntL>0)cntL--;}
-    if(pctS>0&&symArr.length>0&&cntS<1){cntS=1;if(cntL>0)cntL--;}
-    if(pctU>0&&uArr.length>0&&cntU<1){cntU=1;if(cntL>0)cntL--;}
+  if(minOne && midLen>0){
+    /* 固定の先頭/末尾に既にその文字種が含まれていれば、中間部での最低1文字強制は省く */
+    var fixedStr=prefix+suffix;
+    var hasN=/[0-9]/.test(fixedStr);
+    var hasU=/[A-Z]/.test(fixedStr);
+    var hasS=fixedStr.split('').some(function(ch){return symArr.indexOf(ch)!==-1;});
+    if(pctN>0&&nArr.length>0&&cntN<1&&!hasN){cntN=1;if(cntL>0)cntL--;}
+    if(pctS>0&&symArr.length>0&&cntS<1&&!hasS){cntS=1;if(cntL>0)cntL--;}
+    if(pctU>0&&uArr.length>0&&cntU<1&&!hasU){cntU=1;if(cntL>0)cntL--;}
   }
   if(cntL<0)cntL=0;
+  /* 安全策：中間部の合計が midLen を超えないよう調整（小さいmidLen＋最低1文字の端数対策） */
+  var sumC=cntN+cntS+cntU+cntL;
+  while(sumC>midLen){
+    if(cntL>0)cntL--;
+    else if(cntN>=cntS&&cntN>=cntU&&cntN>0)cntN--;
+    else if(cntS>=cntU&&cntS>0)cntS--;
+    else if(cntU>0)cntU--;
+    else break;
+    sumC=cntN+cntS+cntU+cntL;
+  }
 
   var pool=[];
   for(var i=0;i<cntN;i++) pool.push({c:pick(nArr),t:'num'});
@@ -1132,33 +1171,30 @@ function buildOne(){
   if(noRepeat){for(var i=1;i<pool.length;i++){if(pool[i].c===pool[i-1].c){for(var k=i+1;k<pool.length;k++){if(pool[k].c!==pool[i-1].c){var tmp=pool[i];pool[i]=pool[k];pool[k]=tmp;break;}}}}}
   if(maxSeq<10){for(var att=0;att<80;att++){var bad=false;for(var i=0;i+maxSeq<pool.length;i++){var t0=pool[i].t,run=true;for(var k=i+1;k<=i+maxSeq;k++){if(pool[k].t!==t0){run=false;break;}}if(run){bad=true;break;}}if(!bad)break;for(var i=pool.length-1;i>0;i--){var j=Math.floor(Math.random()*(i+1));var tmp=pool[i];pool[i]=pool[j];pool[j]=tmp;}}}
 
-  /* 先頭の配置：文字種 or 指定文字 */
-  if(pool.length>0 && sSpec.mode!=='none'){
-    if(sSpec.mode==='custom'){
-      if(sSpec.custom){ pool[0]={c:sSpec.custom.charAt(0),t:charType(sSpec.custom.charAt(0),symArr)}; }
-    } else {
-      var st=sSpec.mode;  /* num/sym/upper/lower */
-      var si=-1;for(var i=0;i<pool.length;i++){if(pool[i].t===st){si=i;break;}}
-      if(si>0){var tmp=pool[0];pool[0]=pool[si];pool[si]=tmp;}
-      else if(si===-1){var arr=st==='num'?nArr:st==='sym'?symArr:st==='upper'?uArr:lArr;if(arr&&arr.length>0)pool[0]={c:pick(arr),t:st};}
-    }
+  /* 先頭の文字種指定（num/sym/upper/lower）。固定prefixが無い場合のみ中間部の先頭に適用 */
+  if(!prefix && pool.length>0 && sSpec.mode!=='none' && sSpec.mode!=='custom'){
+    var st=sSpec.mode;  /* num/sym/upper/lower */
+    var si=-1;for(var i=0;i<pool.length;i++){if(pool[i].t===st){si=i;break;}}
+    if(si>0){var tmp=pool[0];pool[0]=pool[si];pool[si]=tmp;}
+    else if(si===-1){var arr=st==='num'?nArr:st==='sym'?symArr:st==='upper'?uArr:lArr;if(arr&&arr.length>0)pool[0]={c:pick(arr),t:st};}
+  }
+  /* 末尾の文字種指定。固定suffixが無い場合のみ中間部の末尾に適用 */
+  if(!suffix && pool.length>0 && eSpec.mode!=='none' && eSpec.mode!=='custom'){
+    var last=pool.length-1;
+    var et=eSpec.mode;
+    var ei=-1;for(var i=pool.length-1;i>=0;i--){if(pool[i].t===et){ei=i;break;}}
+    if(ei>=0&&ei!==last){var tmp=pool[last];pool[last]=pool[ei];pool[ei]=tmp;}
+    else if(ei===-1){var arr2=et==='num'?nArr:et==='sym'?symArr:et==='upper'?uArr:lArr;if(arr2&&arr2.length>0)pool[last]={c:pick(arr2),t:et};}
   }
 
-  var last=pool.length-1;
-  /* 末尾の配置：文字種 or 指定文字 */
-  if(pool.length>0 && eSpec.mode!=='none'){
-    if(eSpec.mode==='custom'){
-      if(eSpec.custom){ pool[last]={c:eSpec.custom.charAt(0),t:charType(eSpec.custom.charAt(0),symArr)}; }
-    } else {
-      var et=eSpec.mode;
-      var ei=-1;for(var i=pool.length-1;i>=0;i--){if(pool[i].t===et){ei=i;break;}}
-      if(ei>=0&&ei!==last){var tmp=pool[last];pool[last]=pool[ei];pool[ei]=tmp;}
-      else if(ei===-1){var arr2=et==='num'?nArr:et==='sym'?symArr:et==='upper'?uArr:lArr;if(arr2&&arr2.length>0)pool[last]={c:pick(arr2),t:et};}
-    }
-  }
+  /* 固定prefix ＋ 中間部 ＋ 固定suffix を連結（固定文字は文字種を判定して着色） */
+  var parts=[];
+  for(var i=0;i<prefix.length;i++){ parts.push({c:prefix[i], t:charType(prefix[i])}); }
+  for(var i=0;i<pool.length;i++){ parts.push(pool[i]); }
+  for(var i=0;i<suffix.length;i++){ parts.push({c:suffix[i], t:charType(suffix[i])}); }
 
-  var plain=pool.map(function(p){return p.c;}).join('');
-  var html=pool.map(function(p){
+  var plain=parts.map(function(p){return p.c;}).join('');
+  var html=parts.map(function(p){
     var cls=p.t==='num'?'c-num':p.t==='sym'?'c-sym':p.t==='upper'?'c-upper':p.t==='lower'?'c-lower':'';
     var ch=p.c.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
     return cls?'<span class="'+cls+'">'+ch+'</span>':ch;
@@ -1267,7 +1303,9 @@ function condToHtml(c){
   var Uc=ch('upper','A'), Nc=ch('num','1'), Sc=ch('sym','#'), Lc=ch('lower','a');
   var sep='<span style="color:#ccc;"> : </span>';
   var parts=[];
-  parts.push('<b style="color:#666;">'+(c.len||'?')+'桁</b>');
+  var _fixLen=((c.startMode==='custom'&&c.startCustom)?String(c.startCustom).length:0)+((c.endMode==='custom'&&c.endCustom)?String(c.endCustom).length:0);
+  var _effLen=Math.max(c.len||0, _fixLen);
+  parts.push('<b style="color:#666;">'+(_effLen||'?')+'桁</b>');
   /* 並び：数字・記号・大文字・小文字 */
   var pctL = (typeof c.pctL==='number') ? c.pctL : Math.max(0,100-(c.pctU||0)-(c.pctN||0)-(c.pctS||0));
   parts.push(N+': '+(c.pctN||0)+'%  '+S+': '+(c.pctS||0)+'%  '+U+': '+(c.pctU||0)+'%  '+L+': '+pctL+'%');
@@ -1276,7 +1314,11 @@ function condToHtml(c){
     if(mode==='sym') return Sc;
     if(mode==='upper') return Uc;
     if(mode==='lower') return Lc;
-    if(mode==='custom' && custom){ var ch0=custom.charAt(0); return '<span class="c-'+charType(ch0)+'" style="font-weight:700;">'+esc(ch0)+'</span>'; }
+    if(mode==='custom' && custom){
+      return String(custom).split('').map(function(ch0){
+        return '<span class="c-'+charType(ch0)+'" style="font-weight:700;">'+esc(ch0)+'</span>';
+      }).join('');
+    }
     return '';
   }
   var head=modeToHtml(c.startMode, c.startCustom);
