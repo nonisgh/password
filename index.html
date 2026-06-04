@@ -86,11 +86,14 @@ input { -webkit-tap-highlight-color: transparent; font-family: inherit; }
   background: #fff; border: 1px solid #e0e0da; border-radius: 9px;
   padding: 9px 8px 9px 10px; display: flex; align-items: center; gap: 8px;
   cursor: pointer; position: relative; overflow: hidden;
+  touch-action: manipulation;
   transition: background 0.15s, border-color 0.15s;
 }
 .memo-row:hover { border-color: #aaa; background: #fafaf8; }
 .memo-row:active { background: #f0f0ec; }
 .memo-row.copied { border-color: #3B6D11; background: #f2f8ee; }
+/* memoed（メモ移動）のピンクは hover/active/copied より優先させる（領域全体をピンクに） */
+.memo-row.memoed, .memo-row.memoed:hover, .memo-row.memoed:active { border-color: #A8385C; background: #fceef3; }
 .memo-text {
   font-family: 'Courier New', Courier, monospace; font-weight: 600;
   flex: 1; min-width: 0; letter-spacing: 0.04em; color: #1a1a1a;
@@ -1996,33 +1999,31 @@ function renderMemos(){
       if(open) openMemoKeys.add(mkey); else openMemoKeys.delete(mkey);
     }
 
-    /* メモ行：短タップ＝コピー、長押し/右クリック＝詳細パネル開閉 */
+    /* メモ行：シングルタップ＝コピー、ダブルタップ/右クリック＝詳細パネル開閉 */
     (function(plain){
-      var lpTimer=null, lpFired=false, sx=0, sy=0;
-      function start(x,y){
-        lpFired=false; sx=x; sy=y; clearTimeout(lpTimer);
-        lpTimer=setTimeout(function(){ lpFired=true; toggleDetail(); }, 550);
-      }
-      function moveCancel(x,y){ if(Math.abs(x-sx)>8||Math.abs(y-sy)>8) clearTimeout(lpTimer); }
-      function end(){ clearTimeout(lpTimer); }
-      row.addEventListener('mousedown', function(e){ if(e.button!==2) start(e.clientX,e.clientY); });
-      row.addEventListener('mousemove', function(e){ moveCancel(e.clientX,e.clientY); });
-      row.addEventListener('mouseup', end);
-      row.addEventListener('mouseleave', end);
-      row.addEventListener('touchstart', function(e){ var t=e.touches[0]; start(t.clientX,t.clientY); }, {passive:true});
-      row.addEventListener('touchmove', function(e){ var t=e.touches[0]; moveCancel(t.clientX,t.clientY); }, {passive:true});
-      row.addEventListener('touchend', end);
-      row.addEventListener('contextmenu', function(e){ e.preventDefault(); toggleDetail(); });
-
-      row.addEventListener('click', function(){
-        if(lpFired){ lpFired=false; return; }  /* 長押し → コピーしない */
+      var lastTap=0, singleTimer=null, sx=0, sy=0, moved=false, DBL=250;
+      function downXY(x,y){ sx=x; sy=y; moved=false; }
+      function moveCancel(x,y){ if(Math.abs(x-sx)>10||Math.abs(y-sy)>10) moved=true; }
+      function doCopy(){
         copyText(plain, {textContent:'',set textContent(v){}});
-        row.classList.add('copied');
-        badge.textContent='COPIED';
-        badge.style.opacity = '1';
+        row.classList.remove('memoed'); row.classList.add('copied');
+        badge.textContent='COPIED'; badge.style.opacity='1';
         clearTimeout(row._ct);
-        row._ct = setTimeout(function(){ row.classList.remove('copied'); badge.style.opacity='0'; }, 1500);
-      });
+        row._ct=setTimeout(function(){ row.classList.remove('copied'); badge.style.opacity='0'; }, 1500);
+      }
+      function openDetail(){ clearTimeout(singleTimer); singleTimer=null; lastTap=0; toggleDetail(); }
+      function onTap(){
+        if(moved) return;
+        var now=Date.now();
+        if(now-lastTap < DBL){ openDetail(); }     /* ダブルタップ＝詳細 */
+        else { lastTap=now; clearTimeout(singleTimer); singleTimer=setTimeout(function(){ singleTimer=null; doCopy(); }, DBL); }
+      }
+      row.addEventListener('mousedown', function(e){ if(e.button!==2) downXY(e.clientX,e.clientY); });
+      row.addEventListener('mousemove', function(e){ moveCancel(e.clientX,e.clientY); });
+      row.addEventListener('touchstart', function(e){ var t=e.touches[0]; downXY(t.clientX,t.clientY); }, {passive:true});
+      row.addEventListener('touchmove', function(e){ var t=e.touches[0]; moveCancel(t.clientX,t.clientY); }, {passive:true});
+      row.addEventListener('click', onTap);
+      row.addEventListener('contextmenu', function(e){ e.preventDefault(); openDetail(); });
     })(m.plain);
 
     row.appendChild(txt);
@@ -2088,6 +2089,20 @@ function addHistory(plain){
   pwHistory.unshift({ plain:plain, html:colorizePlain(plain), ts:Date.now(), cond:getCondObj() });
   if(pwHistory.length > HIST_MAX) pwHistory = pwHistory.slice(0, HIST_MAX);
   saveHistory();
+  renderHistory();
+}
+/* 履歴の1件をメモへ移動（履歴からは取り除く）。生成条件は引き継ぎ、追加時刻は現在時刻。 */
+function moveHistoryToMemo(item){
+  if(!item || !item.plain) return;
+  /* メモへ（同じパスワードがあれば最新扱いで置き換え） */
+  memos = memos.filter(function(mm){ return mm.plain !== item.plain; });
+  memos.unshift({ plain:item.plain, html:item.html||colorizePlain(item.plain), ts:Date.now(), cond:item.cond||getCondObj() });
+  if(memos.length > MEMO_MAX) memos = memos.slice(0, MEMO_MAX);
+  /* 履歴から取り除く */
+  var idx = pwHistory.indexOf(item);
+  if(idx !== -1) pwHistory.splice(idx, 1);
+  saveMemos(); saveHistory();
+  renderMemos();      /* renderMemos が renderHistory も呼ぶ */
   renderHistory();
 }
 function clearHistory(){
@@ -2187,33 +2202,49 @@ function renderHistory(){
       if(open) openHistKeys.add(hkey); else openHistKeys.delete(hkey);
     }
 
-    (function(plain){
-      var lpTimer=null, lpFired=false, sx=0, sy=0;
-      function start(x,y){
-        lpFired=false; sx=x; sy=y; clearTimeout(lpTimer);
-        lpTimer=setTimeout(function(){ lpFired=true; toggleDetail(); }, 550);
+    /* 履歴行：シングルタップ＝コピー、ダブルタップ/右クリック＝詳細、長押し＝メモへ移動 */
+    (function(itemObj, plain){
+      var lpTimer=null, lpFired=false, lastTap=0, singleTimer=null, sx=0, sy=0, moved=false, DBL=250, LP=550;
+      function downXY(x,y){
+        sx=x; sy=y; moved=false; lpFired=false;
+        clearTimeout(lpTimer);
+        lpTimer=setTimeout(function(){ lpFired=true; doMove(); }, LP);
       }
-      function moveCancel(x,y){ if(Math.abs(x-sx)>8||Math.abs(y-sy)>8) clearTimeout(lpTimer); }
-      function end(){ clearTimeout(lpTimer); }
-      row.addEventListener('mousedown', function(e){ if(e.button!==2) start(e.clientX,e.clientY); });
-      row.addEventListener('mousemove', function(e){ moveCancel(e.clientX,e.clientY); });
-      row.addEventListener('mouseup', end);
-      row.addEventListener('mouseleave', end);
-      row.addEventListener('touchstart', function(e){ var t=e.touches[0]; start(t.clientX,t.clientY); }, {passive:true});
-      row.addEventListener('touchmove', function(e){ var t=e.touches[0]; moveCancel(t.clientX,t.clientY); }, {passive:true});
-      row.addEventListener('touchend', end);
-      row.addEventListener('contextmenu', function(e){ e.preventDefault(); toggleDetail(); });
-
-      row.addEventListener('click', function(){
-        if(lpFired){ lpFired=false; return; }
+      function moveCancel(x,y){ if(Math.abs(x-sx)>10||Math.abs(y-sy)>10){ moved=true; clearTimeout(lpTimer); } }
+      function up(){ clearTimeout(lpTimer); }
+      function doCopy(){
         copyText(plain, {textContent:'',set textContent(v){}});
-        row.classList.add('copied');
-        badge.textContent='COPIED';
-        badge.style.opacity = '1';
+        row.classList.remove('memoed'); row.classList.add('copied');
+        badge.textContent='COPIED'; badge.style.opacity='1';
         clearTimeout(row._ct);
-        row._ct = setTimeout(function(){ row.classList.remove('copied'); badge.style.opacity='0'; }, 1500);
-      });
-    })(m.plain);
+        row._ct=setTimeout(function(){ row.classList.remove('copied'); badge.style.opacity='0'; }, 1500);
+      }
+      function doMove(){
+        /* メモへ移動：パスワード欄と同じピンク系で「MEMO」を一瞬出してから移す */
+        clearTimeout(singleTimer); singleTimer=null;
+        row.classList.remove('copied'); row.classList.add('memoed');
+        badge.textContent='MEMO'; badge.style.opacity='1';
+        clearTimeout(row._ct);
+        row._ct=setTimeout(function(){ moveHistoryToMemo(itemObj); }, 1100);
+      }
+      function openDetail(){ clearTimeout(singleTimer); singleTimer=null; lastTap=0; toggleDetail(); }
+      function onTap(){
+        if(lpFired){ lpFired=false; return; }      /* 長押しで移動済み → コピーしない */
+        if(moved) return;
+        var now=Date.now();
+        if(now-lastTap < DBL){ openDetail(); }      /* ダブルタップ＝詳細 */
+        else { lastTap=now; clearTimeout(singleTimer); singleTimer=setTimeout(function(){ singleTimer=null; doCopy(); }, DBL); }
+      }
+      row.addEventListener('mousedown', function(e){ if(e.button!==2) downXY(e.clientX,e.clientY); });
+      row.addEventListener('mousemove', function(e){ moveCancel(e.clientX,e.clientY); });
+      row.addEventListener('mouseup', up);
+      row.addEventListener('mouseleave', up);
+      row.addEventListener('touchstart', function(e){ var t=e.touches[0]; downXY(t.clientX,t.clientY); }, {passive:true});
+      row.addEventListener('touchmove', function(e){ var t=e.touches[0]; moveCancel(t.clientX,t.clientY); }, {passive:true});
+      row.addEventListener('touchend', up);
+      row.addEventListener('click', onTap);
+      row.addEventListener('contextmenu', function(e){ e.preventDefault(); openDetail(); });
+    })(m, m.plain);
 
     row.appendChild(txt);
     row.appendChild(badge);
