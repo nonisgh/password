@@ -894,6 +894,8 @@ function applyColors(){
     css+='#cond-summary .c-'+t+'{color:'+(on?col:'#1a1a1a')+'}\n';
     /* メモ・履歴の詳細パネル内の条件表示も同様に色付け */
     css+='.rec-detail .c-'+t+'{color:'+(on?col:'#1a1a1a')+'}\n';
+    /* 「次の文字から始める／終わる」の指定ラベル【1】【#】【A】【a】：常に指定色で表示 */
+    css+='.startend-block .c-'+t+'{color:'+col+'}\n';
     var dot=gv('leg-'+t+'-dot'),leg=gv('leg-'+t);
     if(dot) dot.style.background=on?col:'#ccc';
     if(leg) leg.style.opacity=on?'1':'0.35';
@@ -1043,26 +1045,31 @@ function charType(ch){
   if(ch>='a'&&ch<='z') return 'lower';
   return 'sym';
 }
-function startSpec(){
-  var custom = (gv('start-custom') && gv('start-custom').value) || '';
-  if(gv('start-custom-on') && gv('start-custom-on').checked && custom) return {mode:'custom', custom:custom};
-  var types=['num','sym','upper','lower'];
-  for(var i=0;i<types.length;i++){ var e=gv('start-'+types[i]); if(e&&e.checked) return {mode:types[i], custom:''}; }
+function sideSpec(prefix){
+  var custom = (gv(prefix+'-custom') && gv(prefix+'-custom').value) || '';
+  if(gv(prefix+'-custom-on') && gv(prefix+'-custom-on').checked && custom) return {mode:'custom', custom:custom};
+  var up = gv(prefix+'-upper') && gv(prefix+'-upper').checked;
+  var lo = gv(prefix+'-lower') && gv(prefix+'-lower').checked;
+  if(up && lo) return {mode:'alpha', custom:''};   /* 大文字小文字問わずアルファベット */
+  if(up) return {mode:'upper', custom:''};
+  if(lo) return {mode:'lower', custom:''};
+  if(gv(prefix+'-num') && gv(prefix+'-num').checked) return {mode:'num', custom:''};
+  if(gv(prefix+'-sym') && gv(prefix+'-sym').checked) return {mode:'sym', custom:''};
   return {mode:'none', custom:''};
 }
-function endSpec(){
-  var custom = (gv('end-custom') && gv('end-custom').value) || '';
-  if(gv('end-custom-on') && gv('end-custom-on').checked && custom) return {mode:'custom', custom:custom};
-  var types=['num','sym','upper','lower'];
-  for(var i=0;i<types.length;i++){ var e=gv('end-'+types[i]); if(e&&e.checked) return {mode:types[i], custom:''}; }
-  return {mode:'none', custom:''};
-}
+function startSpec(){ return sideSpec('start'); }
+function endSpec(){ return sideSpec('end'); }
 function setExclusive(prefix, picked){
+  /* 【A】(upper)・【a】(lower) は同時選択可。片方を選んでももう片方は残す。
+     それ以外（num/sym/custom）は単独選択（他を全て解除）。 */
+  var alpha = (picked==='upper' || picked==='lower');
   var ids=['num','sym','upper','lower','custom-on'];
   ids.forEach(function(suf){
     var e=gv(prefix+'-'+suf); if(!e) return;
     var key = (suf==='custom-on') ? 'custom' : suf;
-    if(key!==picked) e.checked = false;
+    if(key===picked) return;                                   /* 選んだものは保持 */
+    if(alpha && (key==='upper'||key==='lower')) return;        /* alpha群の相方は保持 */
+    e.checked = false;
   });
 }
 function applyStartEndSpec(prefix, mode, custom){
@@ -1070,6 +1077,7 @@ function applyStartEndSpec(prefix, mode, custom){
   var ci=gv(prefix+'-custom'); if(ci) ci.value = custom || '';
   if(!mode || mode==='none') return;
   if(mode==='custom'){ if(custom){ var on=gv(prefix+'-custom-on'); if(on) on.checked=true; } }
+  else if(mode==='alpha'){ var u=gv(prefix+'-upper'),l=gv(prefix+'-lower'); if(u)u.checked=true; if(l)l.checked=true; }
   else { var e=gv(prefix+'-'+mode); if(e) e.checked=true; }
 }
 /* 「文字を指定」に ALL_SYMS の記号（例: #）が含まれていたら、
@@ -1132,27 +1140,36 @@ function buildOne(){
   var prefix = (sSpec.mode==='custom' && sSpec.custom) ? sSpec.custom : '';
   var suffix = (eSpec.mode==='custom' && eSpec.custom) ? eSpec.custom : '';
   var fixedLen = prefix.length + suffix.length;
-  /* 割合は「自動生成する中間部」に対して適用する。
-     固定分が桁数を超える場合は中間0（＝固定文字だけ。実桁数は固定分まで伸びる） */
+  /* 自動生成する中間部の長さ。固定分が桁数を超える場合は中間0（＝固定文字だけ） */
   var midLen = Math.max(0, len - fixedLen);
 
-  var cntN=Math.round(midLen*pctN),cntS=Math.round(midLen*pctS),cntU=Math.round(midLen*pctU);
-  var cntL=midLen-cntN-cntS-cntU;
-  if(cntL<0){cntN+=cntL;cntL=0;} if(cntN<0)cntN=0;
+  /* === 割合は「固定文字＋自動生成部」の合計（＝全体 len）に対して適用する ===
+     固定文字に含まれる各文字種を数えて、全体目標個数から差し引いた分を中間部で埋める。
+     固定がその文字種の目標を超えている場合は 0 にクランプ（その割合は超過する）。 */
+  var fixedStr = prefix + suffix;
+  var fN=0,fS=0,fU=0,fL=0;
+  for(var i=0;i<fixedStr.length;i++){ var ft=charType(fixedStr[i]); if(ft==='num')fN++;else if(ft==='sym')fS++;else if(ft==='upper')fU++;else fL++; }
+
+  /* 全体での目標個数（len 基準。小文字は残り） */
+  var tN=Math.round(len*pctN), tS=Math.round(len*pctS), tU=Math.round(len*pctU);
+  var tL=len-tN-tS-tU;
+  while(tL<0){ if(tN>=tS&&tN>=tU&&tN>0)tN--; else if(tS>=tU&&tS>0)tS--; else if(tU>0)tU--; else break; tL=len-tN-tS-tU; }
+  if(tL<0)tL=0;
+
+  /* 中間部で埋める個数 ＝ 全体目標 − 固定分（負はクランプ） */
+  var cntN=Math.max(0,tN-fN), cntS=Math.max(0,tS-fS), cntU=Math.max(0,tU-fU), cntL=Math.max(0,tL-fL);
+
+  /* 各種最低1文字：全体（固定含む）にその文字種が無く、中間部に余地があれば1つ確保 */
   if(minOne && midLen>0){
-    /* 固定の先頭/末尾に既にその文字種が含まれていれば、中間部での最低1文字強制は省く */
-    var fixedStr=prefix+suffix;
-    var hasN=/[0-9]/.test(fixedStr);
-    var hasU=/[A-Z]/.test(fixedStr);
-    var hasS=fixedStr.split('').some(function(ch){return symArr.indexOf(ch)!==-1;});
-    if(pctN>0&&nArr.length>0&&cntN<1&&!hasN){cntN=1;if(cntL>0)cntL--;}
-    if(pctS>0&&symArr.length>0&&cntS<1&&!hasS){cntS=1;if(cntL>0)cntL--;}
-    if(pctU>0&&uArr.length>0&&cntU<1&&!hasU){cntU=1;if(cntL>0)cntL--;}
+    if(pctN>0&&nArr.length>0&&(fN+cntN)<1)cntN=1;
+    if(pctS>0&&symArr.length>0&&(fS+cntS)<1)cntS=1;
+    if(pctU>0&&uArr.length>0&&(fU+cntU)<1)cntU=1;
   }
-  if(cntL<0)cntL=0;
-  /* 安全策：中間部の合計が midLen を超えないよう調整（小さいmidLen＋最低1文字の端数対策） */
+
+  /* 中間部の合計を midLen に厳密に合わせる */
   var sumC=cntN+cntS+cntU+cntL;
-  while(sumC>midLen){
+  while(sumC<midLen){ cntL++; sumC++; }              /* 余りは小文字(残り)で埋める */
+  while(sumC>midLen){                                 /* 超過分は 小文字→最大種 の順で削る */
     if(cntL>0)cntL--;
     else if(cntN>=cntS&&cntN>=cntU&&cntN>0)cntN--;
     else if(cntS>=cntU&&cntS>0)cntS--;
@@ -1171,20 +1188,31 @@ function buildOne(){
   if(noRepeat){for(var i=1;i<pool.length;i++){if(pool[i].c===pool[i-1].c){for(var k=i+1;k<pool.length;k++){if(pool[k].c!==pool[i-1].c){var tmp=pool[i];pool[i]=pool[k];pool[k]=tmp;break;}}}}}
   if(maxSeq<10){for(var att=0;att<80;att++){var bad=false;for(var i=0;i+maxSeq<pool.length;i++){var t0=pool[i].t,run=true;for(var k=i+1;k<=i+maxSeq;k++){if(pool[k].t!==t0){run=false;break;}}if(run){bad=true;break;}}if(!bad)break;for(var i=pool.length-1;i>0;i--){var j=Math.floor(Math.random()*(i+1));var tmp=pool[i];pool[i]=pool[j];pool[j]=tmp;}}}
 
-  /* 先頭の文字種指定（num/sym/upper/lower）。固定prefixが無い場合のみ中間部の先頭に適用 */
+  /* 文字種指定のヘルパー（alpha＝大文字小文字問わずアルファベット に対応） */
+  function matchMode(t, mode){ return (mode==='alpha') ? (t==='upper'||t==='lower') : (t===mode); }
+  function makeForMode(mode){
+    if(mode==='num')   return nArr.length? {c:pick(nArr),t:'num'} : null;
+    if(mode==='sym')   return symArr.length? {c:pick(symArr),t:'sym'} : null;
+    if(mode==='upper') return uArr.length? {c:pick(uArr),t:'upper'} : null;
+    if(mode==='lower') return lArr.length? {c:pick(lArr),t:'lower'} : null;
+    if(mode==='alpha'){ var all=uArr.concat(lArr); if(!all.length) return null; var c=pick(all); return {c:c,t:(c>='a'&&c<='z')?'lower':'upper'}; }
+    return null;
+  }
+
+  /* 先頭の文字種指定。固定prefixが無い場合のみ中間部の先頭に適用 */
   if(!prefix && pool.length>0 && sSpec.mode!=='none' && sSpec.mode!=='custom'){
-    var st=sSpec.mode;  /* num/sym/upper/lower */
-    var si=-1;for(var i=0;i<pool.length;i++){if(pool[i].t===st){si=i;break;}}
+    var sm=sSpec.mode;  /* num/sym/upper/lower/alpha */
+    var si=-1;for(var i=0;i<pool.length;i++){if(matchMode(pool[i].t,sm)){si=i;break;}}
     if(si>0){var tmp=pool[0];pool[0]=pool[si];pool[si]=tmp;}
-    else if(si===-1){var arr=st==='num'?nArr:st==='sym'?symArr:st==='upper'?uArr:lArr;if(arr&&arr.length>0)pool[0]={c:pick(arr),t:st};}
+    else if(si===-1){var nc=makeForMode(sm);if(nc)pool[0]=nc;}
   }
   /* 末尾の文字種指定。固定suffixが無い場合のみ中間部の末尾に適用 */
   if(!suffix && pool.length>0 && eSpec.mode!=='none' && eSpec.mode!=='custom'){
     var last=pool.length-1;
-    var et=eSpec.mode;
-    var ei=-1;for(var i=pool.length-1;i>=0;i--){if(pool[i].t===et){ei=i;break;}}
+    var em=eSpec.mode;
+    var ei=-1;for(var i=pool.length-1;i>=0;i--){if(matchMode(pool[i].t,em)){ei=i;break;}}
     if(ei>=0&&ei!==last){var tmp=pool[last];pool[last]=pool[ei];pool[ei]=tmp;}
-    else if(ei===-1){var arr2=et==='num'?nArr:et==='sym'?symArr:et==='upper'?uArr:lArr;if(arr2&&arr2.length>0)pool[last]={c:pick(arr2),t:et};}
+    else if(ei===-1){var nc2=makeForMode(em);if(nc2)pool[last]=nc2;}
   }
 
   /* 固定prefix ＋ 中間部 ＋ 固定suffix を連結（固定文字は文字種を判定して着色） */
@@ -1303,17 +1331,35 @@ function condToHtml(c){
   var Uc=ch('upper','A'), Nc=ch('num','1'), Sc=ch('sym','#'), Lc=ch('lower','a');
   var sep='<span style="color:#ccc;"> : </span>';
   var parts=[];
-  var _fixLen=((c.startMode==='custom'&&c.startCustom)?String(c.startCustom).length:0)+((c.endMode==='custom'&&c.endCustom)?String(c.endCustom).length:0);
+  /* 固定文字（文字を指定）の文字種カウント */
+  function _cntTypes(s){ var r={num:0,sym:0,upper:0,lower:0}; if(s){ String(s).split('').forEach(function(x){ r[charType(x)]++; }); } return r; }
+  var _fc={num:0,sym:0,upper:0,lower:0};
+  if(c.startMode==='custom'&&c.startCustom){ var _a=_cntTypes(c.startCustom); _fc.num+=_a.num;_fc.sym+=_a.sym;_fc.upper+=_a.upper;_fc.lower+=_a.lower; }
+  if(c.endMode==='custom'&&c.endCustom){ var _b=_cntTypes(c.endCustom); _fc.num+=_b.num;_fc.sym+=_b.sym;_fc.upper+=_b.upper;_fc.lower+=_b.lower; }
+  var _fixLen=_fc.num+_fc.sym+_fc.upper+_fc.lower;
   var _effLen=Math.max(c.len||0, _fixLen);
   parts.push('<b style="color:#666;">'+(_effLen||'?')+'桁</b>');
   /* 並び：数字・記号・大文字・小文字 */
   var pctL = (typeof c.pctL==='number') ? c.pctL : Math.max(0,100-(c.pctU||0)-(c.pctN||0)-(c.pctS||0));
-  parts.push(N+': '+(c.pctN||0)+'%  '+S+': '+(c.pctS||0)+'%  '+U+': '+(c.pctU||0)+'%  '+L+': '+pctL+'%');
+  /* 全体len基準の目標個数（割合は固定文字を含めた全体に適用される） */
+  var _L=c.len||0;
+  var _tg={num:Math.round(_L*(c.pctN||0)/100), sym:Math.round(_L*(c.pctS||0)/100), upper:Math.round(_L*(c.pctU||0)/100)};
+  _tg.lower=Math.max(0,_L-_tg.num-_tg.sym-_tg.upper);
+  /* 固定がその文字種の目標を超えている場合は「実○%」を併記（割合超過の明示） */
+  function _cell(tagHtml, key, pctVal){
+    var s=tagHtml+': '+(pctVal||0)+'%';
+    if(_fc[key] > _tg[key] && _effLen>0){ s+='<span style="color:#c0392b;font-size:0.8em;"> (実'+Math.round(_fc[key]/_effLen*100)+'%)</span>'; }
+    return s;
+  }
+  parts.push(_cell(N,'num',c.pctN)+'  '+_cell(S,'sym',c.pctS)+'  '+_cell(U,'upper',c.pctU)+'  '+_cell(L,'lower',pctL));
+  var Aa='<span style="font-size:0.85em;font-weight:700;">【<span class="c-upper">A</span><span class="c-lower">a</span>】</span>';
   function modeToHtml(mode, custom){
-    if(mode==='num') return Nc;
-    if(mode==='sym') return Sc;
-    if(mode==='upper') return Uc;
-    if(mode==='lower') return Lc;
+    /* 文字種指定 → 【】で囲む（両方有効＝alphaは【Aa】）／文字を指定 → 素の文字列 */
+    if(mode==='num') return N;
+    if(mode==='sym') return S;
+    if(mode==='upper') return U;
+    if(mode==='lower') return L;
+    if(mode==='alpha') return Aa;
     if(mode==='custom' && custom){
       return String(custom).split('').map(function(ch0){
         return '<span class="c-'+charType(ch0)+'" style="font-weight:700;">'+esc(ch0)+'</span>';
@@ -1323,8 +1369,8 @@ function condToHtml(c){
   }
   var head=modeToHtml(c.startMode, c.startCustom);
   var tail=modeToHtml(c.endMode, c.endCustom);
-  if(!head && typeof c.startMode==='undefined'){ if(c.startUpper) head=Uc; else if(c.startAlpha) head=Lc; }
-  if(!tail && typeof c.endMode==='undefined'){ if(c.endNum) tail=Nc; else if(c.endSym) tail=Sc; }
+  if(!head && typeof c.startMode==='undefined'){ if(c.startUpper) head=U; else if(c.startAlpha) head=L; }
+  if(!tail && typeof c.endMode==='undefined'){ if(c.endNum) tail=N; else if(c.endSym) tail=S; }
   if(head || tail){
     parts.push((head||'<span style="color:#bbb;">?</span>')+'<span style="color:#ccc;">...</span>'+(tail||'<span style="color:#bbb;">?</span>'));
   }
