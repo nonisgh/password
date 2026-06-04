@@ -450,21 +450,31 @@ input { -webkit-tap-highlight-color: transparent; font-family: inherit; }
   <div class="section" data-section-id="basic">
     <div class="section-head" onclick="toggleSection(this,event)"><span class="section-drag-handle">⠿</span><span class="section-title">基本設定</span></div>
     <div class="section-body">
-      <div class="row-toggle">
-        <span class="lbl">先頭を大文字にする</span>
-        <label class="toggle"><input type="checkbox" id="start-upper" checked onchange="if(this.checked)gv('start-alpha').checked=true; generate()"><span class="slider-tog"></span></label>
+      <div class="startend-block" style="margin-bottom:10px;">
+        <div style="font-size:13px;color:#555;font-weight:700;margin-bottom:6px;">次の文字から始める</div>
+        <div style="display:flex;gap:14px;flex-wrap:wrap;align-items:center;margin-bottom:6px;">
+          <label class="se-opt"><input type="checkbox" id="start-num"   onchange="onStartPick('num')"><span class="c-num"   style="font-weight:700;">【1】</span></label>
+          <label class="se-opt"><input type="checkbox" id="start-sym"   onchange="onStartPick('sym')"><span class="c-sym"   style="font-weight:700;">【#】</span></label>
+          <label class="se-opt"><input type="checkbox" id="start-upper" onchange="onStartPick('upper')"><span class="c-upper" style="font-weight:700;">【A】</span></label>
+          <label class="se-opt"><input type="checkbox" id="start-lower" onchange="onStartPick('lower')"><span class="c-lower" style="font-weight:700;">【a】</span></label>
+        </div>
+        <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
+          <label class="se-opt"><input type="checkbox" id="start-custom-on" onchange="onStartPick('custom')">文字を指定</label>
+          <input type="text" id="start-custom" placeholder="文字種問わず複数可" oninput="onStartCustomInput()" style="flex:1;min-width:120px;padding:3px 6px;font-size:13px;border:1px solid #ddd;border-radius:6px;">
+        </div>
       </div>
-      <div class="row-toggle">
-        <span class="lbl">先頭を必ずアルファベットにする</span>
-        <label class="toggle"><input type="checkbox" id="start-alpha" onchange="if(!this.checked)gv('start-upper').checked=false; generate()"><span class="slider-tog"></span></label>
-      </div>
-      <div class="row-toggle">
-        <span class="lbl">末尾を必ず数字にする</span>
-        <label class="toggle"><input type="checkbox" id="end-num" checked onchange="if(this.checked)gv('end-sym').checked=false; generate()"><span class="slider-tog"></span></label>
-      </div>
-      <div class="row-toggle">
-        <span class="lbl">末尾を必ず記号にする <small>（記号なしの場合は無視）</small></span>
-        <label class="toggle"><input type="checkbox" id="end-sym" onchange="if(this.checked)gv('end-num').checked=false; generate()"><span class="slider-tog"></span></label>
+      <div class="startend-block" style="margin-bottom:6px;">
+        <div style="font-size:13px;color:#555;font-weight:700;margin-bottom:6px;">次の文字で終わる</div>
+        <div style="display:flex;gap:14px;flex-wrap:wrap;align-items:center;margin-bottom:6px;">
+          <label class="se-opt"><input type="checkbox" id="end-num"   onchange="onEndPick('num')"><span class="c-num"   style="font-weight:700;">【1】</span></label>
+          <label class="se-opt"><input type="checkbox" id="end-sym"   onchange="onEndPick('sym')"><span class="c-sym"   style="font-weight:700;">【#】</span></label>
+          <label class="se-opt"><input type="checkbox" id="end-upper" onchange="onEndPick('upper')"><span class="c-upper" style="font-weight:700;">【A】</span></label>
+          <label class="se-opt"><input type="checkbox" id="end-lower" onchange="onEndPick('lower')"><span class="c-lower" style="font-weight:700;">【a】</span></label>
+        </div>
+        <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
+          <label class="se-opt"><input type="checkbox" id="end-custom-on" onchange="onEndPick('custom')">文字を指定</label>
+          <input type="text" id="end-custom" placeholder="文字種問わず複数可" oninput="onEndCustomInput()" style="flex:1;min-width:120px;padding:3px 6px;font-size:13px;border:1px solid #ddd;border-radius:6px;">
+        </div>
       </div>
       <div class="row-toggle">
         <span class="lbl">紛らわしい文字を除外 <small>（0 O o l 1 I）</small></span>
@@ -1026,6 +1036,65 @@ function updateTotal(){
   else{el.textContent='残り（小文字）: '+lower+'%';el.className='pct-total';}
 }
 
+/* ===== 先頭/末尾 指定（チェックボックス排他方式） ===== */
+function charType(ch){
+  if(ch>='0'&&ch<='9') return 'num';
+  if(ch>='A'&&ch<='Z') return 'upper';
+  if(ch>='a'&&ch<='z') return 'lower';
+  return 'sym';
+}
+function startSpec(){
+  var custom = (gv('start-custom') && gv('start-custom').value) || '';
+  if(gv('start-custom-on') && gv('start-custom-on').checked && custom) return {mode:'custom', custom:custom};
+  var types=['num','sym','upper','lower'];
+  for(var i=0;i<types.length;i++){ var e=gv('start-'+types[i]); if(e&&e.checked) return {mode:types[i], custom:''}; }
+  return {mode:'none', custom:''};
+}
+function endSpec(){
+  var custom = (gv('end-custom') && gv('end-custom').value) || '';
+  if(gv('end-custom-on') && gv('end-custom-on').checked && custom) return {mode:'custom', custom:custom};
+  var types=['num','sym','upper','lower'];
+  for(var i=0;i<types.length;i++){ var e=gv('end-'+types[i]); if(e&&e.checked) return {mode:types[i], custom:''}; }
+  return {mode:'none', custom:''};
+}
+function setExclusive(prefix, picked){
+  var ids=['num','sym','upper','lower','custom-on'];
+  ids.forEach(function(suf){
+    var e=gv(prefix+'-'+suf); if(!e) return;
+    var key = (suf==='custom-on') ? 'custom' : suf;
+    if(key!==picked) e.checked = false;
+  });
+}
+function applyStartEndSpec(prefix, mode, custom){
+  setExclusive(prefix, 'none');
+  var ci=gv(prefix+'-custom'); if(ci) ci.value = custom || '';
+  if(!mode || mode==='none') return;
+  if(mode==='custom'){ if(custom){ var on=gv(prefix+'-custom-on'); if(on) on.checked=true; } }
+  else { var e=gv(prefix+'-'+mode); if(e) e.checked=true; }
+}
+function onStartPick(which){
+  setExclusive('start', which);
+  if(which==='custom'){ var c=gv('start-custom'); if(c && !c.value){ gv('start-custom-on').checked=false; } }
+  saveSettings(); generate();
+}
+function onEndPick(which){
+  setExclusive('end', which);
+  if(which==='custom'){ var c=gv('end-custom'); if(c && !c.value){ gv('end-custom-on').checked=false; } }
+  saveSettings(); generate();
+}
+function onStartCustomInput(){
+  var v=gv('start-custom').value, on=gv('start-custom-on');
+  if(!v){ if(on) on.checked=false; }
+  else { setExclusive('start','custom'); if(on) on.checked=true; }
+  saveSettings(); generate();
+}
+function onEndCustomInput(){
+  var v=gv('end-custom').value, on=gv('end-custom-on');
+  if(!v){ if(on) on.checked=false; }
+  else { setExclusive('end','custom'); if(on) on.checked=true; }
+  saveSettings(); generate();
+}
+
 /* ===== BUILD ONE ===== */
 function buildOne(){
   var len=parseInt(gv('len').value,10)||8;
@@ -1036,8 +1105,7 @@ function buildOne(){
   if(total>1){var f=1/total;pctN*=f;pctS*=f;pctU*=f;}
 
   var excludeAmbig=gv('exclude-ambig').checked;
-  var startUpper=gv('start-upper').checked,startAlpha=gv('start-alpha').checked;
-  var endNum=gv('end-num').checked,endSym=gv('end-sym').checked&&symArr.length>0;
+  var sSpec=startSpec(), eSpec=endSpec();   /* {mode, custom} */
   var noRepeat=gv('no-repeat').checked,minOne=gv('min-one').checked,maxSeq=parseInt(gv('max-seq').value,10)||5;
 
   var lower='abcdefghijklmnopqrstuvwxyz',upper='ABCDEFGHIJKLMNOPQRSTUVWXYZ',nums='0123456789';
@@ -1064,25 +1132,29 @@ function buildOne(){
   if(noRepeat){for(var i=1;i<pool.length;i++){if(pool[i].c===pool[i-1].c){for(var k=i+1;k<pool.length;k++){if(pool[k].c!==pool[i-1].c){var tmp=pool[i];pool[i]=pool[k];pool[k]=tmp;break;}}}}}
   if(maxSeq<10){for(var att=0;att<80;att++){var bad=false;for(var i=0;i+maxSeq<pool.length;i++){var t0=pool[i].t,run=true;for(var k=i+1;k<=i+maxSeq;k++){if(pool[k].t!==t0){run=false;break;}}if(run){bad=true;break;}}if(!bad)break;for(var i=pool.length-1;i>0;i--){var j=Math.floor(Math.random()*(i+1));var tmp=pool[i];pool[i]=pool[j];pool[j]=tmp;}}}
 
-  if(startUpper&&pool.length>0){
-    var ui=-1;for(var i=0;i<pool.length;i++){if(pool[i].t==='upper'){ui=i;break;}}
-    if(ui>0){var tmp=pool[0];pool[0]=pool[ui];pool[ui]=tmp;}
-    else if(ui===-1&&uArr.length>0)pool[0]={c:pick(uArr),t:'upper'};
-  }else if(startAlpha&&pool.length>0){
-    var ai=-1;for(var i=0;i<pool.length;i++){if(pool[i].t==='lower'||pool[i].t==='upper'){ai=i;break;}}
-    if(ai>0){var tmp=pool[0];pool[0]=pool[ai];pool[ai]=tmp;}
-    else if(ai===-1)pool[0]={c:pick(lArr),t:'lower'};
+  /* 先頭の配置：文字種 or 指定文字 */
+  if(pool.length>0 && sSpec.mode!=='none'){
+    if(sSpec.mode==='custom'){
+      if(sSpec.custom){ pool[0]={c:sSpec.custom.charAt(0),t:charType(sSpec.custom.charAt(0),symArr)}; }
+    } else {
+      var st=sSpec.mode;  /* num/sym/upper/lower */
+      var si=-1;for(var i=0;i<pool.length;i++){if(pool[i].t===st){si=i;break;}}
+      if(si>0){var tmp=pool[0];pool[0]=pool[si];pool[si]=tmp;}
+      else if(si===-1){var arr=st==='num'?nArr:st==='sym'?symArr:st==='upper'?uArr:lArr;if(arr&&arr.length>0)pool[0]={c:pick(arr),t:st};}
+    }
   }
 
   var last=pool.length-1;
-  if(endSym){
-    var si=-1;for(var i=pool.length-1;i>=0;i--){if(pool[i].t==='sym'){si=i;break;}}
-    if(si>=0&&si!==last){var tmp=pool[last];pool[last]=pool[si];pool[si]=tmp;}
-    else if(si===-1)pool[last]={c:pick(symArr),t:'sym'};
-  }else if(endNum&&pool.length>0){
-    var ni=-1;for(var i=pool.length-1;i>=0;i--){if(pool[i].t==='num'){ni=i;break;}}
-    if(ni>=0&&ni!==last){var tmp=pool[last];pool[last]=pool[ni];pool[ni]=tmp;}
-    else if(ni===-1&&nArr.length>0)pool[last]={c:pick(nArr),t:'num'};
+  /* 末尾の配置：文字種 or 指定文字 */
+  if(pool.length>0 && eSpec.mode!=='none'){
+    if(eSpec.mode==='custom'){
+      if(eSpec.custom){ pool[last]={c:eSpec.custom.charAt(0),t:charType(eSpec.custom.charAt(0),symArr)}; }
+    } else {
+      var et=eSpec.mode;
+      var ei=-1;for(var i=pool.length-1;i>=0;i--){if(pool[i].t===et){ei=i;break;}}
+      if(ei>=0&&ei!==last){var tmp=pool[last];pool[last]=pool[ei];pool[ei]=tmp;}
+      else if(ei===-1){var arr2=et==='num'?nArr:et==='sym'?symArr:et==='upper'?uArr:lArr;if(arr2&&arr2.length>0)pool[last]={c:pick(arr2),t:et};}
+    }
   }
 
   var plain=pool.map(function(p){return p.c;}).join('');
@@ -1178,10 +1250,10 @@ function getCondObj(){
     pctN: pctN,
     pctS: pctS,
     pctL: pctL,
-    startUpper: gv('start-upper').checked,
-    startAlpha: gv('start-alpha').checked,
-    endNum: gv('end-num').checked,
-    endSym: gv('end-sym').checked && symArr.length>0,
+    startMode: startSpec().mode,
+    startCustom: startSpec().custom,
+    endMode: endSpec().mode,
+    endCustom: endSpec().custom,
     syms: symArr.slice()
   };
 }
@@ -1199,9 +1271,18 @@ function condToHtml(c){
   /* 並び：数字・記号・大文字・小文字 */
   var pctL = (typeof c.pctL==='number') ? c.pctL : Math.max(0,100-(c.pctU||0)-(c.pctN||0)-(c.pctS||0));
   parts.push(N+': '+(c.pctN||0)+'%  '+S+': '+(c.pctS||0)+'%  '+U+': '+(c.pctU||0)+'%  '+L+': '+pctL+'%');
-  var head='', tail='';
-  if(c.startUpper) head=Uc; else if(c.startAlpha) head=Lc;
-  if(c.endNum) tail=Nc; else if(c.endSym) tail=Sc;
+  function modeToHtml(mode, custom){
+    if(mode==='num') return Nc;
+    if(mode==='sym') return Sc;
+    if(mode==='upper') return Uc;
+    if(mode==='lower') return Lc;
+    if(mode==='custom' && custom){ var ch0=custom.charAt(0); return '<span class="c-'+charType(ch0)+'" style="font-weight:700;">'+esc(ch0)+'</span>'; }
+    return '';
+  }
+  var head=modeToHtml(c.startMode, c.startCustom);
+  var tail=modeToHtml(c.endMode, c.endCustom);
+  if(!head && typeof c.startMode==='undefined'){ if(c.startUpper) head=Uc; else if(c.startAlpha) head=Lc; }
+  if(!tail && typeof c.endMode==='undefined'){ if(c.endNum) tail=Nc; else if(c.endSym) tail=Sc; }
   if(head || tail){
     parts.push((head||'<span style="color:#bbb;">?</span>')+'<span style="color:#ccc;">...</span>'+(tail||'<span style="color:#bbb;">?</span>'));
   }
@@ -2047,10 +2128,28 @@ function collectAllData(){
   return obj;
 }
 
-function setCloudStatus(msg, color){
+/* 雲アイコン（フラットSVG）。dir: 'up'=アップロード, 'down'=ダウンロード, それ以外=矢印なし。
+   絵文字に化けないようSVGで描く。currentColorで親の文字色に追従。 */
+function cloudIconSvg(dir){
+  var arrow = '';
+  if(dir === 'up'){
+    arrow = '<path d="M12 16.5V11M12 11l-2 2M12 11l2 2" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>';
+  } else if(dir === 'down'){
+    arrow = '<path d="M12 11V16.5M12 16.5l-2-2M12 16.5l2-2" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>';
+  }
+  return '<svg viewBox="0 0 24 24" width="14" height="14" style="vertical-align:-2px;margin-right:3px;" aria-hidden="true">' +
+    '<path d="M7 18h10a4 4 0 0 0 .6-7.96A5.5 5.5 0 0 0 6.8 9.2 3.8 3.8 0 0 0 7 18z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/>' +
+    arrow + '</svg>';
+}
+/* msg: 表示文字 / color: 色 / icon: 'up'|'down'|undefined */
+function setCloudStatus(msg, color, icon){
   var el = gv('cloud-status');
   if(!el) return;
-  el.textContent = msg || '';
+  if(msg){
+    el.innerHTML = (icon ? cloudIconSvg(icon) : '') + '<span>' + msg + '</span>';
+  } else {
+    el.innerHTML = '';
+  }
   el.style.color = color || '#888';
   el.style.opacity = msg ? '1' : '0';
 }
@@ -2078,7 +2177,7 @@ function doCloudSave(){
   lastSavedJson = cmpNow;
   lastSeenWriter = settingsObj._writer;
   var body = [{ id: CLOUD_ROW_ID, settings: settingsObj }];
-  setCloudStatus('保存中…', '#888');
+  setCloudStatus('保存中…', '#888', 'up');
   fetch(SUPABASE_URL + '/rest/v1/' + SUPABASE_TABLE + '?on_conflict=id', {
     method: 'POST',
     headers: {
@@ -2089,14 +2188,14 @@ function doCloudSave(){
     },
     body: JSON.stringify(body)
   }).then(function(r){
-    if(r.ok){ setCloudStatus('✓ クラウド保存済', '#3B6D11'); setTimeout(function(){ setCloudStatus('', '#888'); }, 2000); }
-    else { r.text().then(function(t){ setCloudStatus('保存失敗: ' + r.status, '#993C1D'); console.error('cloud save', r.status, t); }); }
-  }).catch(function(e){ setCloudStatus('保存失敗（通信エラー）', '#993C1D'); console.error(e); });
+    if(r.ok){ setCloudStatus('保存済', '#3B6D11', 'up'); setTimeout(function(){ setCloudStatus('', '#888'); }, 2000); }
+    else { r.text().then(function(t){ setCloudStatus('保存失敗: ' + r.status, '#993C1D', 'up'); console.error('cloud save', r.status, t); }); }
+  }).catch(function(e){ setCloudStatus('保存失敗（通信エラー）', '#993C1D', 'up'); console.error(e); });
 }
 
 /* クラウドから読み込み。成功したら applyCloudData に渡す */
 function loadFromCloud(){
-  setCloudStatus('クラウドから読込中…', '#888');
+  setCloudStatus('読込中…', '#888', 'down');
   return fetch(SUPABASE_URL + '/rest/v1/' + SUPABASE_TABLE + '?id=eq.' + encodeURIComponent(CLOUD_ROW_ID) + '&select=settings', {
     method: 'GET',
     headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
@@ -2111,14 +2210,14 @@ function loadFromCloud(){
       lastAppliedAt = Date.now();
       applyCloudData(s0);
       lastAppliedAt = Date.now();
-      setCloudStatus('✓ クラウドから復元', '#3B6D11');
+      setCloudStatus('クラウドから復元', '#3B6D11', 'down');
       setTimeout(function(){ setCloudStatus('', '#888'); }, 2000);
       return true;
     }
-    setCloudStatus('クラウドにデータなし（新規）', '#888');
+    setCloudStatus('クラウドにデータなし（新規）', '#888', 'down');
     return false;
   }).catch(function(e){
-    setCloudStatus('クラウド読込失敗（ローカル設定を使用）', '#993C1D');
+    setCloudStatus('読込失敗（ローカル設定を使用）', '#993C1D', 'down');
     console.error('cloud load', e);
     return false;
   });
@@ -2153,7 +2252,7 @@ function startRealtimeSync(){
           lastAppliedAt = Date.now();
           applyCloudData(settings);
           lastAppliedAt = Date.now();
-          setCloudStatus('✓ 他の端末の変更を反映', '#185FA5');
+          setCloudStatus('他の端末の変更を反映', '#185FA5', 'down');
           setTimeout(function(){ setCloudStatus('', '#888'); }, 2000);
         })
       .subscribe();
@@ -2239,8 +2338,8 @@ function saveSettings(){
   var s={
     len:gv('len').value,pwCount:gv('pw-count').value,
     pctNum:gv('pct-num').value,pctSym:gv('pct-sym').value,pctUpper:gv('pct-upper').value,
-    startUpper:gv('start-upper').checked,startAlpha:gv('start-alpha').checked,
-    endNum:gv('end-num').checked,endSym:gv('end-sym').checked,
+    startMode:startSpec().mode,startCustom:startSpec().custom,
+    endMode:endSpec().mode,endCustom:endSpec().custom,
     excludeAmbig:gv('exclude-ambig').checked,
     noRepeat:gv('no-repeat').checked,minOne:gv('min-one').checked,
     maxSeq:gv('max-seq').value,activeSyms:Array.from(activeSyms),
@@ -2283,8 +2382,9 @@ function loadSettings(){
   sr('pct-num',0,100,s.pctNum);sr('pct-sym',0,100,s.pctSym);sr('pct-upper',0,100,s.pctUpper);
   sr('max-seq',1,10,s.maxSeq);
   if(s.pwCount){var pc=gv('pw-count');if(pc)pc.value=Math.max(1,Math.min(50,parseInt(s.pwCount,10)||10));}
-  sc('start-upper',s.startUpper);sc('start-alpha',s.startAlpha);
-  sc('end-num',s.endNum);sc('end-sym',s.endSym);sc('exclude-ambig',s.excludeAmbig);
+  applyStartEndSpec('start', s.startMode, s.startCustom);
+  applyStartEndSpec('end', s.endMode, s.endCustom);
+  sc('exclude-ambig',s.excludeAmbig);
   sc('no-repeat',s.noRepeat);sc('min-one',s.minOne);
   if(Array.isArray(s.activeSyms))activeSyms=new Set(s.activeSyms);
   if(s.colorUpperOn!==undefined)sc('color-upper-on',s.colorUpperOn);
@@ -2417,10 +2517,10 @@ function getCurrentSettingsObj(){
     pctNum:       +gv('pct-num').value,
     pctSym:       +gv('pct-sym').value,
     pctUpper:     +gv('pct-upper').value,
-    startUpper:   gv('start-upper').checked,
-    startAlpha:   gv('start-alpha').checked,
-    endNum:       gv('end-num').checked,
-    endSym:       gv('end-sym').checked,
+    startMode:    startSpec().mode,
+    startCustom:  startSpec().custom,
+    endMode:      endSpec().mode,
+    endCustom:    endSpec().custom,
     excludeAmbig: gv('exclude-ambig').checked,
     noRepeat:     gv('no-repeat').checked,
     minOne:       gv('min-one').checked,
@@ -2896,10 +2996,8 @@ function applyRemoteConfig(s){
   if(s.pctSym!==undefined)   sr('pct-sym',   'pct-sym-num',   s.pctSym,   0,   100);
   if(s.pctUpper!==undefined) sr('pct-upper', 'pct-upper-num', s.pctUpper, 0,   100);
   if(s.maxSeq!==undefined)   sr('max-seq',   'max-seq-num',   s.maxSeq,   1,   10);
-  sc('start-upper',   s.startUpper);
-  sc('start-alpha',   s.startAlpha);
-  sc('end-num',       s.endNum);
-  sc('end-sym',       s.endSym);
+  if(typeof s.startMode!=='undefined') applyStartEndSpec('start', s.startMode, s.startCustom);
+  if(typeof s.endMode!=='undefined')   applyStartEndSpec('end', s.endMode, s.endCustom);
   sc('exclude-ambig', s.excludeAmbig);
   sc('no-repeat',     s.noRepeat);
   sc('min-one',       s.minOne);
