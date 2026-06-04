@@ -1656,19 +1656,32 @@ function onRecDetailInput(){
 }
 /* リアルタイム失効：直近◯◯のフィルタON時、時間経過で表示が変わるよう定期再描画 */
 var recRealtimeTimer = null;
+var _lastMemoWinCount = -1, _lastHistWinCount = -1;
 function recRealtimeOn(){ var c=gv('rec-realtime-expire'); return c && c.checked; }
 function startRecRealtime(){
   if(recRealtimeTimer) return;
   recRealtimeTimer = setInterval(function(){
-    if(!recRealtimeOn()){ stopRecRealtime(); return; }
-    /* 直近◯◯フィルタが効いているときだけ再描画（軽く） */
-    var mh=gv('memo-filter-hour'), hh=gv('hist-filter-hour');
-    if(mh && mh.checked && typeof renderMemos==='function') renderMemos();
-    if(hh && hh.checked && typeof renderHistory==='function') renderHistory();
+    if(!recRealtimeOn()){ stopRecRealtime(); _lastMemoWinCount=-1; _lastHistWinCount=-1; return; }
+    var now = Date.now();
+    /* 「直近◯◯」フィルタON時のみ。一覧全体の再描画は“窓に入る件数が変化したとき”だけに限定し、
+       毎秒の作り直し（パスワード枠の点滅）を防ぐ。経過時間の表示は別タイマーで文字のみ更新。 */
+    var mh=gv('memo-filter-hour');
+    if(mh && mh.checked){
+      var mw=recWindowMs('memo'), mc=0;
+      for(var i=0;i<memos.length;i++){ if(memos[i].ts && (now-memos[i].ts)<=mw) mc++; }
+      if(mc!==_lastMemoWinCount){ _lastMemoWinCount=mc; if(typeof renderMemos==='function') renderMemos(); }
+    } else { _lastMemoWinCount=-1; }
+    var hh=gv('hist-filter-hour');
+    if(hh && hh.checked){
+      var hw=recWindowMs('hist'), hc=0;
+      for(var j=0;j<pwHistory.length;j++){ if(pwHistory[j].ts && (now-pwHistory[j].ts)<=hw) hc++; }
+      if(hc!==_lastHistWinCount){ _lastHistWinCount=hc; if(typeof renderHistory==='function') renderHistory(); }
+    } else { _lastHistWinCount=-1; }
   }, 1000);
 }
 function stopRecRealtime(){
   if(recRealtimeTimer){ clearInterval(recRealtimeTimer); recRealtimeTimer=null; }
+  _lastMemoWinCount=-1; _lastHistWinCount=-1;
 }
 function onRecRealtimeToggle(){
   saveRecSettings();
