@@ -1846,6 +1846,35 @@ function fmtTs(ts){
   var d=new Date(ts), z=function(n){return (n<10?'0':'')+n;};
   return d.getFullYear()+'/'+z(d.getMonth()+1)+'/'+z(d.getDate())+' '+z(d.getHours())+':'+z(d.getMinutes())+':'+z(d.getSeconds());
 }
+/* 作成からの経過時間を「◯分前 / ◯時間◯分前 / ◯日◯時間前」で返す。
+   59秒以下は分カウントが0なので「0分前」になる。 */
+function relTime(ts){
+  if(!ts) return '';
+  var diff = Date.now() - ts; if(diff < 0) diff = 0;
+  var min = Math.floor(diff/60000);            /* 秒は切り捨て＝59秒までは0分前 */
+  if(min < 60) return min + '分前';
+  var hour = Math.floor(min/60), m = min % 60;
+  if(hour < 24) return hour + '時間' + m + '分前';
+  var day = Math.floor(hour/24), h = hour % 24;
+  return day + '日' + h + '時間前';
+}
+/* 画面上の相対時間表示（.rel-time[data-ts]）をまとめて更新 */
+function updateRelTimes(){
+  var els = document.querySelectorAll('.rel-time');
+  for(var i=0;i<els.length;i++){
+    var ts = parseInt(els[i].getAttribute('data-ts'),10);
+    els[i].textContent = ts ? ('（' + relTime(ts) + '）') : '';
+  }
+}
+/* 相対時間を毎秒リアルタイム更新（初回描画後に一度だけ起動） */
+var relTimeTimer = null;
+function ensureRelTimeTimer(){
+  if(relTimeTimer) return;
+  relTimeTimer = setInterval(updateRelTimes, 1000);
+}
+/* 詳細パネル（サマリー）の開閉状態を再描画後も保持する。キー＝ ts|plain */
+var openMemoKeys = new Set();
+var openHistKeys = new Set();
 function clearMemos(){
   if(recClearLink){
     if(memos.length === 0 && pwHistory.length === 0) return;
@@ -1941,13 +1970,17 @@ function renderMemos(){
     /* 詳細パネル（日付＋生成条件）。長押し/右クリックでトグル。
        先頭N件（記録設定）は強制表示 */
     var forceOpen = (vi < recDetailN('memo'));
+    var mkey = (m.ts||0) + '|' + m.plain;
     var detail = document.createElement('div');
     detail.className = 'rec-detail';
-    detail.style.display = forceOpen ? 'block' : 'none';
-    detail.innerHTML = '<div style="color:#888;margin-bottom:3px;">追加: ' + fmtTs(m.ts) + '</div>' + condToHtml(m.cond);
+    detail.style.display = (forceOpen || openMemoKeys.has(mkey)) ? 'block' : 'none';
+    var mRel = m.ts ? ' <span class="rel-time" data-ts="' + m.ts + '" style="color:#aaa;">（' + relTime(m.ts) + '）</span>' : '';
+    detail.innerHTML = '<div style="color:#888;margin-bottom:3px;">追加: ' + fmtTs(m.ts) + mRel + '</div>' + condToHtml(m.cond);
 
     function toggleDetail(){
-      detail.style.display = (detail.style.display==='none') ? 'block' : 'none';
+      var open = (detail.style.display==='none');
+      detail.style.display = open ? 'block' : 'none';
+      if(open) openMemoKeys.add(mkey); else openMemoKeys.delete(mkey);
     }
 
     /* メモ行：短タップ＝コピー、長押し/右クリック＝詳細パネル開閉 */
@@ -1985,6 +2018,7 @@ function renderMemos(){
     list.appendChild(row);
     list.appendChild(detail);
   });
+  ensureRelTimeTimer();
   /* メモ内容が変わると「メモにあるものを除く」表示も変わるので履歴も更新 */
   if(typeof renderHistory === 'function') renderHistory();
 }
@@ -2127,13 +2161,17 @@ function renderHistory(){
     del.addEventListener('click', function(e){ e.stopPropagation(); deleteHistory(m); });
 
     var forceOpen = (vi < recDetailN('hist'));
+    var hkey = (m.ts||0) + '|' + m.plain;
     var detail = document.createElement('div');
     detail.className = 'rec-detail';
-    detail.style.display = forceOpen ? 'block' : 'none';
-    detail.innerHTML = '<div style="color:#888;margin-bottom:3px;">記録: ' + fmtTs(m.ts) + '</div>' + condToHtml(m.cond);
+    detail.style.display = (forceOpen || openHistKeys.has(hkey)) ? 'block' : 'none';
+    var hRel = m.ts ? ' <span class="rel-time" data-ts="' + m.ts + '" style="color:#aaa;">（' + relTime(m.ts) + '）</span>' : '';
+    detail.innerHTML = '<div style="color:#888;margin-bottom:3px;">記録: ' + fmtTs(m.ts) + hRel + '</div>' + condToHtml(m.cond);
 
     function toggleDetail(){
-      detail.style.display = (detail.style.display==='none') ? 'block' : 'none';
+      var open = (detail.style.display==='none');
+      detail.style.display = open ? 'block' : 'none';
+      if(open) openHistKeys.add(hkey); else openHistKeys.delete(hkey);
     }
 
     (function(plain){
@@ -2170,6 +2208,7 @@ function renderHistory(){
     list.appendChild(row);
     list.appendChild(detail);
   });
+  ensureRelTimeTimer();
 }
 
 /* ===== SUPABASE クラウド同期 ===== */
