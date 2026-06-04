@@ -1412,6 +1412,7 @@ function renderCondSummary(){
   el.innerHTML = condToHtml(getCondObj());
 }
 
+var currentResults = [];   /* 直近に生成（または同期受信）したパスワード一覧 */
 function generate(){
   renderCondSummary();
   var count = Math.min(50, Math.max(1, parseInt(gv('pw-count').value,10)||10));
@@ -1423,6 +1424,18 @@ function generate(){
     return 0; /* none: 生成順そのまま */
   });
 
+  currentResults = results;        /* 同期用に保持（クラウドへ送る生成結果そのもの） */
+  renderResults(results);
+}
+
+/* 平文だけから result オブジェクトを復元（クラウドで受け取ったパスワードの描画用） */
+function resultFromPlain(plain){
+  var hasN=/[0-9]/.test(plain), hasU=/[A-Z]/.test(plain), hasS=/[^A-Za-z0-9]/.test(plain);
+  return { plain:plain, html:colorizePlain(plain), pctN:hasN?1:0, pctS:hasS?1:0, pctU:hasU?1:0, symLen:hasS?1:0 };
+}
+
+/* results（{plain,html,...}の配列）を画面へ描画。生成と描画を分離し、同期受信時に再利用する。 */
+function renderResults(results){
   var len = parseInt(gv('len').value,10) || 16;
   var cfg = pwConfig(len);
   var list = gv('pw-list');
@@ -2312,6 +2325,7 @@ function collectAllData(){
   obj.layout = getLayoutForExport();
   obj.memos = memos;
   obj.history = pwHistory;
+  obj.passwords = currentResults.map(function(r){ return r.plain; });  /* 生成済みパスワードそのものを同期 */
   /* プロファイル一覧（適用はしない。一覧の共有のみ） */
   obj.profiles = profiles;
   obj.defaultProfile = currentProfileId;
@@ -2514,7 +2528,16 @@ function applyCloudData(data){
     if(typeof updateTotal==='function') updateTotal();
     refreshRecLabels();
     renderMemos(); renderHistory();
-    applyColors(); generate();
+    applyColors();
+    renderCondSummary();
+    /* パスワードそのものを同期：受信したリストをそのまま描画（再生成しない）。
+       無い場合（旧データ）のみローカル生成にフォールバック。 */
+    if(Array.isArray(data.passwords) && data.passwords.length){
+      currentResults = data.passwords.map(resultFromPlain);
+      renderResults(currentResults);
+    } else {
+      generate();
+    }
   } finally {
     cloudSuppress = false;
   }
