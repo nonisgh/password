@@ -356,7 +356,7 @@ input { -webkit-tap-highlight-color: transparent; font-family: inherit; }
 <body
   ondragover="event.preventDefault();"
   ondrop="event.preventDefault();if(event.dataTransfer.files[0])handleDroppedFile(event.dataTransfer.files[0])">
-<div id="cloud-status" style="position:fixed;right:10px;bottom:10px;z-index:9999;font-size:11px;color:#888;background:rgba(255,255,255,0.9);border:1px solid #e8e8e2;border-radius:6px;padding:3px 8px;opacity:0;transition:opacity 0.3s;pointer-events:none;"></div>
+<div id="cloud-status" style="position:fixed;right:12px;bottom:12px;z-index:9999;font-size:14px;color:#888;background:rgba(255,255,255,0.92);border:1px solid #e8e8e2;border-radius:9px;padding:6px 12px;opacity:0;transition:opacity 0.3s;pointer-events:none;display:flex;align-items:center;box-shadow:0 1px 4px rgba(0,0,0,0.06);"></div>
 <div class="container">
 
   <div class="app-title">PASSWORD GENERATOR</div>
@@ -380,7 +380,6 @@ input { -webkit-tap-highlight-color: transparent; font-family: inherit; }
         <button class="btn" onclick="copyAll()">全コピー</button>
         <button class="btn" id="sort-btn" onclick="toggleSort()">昇順 ↑</button>
             <button class="btn btn-primary" onclick="generate()">↺ 再生成</button>
-        <span class="save-flash" id="save-flash">保存済</span>
       </div>
       <div id="cond-summary" style="font-size:12px;color:#888;margin-bottom:8px;line-height:1.7;letter-spacing:0.02em;"></div>
       <div class="pw-list" id="pw-list"></div>
@@ -2327,7 +2326,7 @@ function cloudIconSvg(dir){
   } else if(dir === 'down'){
     arrow = '<path d="M12 11V16.5M12 16.5l-2-2M12 16.5l2-2" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>';
   }
-  return '<svg viewBox="0 0 24 24" width="14" height="14" style="vertical-align:-2px;margin-right:3px;" aria-hidden="true">' +
+  return '<svg viewBox="0 0 24 24" width="20" height="20" style="vertical-align:-3px;margin-right:5px;flex-shrink:0;" aria-hidden="true">' +
     '<path d="M7 18h10a4 4 0 0 0 .6-7.96A5.5 5.5 0 0 0 6.8 9.2 3.8 3.8 0 0 0 7 18z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/>' +
     arrow + '</svg>';
 }
