@@ -801,7 +801,26 @@ var DEFAULTS={upper:'#3B6D11',num:'#185FA5',sym:'#993C1D',lower:'#1a1a1a'};
 var currentColors={upper:'#3B6D11',num:'#185FA5',sym:'#993C1D',lower:'#1a1a1a'};
 
 function gv(id){return document.getElementById(id);}
-function pick(arr){return arr[Math.floor(Math.random()*arr.length)];}
+/* === 暗号学的に安全な乱数（CSPRNG）。crypto非対応の極端に古い環境のみ Math.random にフォールバック === */
+var CRYPTO = (typeof crypto!=='undefined' && crypto.getRandomValues) ? crypto
+           : (typeof window!=='undefined' && window.crypto && window.crypto.getRandomValues) ? window.crypto
+           : (typeof window!=='undefined' && window.msCrypto && window.msCrypto.getRandomValues) ? window.msCrypto
+           : null;
+/* 0以上 n 未満の整数を「偏りなく」返す（modulo bias を rejection sampling で回避） */
+function randInt(n){
+  n = n>>>0;
+  if(n<=1) return 0;
+  if(!CRYPTO) return Math.floor(Math.random()*n);   /* フォールバック（古い環境） */
+  var max = 4294967296;            /* 2^32 */
+  var limit = max - (max % n);     /* これ以上の値は採用しない（割り切れる範囲に限定） */
+  var buf = new Uint32Array(1), x;
+  do { CRYPTO.getRandomValues(buf); x = buf[0]; } while(x >= limit);
+  return x % n;
+}
+/* 配列からランダムに1要素を選ぶ（CSPRNG） */
+function pick(arr){ return arr[randInt(arr.length)]; }
+/* Fisher-Yates シャッフル（CSPRNG・偏りなし） */
+function shuffleInPlace(a){ for(var i=a.length-1;i>0;i--){ var j=randInt(i+1); var t=a[i]; a[i]=a[j]; a[j]=t; } return a; }
 
 /* ===== STEPPER — key fix =====
    Use type="text" inputmode="numeric" so browser never blocks deletion.
@@ -1184,9 +1203,9 @@ function buildOne(){
   for(var i=0;i<cntU;i++) pool.push({c:pick(uArr),t:'upper'});
   for(var i=0;i<cntL;i++) pool.push({c:pick(lArr),t:'lower'});
 
-  for(var i=pool.length-1;i>0;i--){var j=Math.floor(Math.random()*(i+1));var tmp=pool[i];pool[i]=pool[j];pool[j]=tmp;}
+  shuffleInPlace(pool);
   if(noRepeat){for(var i=1;i<pool.length;i++){if(pool[i].c===pool[i-1].c){for(var k=i+1;k<pool.length;k++){if(pool[k].c!==pool[i-1].c){var tmp=pool[i];pool[i]=pool[k];pool[k]=tmp;break;}}}}}
-  if(maxSeq<10){for(var att=0;att<80;att++){var bad=false;for(var i=0;i+maxSeq<pool.length;i++){var t0=pool[i].t,run=true;for(var k=i+1;k<=i+maxSeq;k++){if(pool[k].t!==t0){run=false;break;}}if(run){bad=true;break;}}if(!bad)break;for(var i=pool.length-1;i>0;i--){var j=Math.floor(Math.random()*(i+1));var tmp=pool[i];pool[i]=pool[j];pool[j]=tmp;}}}
+  if(maxSeq<10){for(var att=0;att<80;att++){var bad=false;for(var i=0;i+maxSeq<pool.length;i++){var t0=pool[i].t,run=true;for(var k=i+1;k<=i+maxSeq;k++){if(pool[k].t!==t0){run=false;break;}}if(run){bad=true;break;}}if(!bad)break;shuffleInPlace(pool);}}
 
   /* 文字種指定のヘルパー（alpha＝大文字小文字問わずアルファベット に対応） */
   function matchMode(t, mode){ return (mode==='alpha') ? (t==='upper'||t==='lower') : (t===mode); }
