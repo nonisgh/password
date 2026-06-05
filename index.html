@@ -3731,7 +3731,6 @@ function toggleJumpAlign(){
 }
 /* チップのタップ処理：シングル＝ジャンプ（少し待つ）／同じチップをダブル＝揃え切替（ジャンプしない） */
 function jumpChipTap(id){
-  setFocusedChip(id);                 /* タップしたチップをフォーカス（キー割り当て対象になる） */
   var now = Date.now();
   if(_jumpTapTimer && _jumpTapId === id && (now - _jumpTapLast) < JUMP_DBLTAP_MS){
     clearTimeout(_jumpTapTimer); _jumpTapTimer = null; _jumpTapLast = 0; _jumpTapId = null;
@@ -3740,9 +3739,16 @@ function jumpChipTap(id){
   }
   if(_jumpTapTimer) clearTimeout(_jumpTapTimer);
   _jumpTapLast = now; _jumpTapId = id;
+  var wasCurrent = (id === currentJumpId);    /* すでに現在地のチップを押したか＝再選択 */
   _jumpTapTimer = setTimeout(function(){
     _jumpTapTimer = null; _jumpTapLast = 0; _jumpTapId = null;
-    jumpToSection(id);
+    if(wasCurrent){
+      /* 現在地チップの再選択：割り当て待ち（フォーカス）にする。誤操作防止のため通常タップでは入らない */
+      setFocusedChip(id);
+      if(typeof showCenterToast==='function') showCenterToast(sectionLabel(id) + '：キー長押しで割り当て');
+    } else {
+      jumpToSection(id);                       /* 通常タップ＝ジャンプのみ（フォーカスしない） */
+    }
   }, JUMP_DBLTAP_MS);
 }
 
@@ -3796,8 +3802,9 @@ function unassignShortcut(id){
 }
 /* 長押し時：今そのチップに付いているのと同じキーなら解除、違えば割り当て */
 function scLongPressAssign(combo, id){
-  if(chipCombo(id) === combo){ unassignShortcut(id); return; }
-  assignShortcut(combo, id);
+  if(chipCombo(id) === combo){ unassignShortcut(id); }
+  else { assignShortcut(combo, id); }
+  if(typeof clearFocusedChip==='function') clearFocusedChip();   /* 割り当て後は選択解除（誤操作防止） */
 }
 function setFocusedChip(id){
   focusedChipId = id;
@@ -3901,6 +3908,7 @@ function initSectionPins(){
 function jumpToSection(id){
   var target = document.querySelector('.section[data-section-id="'+id+'"]');
   if(!target) return;
+  if(typeof clearFocusedChip==='function') clearFocusedChip();   /* ジャンプしたら割り当て待ちは解除 */
   var container = gv('sections-container');
   if(container){
     container.querySelectorAll('.section[data-section-id]').forEach(function(sec){
