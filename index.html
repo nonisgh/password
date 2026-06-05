@@ -1633,17 +1633,28 @@ function renderResults(results){
     var bp = mobile ? -1 : findBreakPoint(r.plain, cfg.fs);
     var threshold = mobile ? 70 : 55;
     var usedFs = (bp < 0 && r.plain.length <= threshold) ? cfg.fsLarge : cfg.fs;
-    /* debug: show font size on first row */
-    if(i===0){ console.log('mobile:'+mobile+' len:'+r.plain.length+' fs:'+cfg.fs+' fsLarge:'+cfg.fsLarge+' used:'+usedFs); }
 
-    /* html文字列のn番目の平文文字の直後のインデックスを返す */
+    /* html文字列のn番目の“見える文字”の直後のインデックスを返す。
+       タグ(<...>)とエンティティ(&amp; など)は1かたまりとして扱い、分割が途中に入らないようにする */
     function htmlSplitAt(html, n){
-      var cnt=0, inT=false;
-      for(var k=0; k<html.length; k++){
-        if(html[k]==='<') inT=true;
-        if(!inT) cnt++;
-        if(!inT && cnt===n) return k+1;
-        if(html[k]==='>') inT=false;
+      var cnt=0, k=0;
+      while(k < html.length){
+        var ch = html[k];
+        if(ch === '<'){                                  /* タグはまるごとスキップ（カウントしない） */
+          var gt = html.indexOf('>', k);
+          k = (gt === -1) ? html.length : gt+1;
+          continue;
+        }
+        if(ch === '&'){                                  /* エンティティはまるごと1文字として扱う */
+          var sc = html.indexOf(';', k);
+          var end = (sc !== -1 && sc - k <= 10) ? sc+1 : k+1;
+          cnt++;
+          if(cnt === n) return end;                      /* 分割は ; の直後（エンティティの外） */
+          k = end;
+          continue;
+        }
+        cnt++; k++;                                      /* 通常の見える文字 */
+        if(cnt === n) return k;
       }
       return html.length;
     }
