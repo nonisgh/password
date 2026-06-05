@@ -218,12 +218,12 @@ input { -webkit-tap-highlight-color: transparent; font-family: inherit; }
 /* ===== フローティング再生成ボタン ===== */
 .fab-regen {
   position: fixed; bottom: 24px; right: 24px; z-index: 100;
-  width: 48px; height: 48px; border-radius: 50%;
+  width: calc(48px * var(--ui-scale, 1)); height: calc(48px * var(--ui-scale, 1)); border-radius: 50%;
   background: #fff; border: 3px solid #8f8f88;
   box-shadow: 0 2px 10px rgba(0,0,0,0.12);
-  font-size: 20px; color: #555; cursor: pointer;
+  font-size: calc(20px * var(--ui-scale, 1)); color: #555; cursor: pointer;
   display: flex; align-items: center; justify-content: center;
-  transition: background 0.15s, box-shadow 0.15s, transform 0.15s; touch-action: none;
+  transition: background 0.15s, box-shadow 0.15s, transform 0.15s, width 0.18s, height 0.18s, font-size 0.18s; touch-action: none;
 }
 .fab-regen:hover { background: #f0f0ee; box-shadow: 0 3px 14px rgba(0,0,0,0.18); }
 .fab-regen:active { transform: scale(0.92); }
@@ -246,17 +246,18 @@ input { -webkit-tap-highlight-color: transparent; font-family: inherit; }
 #jump-menu{
   position:fixed; z-index:60; display:none; flex-direction:column; gap:6px; align-items:flex-end;
   overflow-y:auto; padding:2px; -webkit-overflow-scrolling:touch; max-width:62vw;
+  font-size: calc(12px * var(--ui-scale, 1));
 }
 .jump-chip{
   background:rgba(255,255,255,0.92); border:1px solid rgba(0,0,0,0.14); color:#444;
-  font-size:12px; font-weight:700; font-family:inherit; border-radius:14px; padding:5px 12px;
+  font-size:1em; font-weight:700; font-family:inherit; border-radius:1.2em; padding:0.42em 1em;
   cursor:pointer; white-space:nowrap; max-width:100%; overflow:hidden; text-overflow:ellipsis;
   box-shadow:0 1px 6px rgba(0,0,0,0.14); backdrop-filter:blur(3px); -webkit-backdrop-filter:blur(3px);
   opacity:0.97; transition:background .15s, opacity .15s, transform .1s; touch-action:manipulation;
 }
 .jump-chip:hover{ background:rgba(255,255,255,1); opacity:1; }
 .jump-chip:active{ transform:scale(0.96); }
-@media (max-width:540px){ .jump-chip{ font-size:13px; padding:7px 14px; } }
+@media (max-width:540px){ #jump-menu{ font-size: calc(13px * var(--ui-scale, 1)); } }
 
 /* ===== プロファイル切替トースト（ショートカット時のみ・画面中央） ===== */
 #profile-toast{
@@ -385,7 +386,7 @@ input { -webkit-tap-highlight-color: transparent; font-family: inherit; }
 
   .section-body { gap: 16px; padding: 14px 14px; }
 
-  .fab-regen { bottom: calc(20px + env(safe-area-inset-bottom, 0px)); right: 16px; width: 76px; height: 76px; font-size: 34px; }
+  .fab-regen { bottom: calc(20px + env(safe-area-inset-bottom, 0px)); right: 16px; width: calc(76px * var(--ui-scale, 1)); height: calc(76px * var(--ui-scale, 1)); font-size: calc(34px * var(--ui-scale, 1)); }
 
   .profile-btn.btn { font-size: 15px !important; padding: 0 16px !important; height: 40px !important; }
   #profile-btns { gap: 8px !important; }
@@ -3097,14 +3098,42 @@ var profiles = [];
 var currentProfileId = null;
 var defaultConfigUrl = 'https://gist.githubusercontent.com/nonisgh/b169e3f8cbd74d73f46f902058557799/raw/password_config.json';
 
-/* ===== プロファイル切替トースト（ショートカット時のみ画面中央に名前表示） ===== */
-function showProfileToast(label){
+/* ===== 中央トースト（プロファイル切替・サイズ変更などの一時表示） ===== */
+function showCenterToast(label){
   var t = document.getElementById('profile-toast');
   if(!t){ t = document.createElement('div'); t.id = 'profile-toast'; document.body.appendChild(t); }
   t.textContent = label;
   t.classList.add('show');
   clearTimeout(t._timer);
   t._timer = setTimeout(function(){ t.classList.remove('show'); }, 950);
+}
+function showProfileToast(label){ showCenterToast(label); }
+
+/* ===== UIサイズ（更新ボタン＆ジャンプチップを一括スケール）。3秒長押しで循環 ===== */
+var UI_SCALE_LEVELS = [0.8, 1.0, 1.25, 1.55];
+var UI_SCALE_NAMES  = ['小', '標準', '大', '特大'];
+var uiScaleIdx = 1;
+function applyUiScale(idx, opts){
+  if(idx < 0 || idx >= UI_SCALE_LEVELS.length) idx = 1;
+  uiScaleIdx = idx;
+  document.documentElement.style.setProperty('--ui-scale', UI_SCALE_LEVELS[idx]);
+  /* FABが手動配置済みなら、サイズ変更後に画面外へ出ないよう再クランプ */
+  var fab = gv('fab-regen');
+  if(fab && fab.style.left){
+    var r = fab.getBoundingClientRect(), m = 4;
+    var left = Math.max(m, Math.min(window.innerWidth  - r.width  - m, r.left));
+    var top  = Math.max(m, Math.min(window.innerHeight - r.height - m, r.top));
+    fab.style.left = left + 'px'; fab.style.top = top + 'px';
+  }
+  if(typeof positionJumpMenu === 'function') positionJumpMenu();
+  try{ localStorage.setItem('pwgen_uiscale', String(idx)); }catch(e){}
+  if(!(opts && opts.silent)) showCenterToast('サイズ: ' + UI_SCALE_NAMES[idx]);
+}
+function cycleUiScale(){ applyUiScale((uiScaleIdx + 1) % UI_SCALE_LEVELS.length); }
+function loadUiScale(){
+  var idx = 1;
+  try{ var v = localStorage.getItem('pwgen_uiscale'); if(v !== null) idx = parseInt(v, 10) || 0; }catch(e){}
+  applyUiScale(idx, {silent:true});
 }
 
 function applyProfileById(id){
@@ -3892,8 +3921,8 @@ document.addEventListener('keydown', function(e){
 function initFabDrag(){
   var fab = gv('fab-regen');
   if(!fab) return;
-  var LP=450, MOVE=8;
-  var lpTimer=null, dragging=false, suppressClick=false, offX=0, offY=0, sx=0, sy=0;
+  var LP=450, MOVE=8, RESIZE_MS=3000, RMOVE=14;
+  var lpTimer=null, resizeTimer=null, dragging=false, suppressClick=false, resized=false, offX=0, offY=0, sx=0, sy=0;
 
   function clampSet(left, top){
     var w=fab.offsetWidth, h=fab.offsetHeight, m=4;
@@ -3915,26 +3944,39 @@ function initFabDrag(){
   }
 
   fab.addEventListener('pointerdown', function(e){
-    dragging=false; suppressClick=false;
+    dragging=false; suppressClick=false; resized=false;
     var r=fab.getBoundingClientRect();
     offX=e.clientX-r.left; offY=e.clientY-r.top; sx=e.clientX; sy=e.clientY;
-    clearTimeout(lpTimer);
+    clearTimeout(lpTimer); clearTimeout(resizeTimer);
     lpTimer=setTimeout(function(){
       dragging=true; fab.classList.add('dragging');
       try{ fab.setPointerCapture(e.pointerId); }catch(_){}
     }, LP);
+    /* さらに押し続け（3秒・ほぼ動かさず）でサイズ変更 */
+    resizeTimer=setTimeout(function(){
+      resized=true; suppressClick=true;
+      dragging=false; fab.classList.remove('dragging');
+      clearTimeout(lpTimer);
+      try{ fab.releasePointerCapture(e.pointerId); }catch(_){}
+      cycleUiScale();
+    }, RESIZE_MS);
   });
   fab.addEventListener('pointermove', function(e){
+    var movedFar = (Math.abs(e.clientX-sx)>RMOVE || Math.abs(e.clientY-sy)>RMOVE);
+    if(movedFar) clearTimeout(resizeTimer);              /* 動かした＝移動操作 → 拡縮はしない */
     if(!dragging){
-      if(Math.abs(e.clientX-sx)>MOVE || Math.abs(e.clientY-sy)>MOVE) clearTimeout(lpTimer); /* 動かしたら長押し成立をキャンセル */
+      if(Math.abs(e.clientX-sx)>MOVE || Math.abs(e.clientY-sy)>MOVE) clearTimeout(lpTimer);
       return;
     }
     e.preventDefault();
     clampSet(e.clientX-offX, e.clientY-offY);
   });
   function end(e){
-    clearTimeout(lpTimer);
-    if(dragging){
+    clearTimeout(lpTimer); clearTimeout(resizeTimer);
+    if(resized){
+      /* サイズ変更だった：再生成は抑止（suppressClickのまま）。位置は保存しない */
+      try{ fab.releasePointerCapture(e.pointerId); }catch(_){}
+    } else if(dragging){
       dragging=false; suppressClick=true;
       fab.classList.remove('dragging');
       savePos();
@@ -3977,6 +4019,7 @@ renderJumpMenu();
 initSectionDrag();
 initFabDrag();
 positionJumpMenu();
+loadUiScale();
 
 var _gen=generate;
 generate=function(){
