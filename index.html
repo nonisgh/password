@@ -429,6 +429,7 @@ input { -webkit-tap-highlight-color: transparent; font-family: inherit; }
             title="今すぐクラウドに保存">☁ 保存</button>
         </div>
         <div id="profile-btns" style="display:flex;gap:6px;flex-wrap:wrap;"></div>
+        <div id="profile-kbd-hint" style="font-size:10px;color:#bbb;margin-top:5px;">キーボードの数字 <b>1〜9</b> で番号のプロファイルに切替できます</div>
       </div>
     </div>
   </div>
@@ -3167,6 +3168,8 @@ function renderProfileBtns(){
   var btns = gv('profile-btns');
   /* profile-barは常にsection内に表示 */
   btns.innerHTML = '';
+  var kbdHint = gv('profile-kbd-hint');
+  if(kbdHint) kbdHint.style.display = profiles.length ? '' : 'none';
 
   profiles.forEach(function(p, idx){
     var b = document.createElement('button');
@@ -3690,9 +3693,24 @@ function initSectionDrag(){
 
 /* ===== ショートカットキー ===== */
 document.addEventListener('keydown', function(e){
-  var tag = document.activeElement ? document.activeElement.tagName : '';
-  var isInput = (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT');
+  var ae = document.activeElement;
+  var tag = ae ? ae.tagName : '';
+  var isInput = (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || (ae && ae.isContentEditable));
   if(isInput) return;
+
+  /* 数字 1-9：該当番号のプロファイルへ切替＆フォーカス */
+  if(!e.ctrlKey && !e.metaKey && !e.altKey && e.key >= '1' && e.key <= '9'){
+    var pn = parseInt(e.key, 10);
+    if(profiles.some(function(p){ return p.id === pn; })){
+      e.preventDefault();
+      applyProfileById(pn);
+      var pbtns = document.querySelectorAll('#profile-btns .profile-btn');
+      var tg = pbtns[pn-1];
+      if(tg){ try{ tg.focus(); }catch(_){ } if(tg.scrollIntoView) tg.scrollIntoView({block:'nearest', inline:'nearest'}); }
+    }
+    return;
+  }
+
   /* Space または R で再生成 */
   if(e.key === ' ' || e.key === 'r' || e.key === 'R'){
     e.preventDefault();
