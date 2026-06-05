@@ -259,6 +259,8 @@ input { -webkit-tap-highlight-color: transparent; font-family: inherit; }
 .jump-chip:hover{ background:rgba(255,255,255,1); opacity:1; }
 .jump-chip:active{ transform:scale(0.96); }
 .jump-chip.sc-focus{ outline:2px solid rgba(168,56,92,0.85); outline-offset:1px; box-shadow:0 0 0 4px rgba(168,56,92,0.18), 0 1px 6px rgba(0,0,0,0.14); }
+.jump-chip.jump-here{ background:#A8385C; color:#fff; border-color:#A8385C; opacity:1; }
+.jump-chip.jump-here .sc-badge{ opacity:0.85; }
 .jump-chip .sc-badge{ margin-left:0.4em; font-size:0.82em; font-weight:600; opacity:0.6; }
 @media (max-width:540px){ #jump-menu{ font-size: calc(13px * var(--ui-scale, 1)); } }
 @media (max-width:540px){ .jump-chip .sc-badge{ display:none; } }
@@ -3809,6 +3811,22 @@ function clearFocusedChip(){
   var menu = gv('jump-menu'); if(!menu) return;
   menu.querySelectorAll('.jump-chip.sc-focus').forEach(function(c){ c.classList.remove('sc-focus'); });
 }
+
+/* ジャンプ先チップの「現在地」ハイライト（スクロールで消す） */
+var currentJumpId = null;
+function setCurrentJumpChip(id){
+  currentJumpId = id;
+  var menu = gv('jump-menu'); if(!menu) return;
+  menu.querySelectorAll('.jump-chip').forEach(function(c){
+    c.classList.toggle('jump-here', c.dataset.jumpId === id);
+  });
+}
+function clearCurrentJumpChip(){
+  if(!currentJumpId) return;
+  currentJumpId = null;
+  var menu = gv('jump-menu'); if(!menu) return;
+  menu.querySelectorAll('.jump-chip.jump-here').forEach(function(c){ c.classList.remove('jump-here'); });
+}
 function _scIsModifierCode(code){ return /^(Shift|Control|Alt|Meta|OS)/.test(code); }
 function _scCodeLabel(code){
   var m;
@@ -3901,6 +3919,7 @@ function jumpToSection(id){
   void target.offsetWidth;                 /* リフロー強制でアニメ再生 */
   target.classList.add('jump-flash');
   setTimeout(function(){ target.classList.remove('jump-flash'); }, 1200);
+  if(typeof setCurrentJumpChip==='function') setCurrentJumpChip(id);   /* ジャンプ先チップをハイライト */
 }
 
 function renderJumpMenu(){
@@ -3928,6 +3947,7 @@ function renderJumpMenu(){
     }
     chip.title = 'ジャンプ: ' + label + (combo ? ('  [' + combo + ']') : '');
     if(id === focusedChipId) chip.classList.add('sc-focus');
+    if(id === currentJumpId) chip.classList.add('jump-here');
     if(typeof floatGestureAttach==='function'){
       floatGestureAttach(chip, function(){ jumpChipTap(id); });
     } else {
@@ -4178,6 +4198,19 @@ document.addEventListener('pointerdown', function(e){
   if(menu && menu.contains(e.target)) return;     /* チップ操作はフォーカス維持 */
   clearFocusedChip();
 }, true);
+
+/* マウスホイール／スワイプで画面をスクロールしたら現在地ハイライトを消す
+   （ジャンプ時のプログラム的スクロールは wheel/touchmove を出さないので消えない） */
+function _isOnFloatUI(t){
+  return !!(t && t.closest && (t.closest('#jump-menu') || t.closest('#fab-regen')));
+}
+function _maybeClearJumpHighlight(target){
+  if(!currentJumpId) return;
+  if(_isOnFloatUI(target)) return;                /* メニュー内スクロール／FAB操作は対象外 */
+  clearCurrentJumpChip();
+}
+document.addEventListener('wheel', function(e){ _maybeClearJumpHighlight(e.target); }, {passive:true});
+document.addEventListener('touchmove', function(e){ _maybeClearJumpHighlight(e.target); }, {passive:true});
 
 /* ===== フローティング操作（更新ボタン＆ジャンプチップ共通）
    タップ＝アクション(再生成/ジャンプ) ／ ドラッグ＝クラスタ移動 ／ 長押し＝サイズ調整 ===== */
