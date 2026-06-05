@@ -228,7 +228,7 @@ input { -webkit-tap-highlight-color: transparent; font-family: inherit; }
 .fab-regen:hover { background: #f0f0ee; box-shadow: 0 3px 14px rgba(0,0,0,0.18); }
 .fab-regen:active { transform: scale(0.92); }
 .fab-regen.dragging { transform: scale(1.08); box-shadow: 0 6px 22px rgba(0,0,0,0.28); opacity: 0.95; cursor: grabbing; border-color: #A8385C; }
-.fab-regen.resizing { border-color: #3B7BC7; box-shadow: 0 0 0 4px rgba(59,123,199,0.22), 0 6px 22px rgba(0,0,0,0.28); }
+.fab-regen.resizing { border-color: #3B7BC7; box-shadow: 0 0 0 4px rgba(59,123,199,0.22), 0 6px 22px rgba(0,0,0,0.28); transition: box-shadow 0.15s, border-color 0.15s; }
 
 /* ===== セクションのジャンプ用ピン ===== */
 .section-pin{
@@ -3118,9 +3118,9 @@ function applyUiScale(factor, opts){
   factor = Math.max(UI_SCALE_MIN, Math.min(UI_SCALE_MAX, factor || 1));
   uiScale = factor;
   document.documentElement.style.setProperty('--ui-scale', factor);
-  /* FABが手動配置済みなら、サイズ変更後に画面外へ出ないよう再クランプ */
+  /* FABが手動配置済みなら、サイズ変更後に画面外へ出ないよう再クランプ（noClamp時は呼び出し側で位置調整） */
   var fab = gv('fab-regen');
-  if(fab && fab.style.left){
+  if(!opts.noClamp && fab && fab.style.left){
     var r = fab.getBoundingClientRect(), m = 4;
     var left = Math.max(m, Math.min(window.innerWidth  - r.width  - m, r.left));
     var top  = Math.max(m, Math.min(window.innerHeight - r.height - m, r.top));
@@ -3927,7 +3927,7 @@ function initFabDrag(){
   if(!fab) return;
   var LP=450, MOVE=8, RESIZE_MS=3000, RMOVE=14;
   var lpTimer=null, resizeTimer=null, dragging=false, suppressClick=false, resized=false, offX=0, offY=0, sx=0, sy=0;
-  var resizing=false, resizeStartScale=1, resizeAnchorY=0, lastY=0;
+  var resizing=false, resizeStartScale=1, resizeAnchorY=0, lastY=0, resizeCx=0, resizeCy=0;
 
   function clampSet(left, top){
     var w=fab.offsetWidth, h=fab.offsetHeight, m=4;
@@ -3963,17 +3963,27 @@ function initFabDrag(){
       dragging=false; fab.classList.remove('dragging'); fab.classList.add('resizing');
       clearTimeout(lpTimer);
       resizeStartScale = uiScale; resizeAnchorY = lastY;
+      var rc = fab.getBoundingClientRect();
+      resizeCx = rc.left + rc.width/2; resizeCy = rc.top + rc.height/2;   /* 中心を固定して拡大するため記録 */
       try{ fab.setPointerCapture(e.pointerId); }catch(_){}
       showCenterToast('↕ ドラッグでサイズ調整  ' + Math.round(uiScale*100) + '%');
     }, RESIZE_MS);
   });
   fab.addEventListener('pointermove', function(e){
     lastY=e.clientY;
-    if(resizing){                                        /* サイズ調整モード：上＝拡大 / 下＝縮小 */
+    if(resizing){                                        /* サイズ調整モード：上＝拡大 / 下＝縮小・中心固定 */
       e.preventDefault();
       var f = resizeStartScale + (resizeAnchorY - e.clientY) * 0.01;
       if(Math.abs(f-1) < 0.05) f = 1;                    /* 100%付近でスナップ */
-      applyUiScale(f, {silent:true, noSave:true});
+      f = Math.max(UI_SCALE_MIN, Math.min(UI_SCALE_MAX, f));
+      applyUiScale(f, {silent:true, noSave:true, noClamp:true});
+      /* 中心(resizeCx,resizeCy)を保ったまま左上を再計算（画面内にクランプ） */
+      var base = (window.innerWidth < 541) ? 76 : 48;
+      var sz = base * f, m = 4;
+      var left = Math.max(m, Math.min(window.innerWidth  - sz - m, resizeCx - sz/2));
+      var top  = Math.max(m, Math.min(window.innerHeight - sz - m, resizeCy - sz/2));
+      fab.style.left=left+'px'; fab.style.top=top+'px'; fab.style.right='auto'; fab.style.bottom='auto';
+      if(typeof positionJumpMenu==='function') positionJumpMenu();
       showCenterToast('サイズ ' + Math.round(uiScale*100) + '%');
       return;
     }
@@ -3991,6 +4001,7 @@ function initFabDrag(){
       resizing=false; suppressClick=true;
       fab.classList.remove('resizing');
       try{ localStorage.setItem('pwgen_uiscale', String(uiScale)); }catch(_){}
+      savePos();
       showCenterToast('サイズ ' + Math.round(uiScale*100) + '%');
       try{ fab.releasePointerCapture(e.pointerId); }catch(_){}
     } else if(dragging){
