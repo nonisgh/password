@@ -261,6 +261,7 @@ input { -webkit-tap-highlight-color: transparent; font-family: inherit; }
 .jump-chip.sc-focus{ outline:2px solid rgba(168,56,92,0.85); outline-offset:1px; box-shadow:0 0 0 4px rgba(168,56,92,0.18), 0 1px 6px rgba(0,0,0,0.14); }
 .jump-chip .sc-badge{ margin-left:0.4em; font-size:0.82em; font-weight:600; opacity:0.6; }
 @media (max-width:540px){ #jump-menu{ font-size: calc(13px * var(--ui-scale, 1)); } }
+@media (max-width:540px){ .jump-chip .sc-badge{ display:none; } }
 
 /* ===== プロファイル切替トースト（ショートカット時のみ・画面中央） ===== */
 #profile-toast{
@@ -2580,6 +2581,7 @@ function collectAllData(){
   obj.sortOrder = sortOrder;                 /* 昇順/降順/生成順ボタン */
   obj.colors = { upper:currentColors.upper, num:currentColors.num, sym:currentColors.sym, lower:currentColors.lower };
   obj.layout = getLayoutForExport();
+  obj.shortcuts = (typeof jumpShortcuts==='object' && jumpShortcuts) ? jumpShortcuts : {};   /* ジャンプのキー割り当て（同期する） */
   obj.memos = memos;
   obj.history = pwHistory;
   obj.passwords = currentResults.map(function(r){ return r.plain; });  /* 生成済みパスワードそのものを同期 */
@@ -2754,6 +2756,8 @@ function applyCloudData(data){
     }
     /* 5) レイアウト（並び順・折りたたみ） */
     if(data.layout){ applyLayout(data.layout); saveLayout(); }
+    /* 5.5) ジャンプのキー割り当て（同期） */
+    applyShortcutsData(data);
     /* 6) メモ・履歴データ */
     if(Array.isArray(data.memos)){ memos = data.memos.map(normMemo).filter(Boolean).slice(0, MEMO_MAX); }
     if(Array.isArray(data.history)){ pwHistory = data.history.map(normMemo).filter(Boolean).slice(0, HIST_MAX); }
@@ -2955,6 +2959,7 @@ function processFile(file){
         applyRemoteConfig(defProfile);
         renderProfileBtns();
         if(data.layout){ applyLayout(data.layout); saveLayout(); }
+        applyShortcutsData(data);
         saveProfilesToStorage();
         gv('config-status').textContent = '✓ '+profiles.length+'個のプロファイルを読み込みました';
       } else {
@@ -3035,6 +3040,7 @@ function exportSettings(){
       defaultProfile: currentProfileId || profiles[0].id,
       profiles: profiles,
       layout: getLayoutForExport(),
+      shortcuts: jumpShortcuts,
       memos: memos,
       history: pwHistory,
       recSettings: getRecSettingsObj()
@@ -3042,6 +3048,7 @@ function exportSettings(){
   } else {
     var obj = Object.assign({ "_comment": "PASSWORD GENERATOR 設定ファイル" }, getCurrentSettingsObj());
     obj.layout = getLayoutForExport();
+    obj.shortcuts = jumpShortcuts;
     obj.memos = memos;
     obj.history = pwHistory;
     obj.recSettings = getRecSettingsObj();
@@ -3419,6 +3426,7 @@ function loadConfigFromUrl(url, silent){
         applyRemoteConfig(defProfile);
         renderProfileBtns();
         if(data.layout){ applyLayout(data.layout); saveLayout(); }
+        applyShortcutsData(data);
         saveProfilesToStorage();
         gv('config-status').textContent = '✓ '+profiles.length+'個のプロファイルを読み込みました';
         gv('config-status').style.color = '#3B6D11';
@@ -3751,8 +3759,16 @@ function loadJumpShortcuts(){
   if(typeof renderJumpMenu==='function') renderJumpMenu();
 }
 function saveJumpShortcuts(){
-  /* ローカルストレージのみ（クラウド同期・レイアウト保存には含めない） */
+  /* ローカルに保存しつつ、クラウド同期にも反映する */
   try{ localStorage.setItem(JUMP_SC_KEY, JSON.stringify(jumpShortcuts)); }catch(e){}
+  if(typeof scheduleCloudSave==='function') scheduleCloudSave();
+}
+/* 同期/インポートで受け取ったショートカットを反映（ローカルにも書き戻す） */
+function applyShortcutsData(data){
+  if(!data || typeof data.shortcuts !== 'object' || !data.shortcuts) return;
+  jumpShortcuts = data.shortcuts;
+  try{ localStorage.setItem(JUMP_SC_KEY, JSON.stringify(jumpShortcuts)); }catch(e){}
+  if(typeof renderJumpMenu==='function') renderJumpMenu();
 }
 function chipCombo(id){
   for(var k in jumpShortcuts){ if(jumpShortcuts[k]===id) return k; }
