@@ -257,6 +257,18 @@ input { -webkit-tap-highlight-color: transparent; font-family: inherit; }
 .jump-chip:hover{ background:rgba(255,255,255,1); opacity:1; }
 .jump-chip:active{ transform:scale(0.96); }
 @media (max-width:540px){ .jump-chip{ font-size:13px; padding:7px 14px; } }
+
+/* ===== プロファイル切替トースト（ショートカット時のみ・画面中央） ===== */
+#profile-toast{
+  position:fixed; left:50%; top:50%; transform:translate(-50%,-50%) scale(0.94);
+  background:rgba(28,28,28,0.86); color:#fff; font-size:20px; font-weight:800;
+  padding:14px 26px; border-radius:14px; z-index:10000; pointer-events:none;
+  opacity:0; transition:opacity .13s ease, transform .13s ease;
+  max-width:80vw; text-align:center; box-shadow:0 6px 24px rgba(0,0,0,0.30); letter-spacing:0.02em;
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+}
+#profile-toast.show{ opacity:1; transform:translate(-50%,-50%) scale(1); }
+@media (max-width:540px){ #profile-toast{ font-size:23px; padding:16px 30px; } }
 .section-body { padding: 14px 16px; display: flex; flex-direction: column; gap: 14px; }
 
 /* ===== STEPPER ROW ===== */
@@ -3074,6 +3086,16 @@ var profiles = [];
 var currentProfileId = null;
 var defaultConfigUrl = 'https://gist.githubusercontent.com/nonisgh/b169e3f8cbd74d73f46f902058557799/raw/password_config.json';
 
+/* ===== プロファイル切替トースト（ショートカット時のみ画面中央に名前表示） ===== */
+function showProfileToast(label){
+  var t = document.getElementById('profile-toast');
+  if(!t){ t = document.createElement('div'); t.id = 'profile-toast'; document.body.appendChild(t); }
+  t.textContent = label;
+  t.classList.add('show');
+  clearTimeout(t._timer);
+  t._timer = setTimeout(function(){ t.classList.remove('show'); }, 950);
+}
+
 function applyProfileById(id){
   var p = profiles.filter(function(p){ return p.id === id; })[0];
   if(!p){
@@ -3842,6 +3864,8 @@ document.addEventListener('keydown', function(e){
     if(profiles.some(function(p){ return p.id === pn; })){
       e.preventDefault();
       applyProfileById(pn);   /* applyRemoteConfig→generate まで実行。スクロール/フォーカスはしない */
+      var _p = profiles.filter(function(p){ return p.id === pn; })[0];
+      showProfileToast(pn + '. ' + ((_p && _p.name) || ('プロファイル'+pn)));
     }
     return;
   }
