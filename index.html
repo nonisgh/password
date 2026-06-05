@@ -528,10 +528,21 @@ input { -webkit-tap-highlight-color: transparent; font-family: inherit; }
         <div style="font-size:13px;color:#555;font-weight:700;margin-bottom:6px;">パターンで全体を指定（＊＝ランダム）</div>
         <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
           <label class="se-opt"><input type="checkbox" id="mask-on" onchange="onMaskToggle()">使う</label>
-          <input type="text" id="mask-pattern" placeholder="例: ＊Brr23＊ / Aa＊【#】99" oninput="onMaskInput()" style="flex:1;min-width:150px;padding:3px 6px;font-size:13px;border:1px solid #ddd;border-radius:6px;">
+          <input type="text" id="mask-pattern" placeholder="例: ＊Brr23＊ / Aa＊【#】99 / 【〜A＋1〜】＊" oninput="onMaskInput()" style="flex:1;min-width:150px;padding:3px 6px;font-size:13px;border:1px solid #ddd;border-radius:6px;">
         </div>
-        <div style="font-size:11px;color:#aaa;line-height:1.6;margin:6px 2px 0;">
-          全角 <b>＊</b> がランダム埋め（桁数に合わせて長さ自動調整・完成形が%比率に合うよう配分）。<b>【】</b>内はその種類のランダム1文字、それ以外はそのまま。＊が複数あれば残り桁を均等割り、＊が無ければ末尾に自動でランダムを足します。<span style="color:#b46;">使用中は上の「始める/終わる」指定より優先されます。</span>
+        <div style="font-size:11px;color:#999;line-height:1.7;margin:7px 2px 0;">
+          パスワード全体の並びを1行で指定します。記号の意味：
+          <div style="margin:4px 0 0 2px;">
+            <div><b style="color:#666;">＊</b>（全角）＝ <b>ランダム埋め</b>。桁数に合わせて長さを自動調整し、<b>完成形が%比率に合うよう</b>中身を配分。複数あれば残り桁を均等割り、無ければ末尾に自動で追加。</div>
+            <div><b>そのままの文字</b>＝ リテラル（固定。例 <span style="font-family:monospace;">Brr23</span> はそのまま）。</div>
+            <div><b style="color:#bbb;">【 】</b>＝ 中は種類トークン → その種類のランダム1文字（<span class="c-num" style="font-weight:700;">数字</span>→数字 / <span class="c-upper" style="font-weight:700;">A</span>→大文字 / <span class="c-lower" style="font-weight:700;">a</span>→小文字 / <span class="c-sym" style="font-weight:700;">記号</span>→記号）。</div>
+            <div><b style="color:#a86fc0;">〜</b>（全角・【】内）＝ ペアで囲んだ範囲の<b>並びをシャッフル</b>（囲みの外は位置そのまま。1個だけなら末尾までシャッフル）。</div>
+            <div><b style="color:#666;">＋</b>（全角・【】内）＝ つないだ種類の<b>どちらか</b>を1文字（例 <span style="font-family:monospace;">【A＋1】</span>＝大文字か数字）。</div>
+          </div>
+          <div style="margin:5px 0 0 2px;color:#aaa;">
+            例：<span style="font-family:monospace;">＊Brr23＊</span>＝前後ランダム＋中央 Brr23／<span style="font-family:monospace;">Aa＊【〜1A〜#】</span>＝先頭Aa＋ランダム＋（数字と大文字をシャッフル）＋末尾記号。<br>
+            ・使った文字種は割合(%)に含めて計算されます。・<span style="color:#b46;">マスク使用中は上の「始める／終わる」指定より優先されます。</span>・半角の <span style="font-family:monospace;">* + ~</span> は通常の記号として使われ、特殊扱いは<b>全角のみ</b>です。
+          </div>
         </div>
       </div>
       <div class="row-toggle">
