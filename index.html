@@ -480,7 +480,7 @@ input { -webkit-tap-highlight-color: transparent; font-family: inherit; }
         </div>
       </div>
       <div style="font-size:11px;color:#aaa;line-height:1.6;margin:0 2px 8px;">
-        「文字を指定」では <b>全角【】</b> で囲んだ中の文字が「その種類のランダム文字」になります（<span class="c-num" style="font-weight:700;">数字</span>→数字 / <span class="c-upper" style="font-weight:700;">A</span>→大文字 / <span class="c-lower" style="font-weight:700;">a</span>→小文字 / <span class="c-sym" style="font-weight:700;">記号</span>→記号）。例: <span style="font-family:monospace;">124【35$A】</span> → <span style="font-family:monospace;">12412!B</span> のように。【】の外はそのまま使われ、使った文字種は割合(%)に含めて計算されます。
+        「文字を指定」では <b>全角【】</b> で囲んだ中の文字が「その種類のランダム文字」になります（<span class="c-num" style="font-weight:700;">数字</span>→数字 / <span class="c-upper" style="font-weight:700;">A</span>→大文字 / <span class="c-lower" style="font-weight:700;">a</span>→小文字 / <span class="c-sym" style="font-weight:700;">記号</span>→記号）。例: <span style="font-family:monospace;">124【35$A】</span> → <span style="font-family:monospace;">12412!B</span> のように。【】の外はそのまま使われ、使った文字種は割合(%)に含めて計算されます。【】内を全角の波 <b style="color:#a86fc0;">〜</b>（または ～）で囲むと、その囲んだ範囲だけ並びがシャッフルされます（範囲外は位置そのまま）。例: <span style="font-family:monospace;">【〜1A〜#】</span> → <span style="font-family:monospace;">A2&</span>（1とAだけシャッフル・記号は必ず末尾）。
       </div>
       <div class="startend-block" style="margin-bottom:6px;">
         <div style="font-size:13px;color:#555;font-weight:700;margin-bottom:6px;">パターンで全体を指定（＊＝ランダム）</div>
@@ -1080,6 +1080,9 @@ function charType(ch){
   if(ch>='a'&&ch<='z') return 'lower';
   return 'sym';
 }
+/* 【】内のシャッフル印：全角の波ダッシュ2種（U+301C 〜 / U+FF5E ～）を受理。
+   この印が【】内にあると、そのカッコで生成した文字の並び順をランダムにする */
+function isShufMark(ch){ return ch==='\u301C' || ch==='\uFF5E'; }
 function sideSpec(prefix){
   var custom = (gv(prefix+'-custom') && gv(prefix+'-custom').value) || '';
   if(gv(prefix+'-custom-on') && gv(prefix+'-custom-on').checked && custom) return {mode:'custom', custom:custom};
@@ -1203,14 +1206,45 @@ function buildOne(){
     if(symArr.length) return pick(symArr);
     return (typeof ALL_SYMS!=='undefined' && ALL_SYMS.length) ? pick(ALL_SYMS) : '';
   }
+  /* 【】1ブロックの中身を展開して文字配列を返す。
+     全角の波 〜/～ をペアで使うと、囲んだ範囲の並びだけをシャッフル（範囲外は位置固定）。
+     波が閉じずに終わった場合は、その波から末尾までをシャッフル（互換動作）。 */
+  function expandBracketChars(content){
+    var out=[], region=null;   /* region!==null の間は波で囲まれたシャッフル領域 */
+    function commit(){
+      if(region===null) return;
+      if(region.length>1) shuffleInPlace(region);
+      for(var r=0;r<region.length;r++) out.push(region[r]);
+      region=null;
+    }
+    for(var k=0;k<content.length;k++){
+      var c=content[k];
+      if(isShufMark(c)){
+        if(region===null) region=[];   /* 開く */
+        else commit();                  /* 閉じる→シャッフルして確定 */
+        continue;
+      }
+      var rc=pickByType(charType(c));
+      if(rc==='') continue;
+      if(region!==null) region.push(rc);
+      else out.push(rc);
+    }
+    commit();   /* 閉じ忘れ（波が奇数個）は末尾までをシャッフルして確定 */
+    return out;
+  }
   function expandSpec(str){
     if(!str) return '';
-    var out='', inBr=false;
-    for(var i=0;i<str.length;i++){
+    var out='', i=0;
+    while(i<str.length){
       var ch=str[i];
-      if(ch==='【'){ inBr=true; continue; }
-      if(ch==='】'){ inBr=false; continue; }
-      out += inBr ? pickByType(charType(ch)) : ch;   /* 【】内＝種類トークン / 外＝リテラル */
+      if(ch==='【'){
+        var j=i+1, content='';
+        while(j<str.length && str[j]!=='】'){ content+=str[j]; j++; }
+        out += expandBracketChars(content).join('');   /* 【】内＝種類トークン（必要ならシャッフル） */
+        i = (j<str.length) ? j+1 : j;                  /* 】をスキップ */
+      } else {
+        out += ch; i++;                                /* 外＝リテラル */
+      }
     }
     return out;
   }
@@ -1224,17 +1258,23 @@ function buildOne(){
   /* template: {kind:'fixed',c,t} または {kind:'fill'} の配列 */
   var template=[];
   if(mSpec.on){
-    var inBr=false;
-    for(var i=0;i<mSpec.pattern.length;i++){
-      var ch=mSpec.pattern[i];
-      if(ch==='【'){ inBr=true; continue; }
-      if(ch==='】'){ inBr=false; continue; }
-      if(!inBr && ch==='＊'){ template.push({kind:'fill'}); continue; }
-      if(inBr){ var rc=pickByType(charType(ch)); if(rc!=='') template.push({kind:'fixed',c:rc,t:charType(rc)}); }
-      else { template.push({kind:'fixed',c:ch,t:charType(ch)}); }
+    var p=mSpec.pattern, i=0;
+    while(i<p.length){
+      var ch=p[i];
+      if(ch==='【'){
+        var j=i+1, content='';
+        while(j<p.length && p[j]!=='】'){ content+=p[j]; j++; }
+        var bc=expandBracketChars(content);            /* 【】内（必要ならシャッフル） */
+        for(var b=0;b<bc.length;b++){ template.push({kind:'fixed',c:bc[b],t:charType(bc[b])}); }
+        i = (j<p.length) ? j+1 : j;
+      } else if(ch==='＊'){
+        template.push({kind:'fill'}); i++;
+      } else {
+        template.push({kind:'fixed',c:ch,t:charType(ch)}); i++;   /* リテラル */
+      }
     }
     /* ＊が1つも無ければ末尾に1区間（残り桁をランダム埋め） */
-    var hasFill=false; for(var i=0;i<template.length;i++){ if(template[i].kind==='fill'){hasFill=true;break;} }
+    var hasFill=false; for(var k=0;k<template.length;k++){ if(template[k].kind==='fill'){hasFill=true;break;} }
     if(!hasFill) template.push({kind:'fill'});
   } else {
     var prefix = (sSpec.mode==='custom' && sSpec.custom) ? expandSpec(sSpec.custom) : '';
@@ -1454,7 +1494,7 @@ function condToHtml(c){
   var sep='<span style="color:#ccc;"> : </span>';
   var parts=[];
   /* 固定文字（文字を指定 / マスク）の文字種カウント。全角【】と＊（ランダム印）は除外 */
-  function _cntTypes(s){ var r={num:0,sym:0,upper:0,lower:0}; if(s){ String(s).split('').forEach(function(x){ if(x==='【'||x==='】'||x==='＊') return; r[charType(x)]++; }); } return r; }
+  function _cntTypes(s){ var r={num:0,sym:0,upper:0,lower:0}; if(s){ String(s).split('').forEach(function(x){ if(x==='【'||x==='】'||x==='＊'||isShufMark(x)) return; r[charType(x)]++; }); } return r; }
   /* マスクパターンを色付きHTMLに（＊=グレー印 / 【】=グレー / 中身・リテラル=文字種色） */
   function maskToHtml(p){
     var inBr=false;
@@ -1462,6 +1502,7 @@ function condToHtml(c){
       if(x==='【'){ inBr=true; return '<span style="color:#bbb;font-weight:700;">【</span>'; }
       if(x==='】'){ inBr=false; return '<span style="color:#bbb;font-weight:700;">】</span>'; }
       if(!inBr && x==='＊'){ return '<span style="color:#999;font-weight:700;">＊</span>'; }
+      if(isShufMark(x)){ return '<span style="color:#c79bd6;font-weight:700;" title="並びをシャッフル">'+x+'</span>'; }
       return '<span class="c-'+charType(x)+'" style="font-weight:700;">'+esc(x)+'</span>';
     }).join('');
   }
@@ -1499,6 +1540,7 @@ function condToHtml(c){
     if(mode==='custom' && custom){
       return String(custom).split('').map(function(ch0){
         if(ch0==='【'||ch0==='】') return '<span style="color:#bbb;font-weight:700;">'+ch0+'</span>';
+        if(isShufMark(ch0)) return '<span style="color:#c79bd6;font-weight:700;" title="並びをシャッフル">'+ch0+'</span>';
         return '<span class="c-'+charType(ch0)+'" style="font-weight:700;">'+esc(ch0)+'</span>';
       }).join('');
     }
