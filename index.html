@@ -236,7 +236,7 @@ input { -webkit-tap-highlight-color: transparent; font-family: inherit; }
   -webkit-tap-highlight-color:transparent;
 }
 .section-pin:hover{ background:rgba(0,0,0,0.05); color:#b0b0a8; }
-.section-pin.on{ color:#E0A93B; }
+.section-pin.on{ color:#b8b8b0; }
 .section-head-mini .section-pin{ font-size:13px; }
 .section{ scroll-margin-top:10px; }
 .jump-flash{ animation: jumpFlash 1.1s ease-out; }
@@ -248,13 +248,13 @@ input { -webkit-tap-highlight-color: transparent; font-family: inherit; }
   overflow-y:auto; padding:2px; -webkit-overflow-scrolling:touch; max-width:62vw;
 }
 .jump-chip{
-  background:rgba(255,255,255,0.62); border:1px solid rgba(0,0,0,0.10); color:#555;
+  background:rgba(255,255,255,0.92); border:1px solid rgba(0,0,0,0.14); color:#444;
   font-size:12px; font-weight:700; font-family:inherit; border-radius:14px; padding:5px 12px;
   cursor:pointer; white-space:nowrap; max-width:100%; overflow:hidden; text-overflow:ellipsis;
-  box-shadow:0 1px 5px rgba(0,0,0,0.10); backdrop-filter:blur(3px); -webkit-backdrop-filter:blur(3px);
-  opacity:0.82; transition:background .15s, opacity .15s, transform .1s; touch-action:manipulation;
+  box-shadow:0 1px 6px rgba(0,0,0,0.14); backdrop-filter:blur(3px); -webkit-backdrop-filter:blur(3px);
+  opacity:0.97; transition:background .15s, opacity .15s, transform .1s; touch-action:manipulation;
 }
-.jump-chip:hover{ background:rgba(255,255,255,0.96); opacity:1; }
+.jump-chip:hover{ background:rgba(255,255,255,1); opacity:1; }
 .jump-chip:active{ transform:scale(0.96); }
 @media (max-width:540px){ .jump-chip{ font-size:13px; padding:7px 14px; } }
 .section-body { padding: 14px 16px; display: flex; flex-direction: column; gap: 14px; }
@@ -3636,7 +3636,7 @@ function jumpToSection(id){
   var sec = document.querySelector('.section[data-section-id="'+id+'"]');
   if(!sec) return;
   if(sec.classList.contains('collapsed')){ sec.classList.remove('collapsed'); saveLayout(); }
-  try{ sec.scrollIntoView({behavior:'smooth', block:'start'}); }catch(_){ sec.scrollIntoView(); }
+  try{ sec.scrollIntoView({behavior:'auto', block:'start'}); }catch(_){ sec.scrollIntoView(); }
   sec.classList.remove('jump-flash');
   void sec.offsetWidth;                 /* リフロー強制でアニメ再生 */
   sec.classList.add('jump-flash');
@@ -3836,15 +3836,12 @@ document.addEventListener('keydown', function(e){
   var isInput = (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || (ae && ae.isContentEditable));
   if(isInput) return;
 
-  /* 数字 1-9：該当番号のプロファイルへ切替＆フォーカス */
+  /* 数字 1-9：該当番号のプロファイルへ切替（画面はそのまま＝結果だけ更新） */
   if(!e.ctrlKey && !e.metaKey && !e.altKey && e.key >= '1' && e.key <= '9'){
     var pn = parseInt(e.key, 10);
     if(profiles.some(function(p){ return p.id === pn; })){
       e.preventDefault();
-      applyProfileById(pn);
-      var pbtns = document.querySelectorAll('#profile-btns .profile-btn');
-      var tg = pbtns[pn-1];
-      if(tg){ try{ tg.focus(); }catch(_){ } if(tg.scrollIntoView) tg.scrollIntoView({block:'nearest', inline:'nearest'}); }
+      applyProfileById(pn);   /* applyRemoteConfig→generate まで実行。スクロール/フォーカスはしない */
     }
     return;
   }
