@@ -3582,9 +3582,7 @@ function toggleSection(headEl, e){
     var tag = evt.target.tagName;
     if(tag === 'INPUT' || tag === 'LABEL') return;
   }
-  var sec = headEl.closest('.section');
-  sec.classList.toggle('collapsed');
-  saveLayout();
+  userToggleSection(headEl.closest('.section'));
 }
 
 function saveLayout(){
@@ -3595,7 +3593,7 @@ function saveLayout(){
   sections.forEach(function(s){
     var id = s.dataset.sectionId;
     layout.order.push(id);
-    layout.collapsed[id] = s.classList.contains('collapsed');
+    layout.collapsed[id] = !manualOpen[id];   /* 永続化は手動状態のみ（ジャンプの一時開閉は保存しない） */
     layout.jump[id] = !!jumpPins[id];
   });
   try{ localStorage.setItem(LAYOUT_KEY, JSON.stringify(layout)); }catch(e){}
@@ -3637,6 +3635,8 @@ function applyLayout(layout){
     if(typeof syncPinsUI==='function') syncPinsUI();
     if(typeof renderJumpMenu==='function') renderJumpMenu();
   }
+  /* 適用後のDOM状態を「手動で開いた状態」の基準として取り込む */
+  syncManualFromDOM();
 }
 
 function getLayoutForExport(){
@@ -3647,7 +3647,7 @@ function getLayoutForExport(){
   sections.forEach(function(s){
     var id = s.dataset.sectionId;
     layout.order.push(id);
-    layout.collapsed[id] = s.classList.contains('collapsed');
+    layout.collapsed[id] = !manualOpen[id];   /* 永続化は手動状態のみ（ジャンプの一時開閉は保存しない） */
     layout.jump[id] = !!jumpPins[id];
   });
   return layout;
@@ -3655,6 +3655,39 @@ function getLayoutForExport(){
 
 /* ===== UIジャンプ（各セクションのピン★ ＋ 更新ボタン上の半透明チップ） ===== */
 var jumpPins = {};
+
+/* 手動で開いたセクションの集合（ジャンプでは閉じない）。ジャンプで開いたものは一時的扱い */
+var manualOpen = {};
+
+/* ジャンプ時に自動で閉じてよいセクションか（生成結果・プロファイルは常時開なので対象外） */
+function isJumpCollapsible(sec){
+  if(!sec) return false;
+  var id = sec.dataset.sectionId;
+  if(id === 'passwords' || id === 'profiles') return false;
+  if(sec.querySelector('.section-head-mini')) return false;
+  return true;
+}
+/* DOMの開閉を反映しつつ手動フラグも更新 */
+function setSectionOpen(sec, open){
+  if(!sec) return;
+  if(open) sec.classList.remove('collapsed'); else sec.classList.add('collapsed');
+  var id = sec.dataset.sectionId; if(id) manualOpen[id] = !!open;
+}
+/* ユーザーが見ている状態を基準にトグル（ヘッダ/グリップからの手動操作の正式ルート） */
+function userToggleSection(sec){
+  if(!sec) return;
+  var willOpen = sec.classList.contains('collapsed');   /* 今閉じているなら開く */
+  setSectionOpen(sec, willOpen);
+  saveLayout();
+}
+/* 現在のDOMの開閉状態を手動フラグの基準として取り込む（初期化・レイアウト適用時に呼ぶ） */
+function syncManualFromDOM(){
+  var container = gv('sections-container'); if(!container) return;
+  manualOpen = {};
+  container.querySelectorAll('.section[data-section-id]').forEach(function(s){
+    manualOpen[s.dataset.sectionId] = !s.classList.contains('collapsed');
+  });
+}
 
 function sectionLabel(id){
   var map = { passwords:'生成結果', profiles:'プロファイル' };
@@ -3699,14 +3732,26 @@ function initSectionPins(){
 }
 
 function jumpToSection(id){
-  var sec = document.querySelector('.section[data-section-id="'+id+'"]');
-  if(!sec) return;
-  if(sec.classList.contains('collapsed')){ sec.classList.remove('collapsed'); saveLayout(); }
-  try{ sec.scrollIntoView({behavior:'auto', block:'start'}); }catch(_){ sec.scrollIntoView(); }
-  sec.classList.remove('jump-flash');
-  void sec.offsetWidth;                 /* リフロー強制でアニメ再生 */
-  sec.classList.add('jump-flash');
-  setTimeout(function(){ sec.classList.remove('jump-flash'); }, 1200);
+  var target = document.querySelector('.section[data-section-id="'+id+'"]');
+  if(!target) return;
+  var container = gv('sections-container');
+  if(container){
+    container.querySelectorAll('.section[data-section-id]').forEach(function(sec){
+      var sid = sec.dataset.sectionId;
+      if(sid === id){
+        sec.classList.remove('collapsed');                  /* ジャンプ先は開く */
+      } else if(isJumpCollapsible(sec) && !manualOpen[sid]){
+        sec.classList.add('collapsed');                     /* 手動で開いたもの以外は閉じる */
+      }
+      /* 手動で開いたものは触らない（開いたまま） */
+    });
+  }
+  /* ジャンプによる開閉は一時的なので保存しない（手動の状態だけが永続する） */
+  try{ target.scrollIntoView({behavior:'auto', block:'start'}); }catch(_){ target.scrollIntoView(); }
+  target.classList.remove('jump-flash');
+  void target.offsetWidth;                 /* リフロー強制でアニメ再生 */
+  target.classList.add('jump-flash');
+  setTimeout(function(){ target.classList.remove('jump-flash'); }, 1200);
 }
 
 function renderJumpMenu(){
@@ -3800,8 +3845,7 @@ function initSectionDrag(){
         e.stopPropagation();   /* 親ヘッダのトグルと二重発火させない */
         e.preventDefault();
         if(sec._justDragged){ sec._justDragged = false; return; }
-        sec.classList.toggle('collapsed');
-        saveLayout();
+        userToggleSection(sec);
       });
     }
     sec.addEventListener('dragstart', function(e){
@@ -4072,6 +4116,7 @@ renderHistory();
 if(typeof recRealtimeOn==='function' && recRealtimeOn()) startRecRealtime();
 renderProfileBtns();
 loadLayout();
+syncManualFromDOM();   /* 起動時点で開いているものを「手動で開いた状態」の基準にする */
 initSectionPins();
 renderJumpMenu();
 initSectionDrag();
