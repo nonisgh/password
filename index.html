@@ -258,6 +258,8 @@ input { -webkit-tap-highlight-color: transparent; font-family: inherit; }
 }
 .jump-chip:hover{ background:rgba(255,255,255,1); opacity:1; }
 .jump-chip:active{ transform:scale(0.96); }
+.jump-chip.sc-focus{ outline:2px solid rgba(168,56,92,0.85); outline-offset:1px; box-shadow:0 0 0 4px rgba(168,56,92,0.18), 0 1px 6px rgba(0,0,0,0.14); }
+.jump-chip .sc-badge{ margin-left:0.4em; font-size:0.82em; font-weight:600; opacity:0.6; }
 @media (max-width:540px){ #jump-menu{ font-size: calc(13px * var(--ui-scale, 1)); } }
 
 /* ===== プロファイル切替トースト（ショートカット時のみ・画面中央） ===== */
@@ -3719,6 +3721,7 @@ function toggleJumpAlign(){
 }
 /* チップのタップ処理：シングル＝ジャンプ（少し待つ）／同じチップをダブル＝揃え切替（ジャンプしない） */
 function jumpChipTap(id){
+  setFocusedChip(id);                 /* タップしたチップをフォーカス（キー割り当て対象になる） */
   var now = Date.now();
   if(_jumpTapTimer && _jumpTapId === id && (now - _jumpTapLast) < JUMP_DBLTAP_MS){
     clearTimeout(_jumpTapTimer); _jumpTapTimer = null; _jumpTapLast = 0; _jumpTapId = null;
@@ -3731,6 +3734,79 @@ function jumpChipTap(id){
     _jumpTapTimer = null; _jumpTapLast = 0; _jumpTapId = null;
     jumpToSection(id);
   }, JUMP_DBLTAP_MS);
+}
+
+/* ===== ジャンプメニューのキーボードショートカット（フォーカス中にキー長押しで割り当て・ローカル保存のみ） ===== */
+var jumpShortcuts = {};                 /* combo文字列 -> chipId（1キー=1チップ、1チップ=1キー） */
+var JUMP_SC_KEY = 'pwgen_jumpshortcuts';
+var focusedChipId = null;
+var SC_LONGPRESS_MS = 500;              /* この時間キーを押し続けたら割り当て */
+var _scState = null;                    /* { code, combo, consumed, timer } */
+
+function loadJumpShortcuts(){
+  try{
+    var raw = localStorage.getItem(JUMP_SC_KEY);
+    if(raw){ var obj = JSON.parse(raw); if(obj && typeof obj==='object') jumpShortcuts = obj; }
+  }catch(e){}
+  if(typeof renderJumpMenu==='function') renderJumpMenu();
+}
+function saveJumpShortcuts(){
+  /* ローカルストレージのみ（クラウド同期・レイアウト保存には含めない） */
+  try{ localStorage.setItem(JUMP_SC_KEY, JSON.stringify(jumpShortcuts)); }catch(e){}
+}
+function chipCombo(id){
+  for(var k in jumpShortcuts){ if(jumpShortcuts[k]===id) return k; }
+  return null;
+}
+function assignShortcut(combo, id){
+  /* 同じチップの既存キーを解除（1チップ=1キー） */
+  var prev = chipCombo(id); if(prev) delete jumpShortcuts[prev];
+  /* 同じキーが他チップに割り当て済みなら新しい方を優先（古い割り当てを解除） */
+  if(jumpShortcuts[combo]) delete jumpShortcuts[combo];
+  jumpShortcuts[combo] = id;
+  saveJumpShortcuts();
+  if(typeof renderJumpMenu==='function') renderJumpMenu();
+  if(typeof showCenterToast==='function') showCenterToast(sectionLabel(id) + ' ← ' + combo);
+}
+function setFocusedChip(id){
+  focusedChipId = id;
+  var menu = gv('jump-menu'); if(!menu) return;
+  menu.querySelectorAll('.jump-chip').forEach(function(c){
+    c.classList.toggle('sc-focus', c.dataset.jumpId === id);
+  });
+}
+function clearFocusedChip(){
+  focusedChipId = null;
+  var menu = gv('jump-menu'); if(!menu) return;
+  menu.querySelectorAll('.jump-chip.sc-focus').forEach(function(c){ c.classList.remove('sc-focus'); });
+}
+function _scIsModifierCode(code){ return /^(Shift|Control|Alt|Meta|OS)/.test(code); }
+function _scCodeLabel(code){
+  var m;
+  if((m=/^Key([A-Z])$/.exec(code))) return m[1];
+  if((m=/^Digit([0-9])$/.exec(code))) return m[1];
+  if((m=/^Numpad([0-9])$/.exec(code))) return 'Num'+m[1];
+  if(/^F([0-9]{1,2})$/.test(code)) return code;
+  var map = { Space:'Space', Slash:'/', Backslash:'\\', Period:'.', Comma:',', Semicolon:';', Quote:"'",
+    BracketLeft:'[', BracketRight:']', Minus:'-', Equal:'=', Backquote:'`',
+    ArrowUp:'↑', ArrowDown:'↓', ArrowLeft:'←', ArrowRight:'→',
+    Enter:'Enter', Home:'Home', End:'End', PageUp:'PgUp', PageDown:'PgDn', Insert:'Ins', Delete:'Del' };
+  return map[code] || code;
+}
+/* イベントから割り当て可能なcomboを得る。予約キー/不可キーはnull */
+function scParse(e){
+  if(_scIsModifierCode(e.code)) return null;                 /* 修飾キー単独は不可 */
+  if(/^(Digit|Numpad)[0-9]$/.test(e.code)) return null;      /* 数字はプロファイル用 */
+  if(e.code==='Escape' || e.code==='Tab') return null;       /* これらは予約 */
+  var mods = [];
+  if(e.ctrlKey)  mods.push('Ctrl');
+  if(e.altKey)   mods.push('Alt');
+  if(e.shiftKey) mods.push('Shift');
+  if(e.metaKey)  mods.push('Meta');
+  var noMod = mods.length===0;
+  if(noMod && (e.code==='KeyR' || e.code==='Space')) return null;  /* 素のR/スペースは再生成用 */
+  var label = _scCodeLabel(e.code);
+  return { code:e.code, combo: mods.concat(label).join('+') };
 }
 
 function sectionLabel(id){
@@ -3809,8 +3885,20 @@ function renderJumpMenu(){
     any = true;
     var chip = document.createElement('button');
     chip.className = 'jump-chip';
-    chip.textContent = sectionLabel(id);
-    chip.title = 'ジャンプ: ' + sectionLabel(id);
+    chip.dataset.jumpId = id;
+    var label = sectionLabel(id);
+    var combo = (typeof chipCombo==='function') ? chipCombo(id) : null;
+    if(combo){
+      chip.appendChild(document.createTextNode(label));
+      var badge = document.createElement('span');
+      badge.className = 'sc-badge';
+      badge.textContent = '(' + combo + ')';
+      chip.appendChild(badge);
+    } else {
+      chip.textContent = label;
+    }
+    chip.title = 'ジャンプ: ' + label + (combo ? ('  [' + combo + ']') : '');
+    if(id === focusedChipId) chip.classList.add('sc-focus');
     if(typeof floatGestureAttach==='function'){
       floatGestureAttach(chip, function(){ jumpChipTap(id); });
     } else {
@@ -4021,6 +4109,47 @@ document.addEventListener('keydown', function(e){
   }
 });
 
+/* ===== ショートカットのキー処理（割り当て＝フォーカス中に長押し／発火＝短押し） ===== */
+function _scInInput(){
+  var ae = document.activeElement; var tag = ae ? ae.tagName : '';
+  return (tag==='INPUT' || tag==='TEXTAREA' || tag==='SELECT' || (ae && ae.isContentEditable));
+}
+document.addEventListener('keydown', function(e){
+  if(_scInInput()) return;
+  /* Escape：フォーカス解除（割り当てモードを抜ける） */
+  if(e.key === 'Escape'){ if(focusedChipId){ clearFocusedChip(); } return; }
+  if(e.repeat) return;                          /* OSのキーリピートは無視 */
+  var p = scParse(e); if(!p) return;            /* 予約キー等は既存処理に任せる */
+
+  _scState = { code: p.code, combo: p.combo, consumed: false, timer: null };
+  /* チップがフォーカス中なら、長押しでそのチップに割り当て */
+  if(focusedChipId){
+    var targetId = focusedChipId, combo = p.combo;
+    _scState.timer = setTimeout(function(){
+      if(_scState){ _scState.consumed = true; }
+      assignShortcut(combo, targetId);
+    }, SC_LONGPRESS_MS);
+  }
+}, true);
+
+document.addEventListener('keyup', function(e){
+  if(!_scState || e.code !== _scState.code) return;
+  if(_scState.timer) clearTimeout(_scState.timer);
+  var st = _scState; _scState = null;
+  if(st.consumed){ e.preventDefault(); return; }   /* 長押し割り当て済み＝発火しない */
+  /* 短押し：割り当て済みキーならジャンプ */
+  var id = jumpShortcuts[st.combo];
+  if(id){ e.preventDefault(); if(typeof jumpToSection==='function') jumpToSection(id); }
+}, true);
+
+/* メニュー外をタップ/クリックしたらフォーカス解除 */
+document.addEventListener('pointerdown', function(e){
+  if(!focusedChipId) return;
+  var menu = gv('jump-menu');
+  if(menu && menu.contains(e.target)) return;     /* チップ操作はフォーカス維持 */
+  clearFocusedChip();
+}, true);
+
 /* ===== フローティング操作（更新ボタン＆ジャンプチップ共通）
    タップ＝アクション(再生成/ジャンプ) ／ ドラッグ＝クラスタ移動 ／ 長押し＝サイズ調整 ===== */
 var FG_LP = 500;   /* この時間(ms)動かさず押し続けたらサイズ調整モード */
@@ -4174,6 +4303,7 @@ renderJumpMenu();
 initSectionDrag();
 initFloatGestures();
 loadJumpAlign();
+loadJumpShortcuts();
 positionJumpMenu();
 loadUiScale();
 
