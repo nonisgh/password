@@ -227,7 +227,7 @@ input { -webkit-tap-highlight-color: transparent; font-family: inherit; }
 }
 .fab-regen:hover { background: #f0f0ee; box-shadow: 0 3px 14px rgba(0,0,0,0.18); }
 .fab-regen:active { transform: scale(0.92); }
-.fab-regen.dragging { transform: scale(1.08); box-shadow: 0 6px 22px rgba(0,0,0,0.28); opacity: 0.95; cursor: grabbing; border-color: #A8385C; }
+.fab-regen.dragging { box-shadow: 0 6px 22px rgba(0,0,0,0.28); opacity: 0.95; cursor: grabbing; border-color: #A8385C; }
 .fab-regen.resizing { border-color: #3B7BC7; box-shadow: 0 0 0 4px rgba(59,123,199,0.22), 0 6px 22px rgba(0,0,0,0.28); transition: box-shadow 0.15s, border-color 0.15s; }
 
 /* ===== セクションのジャンプ用ピン ===== */
@@ -254,7 +254,7 @@ input { -webkit-tap-highlight-color: transparent; font-family: inherit; }
   font-size:1em; font-weight:700; font-family:inherit; border-radius:1.2em; padding:0.42em 1em;
   cursor:pointer; white-space:nowrap; max-width:100%; overflow:hidden; text-overflow:ellipsis;
   box-shadow:0 1px 6px rgba(0,0,0,0.14); backdrop-filter:blur(3px); -webkit-backdrop-filter:blur(3px);
-  opacity:0.97; transition:background .15s, opacity .15s, transform .1s; touch-action:manipulation;
+  opacity:0.97; transition:background .15s, opacity .15s, transform .1s; touch-action:none;
 }
 .jump-chip:hover{ background:rgba(255,255,255,1); opacity:1; }
 .jump-chip:active{ transform:scale(0.96); }
@@ -817,7 +817,7 @@ input { -webkit-tap-highlight-color: transparent; font-family: inherit; }
   </div><!-- /sections-container -->
 
 </div>
-<button class="fab-regen" id="fab-regen" title="再生成 (Space / R)・長押しで移動">↺</button>
+<button class="fab-regen" id="fab-regen" title="再生成 (Space / R)・ドラッグで移動・長押しでサイズ調整">↺</button>
 <div id="jump-menu"></div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
@@ -3722,7 +3722,11 @@ function renderJumpMenu(){
     chip.className = 'jump-chip';
     chip.textContent = sectionLabel(id);
     chip.title = 'ジャンプ: ' + sectionLabel(id);
-    chip.addEventListener('click', function(e){ e.stopPropagation(); jumpToSection(id); });
+    if(typeof floatGestureAttach==='function'){
+      floatGestureAttach(chip, function(){ jumpToSection(id); });
+    } else {
+      chip.addEventListener('click', function(e){ e.stopPropagation(); jumpToSection(id); });
+    }
     menu.appendChild(chip);
   });
   menu.style.display = any ? 'flex' : 'none';
@@ -3921,108 +3925,134 @@ document.addEventListener('keydown', function(e){
   }
 });
 
-/* ===== フローティング再生成ボタン：通常タップ＝再生成／長押しドラッグ＝移動 ===== */
-function initFabDrag(){
-  var fab = gv('fab-regen');
-  if(!fab) return;
-  var LP=450, MOVE=8, RESIZE_MS=3000, RMOVE=14;
-  var lpTimer=null, resizeTimer=null, dragging=false, suppressClick=false, resized=false, offX=0, offY=0, sx=0, sy=0;
-  var resizing=false, resizeStartScale=1, resizeAnchorY=0, lastY=0, resizeCx=0, resizeCy=0;
+/* ===== フローティング操作（更新ボタン＆ジャンプチップ共通）
+   タップ＝アクション(再生成/ジャンプ) ／ ドラッグ＝クラスタ移動 ／ 長押し＝サイズ調整 ===== */
+var FG_LP = 500;   /* この時間(ms)動かさず押し続けたらサイズ調整モード */
+var FG_MOVE = 10;  /* この距離(px)動いたらドラッグ移動 */
 
-  function clampSet(left, top){
-    var w=fab.offsetWidth, h=fab.offsetHeight, m=4;
-    left=Math.max(m, Math.min(window.innerWidth  - w - m, left));
-    top =Math.max(m, Math.min(window.innerHeight - h - m, top));
-    fab.style.left=left+'px'; fab.style.top=top+'px';
-    fab.style.right='auto'; fab.style.bottom='auto';
-    if(typeof positionJumpMenu==='function') positionJumpMenu();
+function _fgClampFab(left, top){
+  var fab = gv('fab-regen'); if(!fab) return;
+  var w=fab.offsetWidth, h=fab.offsetHeight, m=4;
+  left=Math.max(m, Math.min(window.innerWidth  - w - m, left));
+  top =Math.max(m, Math.min(window.innerHeight - h - m, top));
+  fab.style.left=left+'px'; fab.style.top=top+'px'; fab.style.right='auto'; fab.style.bottom='auto';
+  if(typeof positionJumpMenu==='function') positionJumpMenu();
+}
+function _fgSavePos(){
+  var fab=gv('fab-regen'); if(!fab) return;
+  var r=fab.getBoundingClientRect();
+  try{ localStorage.setItem('pwgen_fabpos', JSON.stringify({left:r.left, top:r.top})); }catch(e){}
+}
+function _fgRestorePos(){
+  try{
+    var p=JSON.parse(localStorage.getItem('pwgen_fabpos')||'null');
+    if(p && typeof p.left==='number' && typeof p.top==='number'){
+      /* 旧バージョンの不具合で左上隅に張り付いた位置は無効化し、既定（右下）に戻す */
+      if(p.left<=6 && p.top<=6){ try{ localStorage.removeItem('pwgen_fabpos'); }catch(e){} return; }
+      _fgClampFab(p.left, p.top);
+    }
+  }catch(e){}
+}
+
+/* 1要素にジェスチャを付与。onTap=きれいなタップ時のみ実行 */
+function floatGestureAttach(el, onTap){
+  var fab = gv('fab-regen'); if(!fab || !el) return;
+  var lpTimer=null, mode='', sx=0, sy=0, lastY=0;
+  var active=false, pid=null;                 /* ポインタが押されている間だけ反応させる */
+  var fabStartLeft=0, fabStartTop=0;          /* pointerdown時点のFAB位置（変形前の正しい値） */
+  var scaleStart=1, scaleAnchorY=0, cx=0, cy=0, suppressClick=false;
+
+  function enterScale(){
+    mode='scale'; clearTimeout(lpTimer);
+    fab.classList.remove('dragging'); fab.classList.add('resizing');
+    scaleStart=uiScale; scaleAnchorY=lastY;
+    showCenterToast('↕ ドラッグでサイズ調整  '+Math.round(uiScale*100)+'%');
   }
-  function savePos(){
-    var r=fab.getBoundingClientRect();
-    try{ localStorage.setItem('pwgen_fabpos', JSON.stringify({left:r.left, top:r.top})); }catch(e){}
-  }
-  function restorePos(){
-    try{
-      var p=JSON.parse(localStorage.getItem('pwgen_fabpos')||'null');
-      if(p && typeof p.left==='number' && typeof p.top==='number'){ clampSet(p.left, p.top); }
-    }catch(e){}
+  function enterDrag(){
+    mode='drag'; clearTimeout(lpTimer);
+    fab.classList.add('dragging');
   }
 
-  fab.addEventListener('pointerdown', function(e){
-    dragging=false; suppressClick=false; resized=false; resizing=false;
+  el.addEventListener('pointerdown', function(e){
+    if(e.button!==undefined && e.button!==0) return;   /* 主ボタンのみ */
+    active=true; pid=e.pointerId;
+    mode=''; suppressClick=false;
+    sx=e.clientX; sy=e.clientY; lastY=e.clientY;
+    /* 変形（dragging拡大）が掛かる前に、正しい位置と中心を記録しておく */
     var r=fab.getBoundingClientRect();
-    offX=e.clientX-r.left; offY=e.clientY-r.top; sx=e.clientX; sy=e.clientY; lastY=e.clientY;
-    clearTimeout(lpTimer); clearTimeout(resizeTimer);
-    lpTimer=setTimeout(function(){
-      dragging=true; fab.classList.add('dragging');
-      try{ fab.setPointerCapture(e.pointerId); }catch(_){}
-    }, LP);
-    /* さらに押し続け（3秒・ほぼ動かさず）でサイズ調整モードへ */
-    resizeTimer=setTimeout(function(){
-      resizing=true; resized=true; suppressClick=true;
-      dragging=false; fab.classList.remove('dragging'); fab.classList.add('resizing');
-      clearTimeout(lpTimer);
-      resizeStartScale = uiScale; resizeAnchorY = lastY;
-      var rc = fab.getBoundingClientRect();
-      resizeCx = rc.left + rc.width/2; resizeCy = rc.top + rc.height/2;   /* 中心を固定して拡大するため記録 */
-      try{ fab.setPointerCapture(e.pointerId); }catch(_){}
-      showCenterToast('↕ ドラッグでサイズ調整  ' + Math.round(uiScale*100) + '%');
-    }, RESIZE_MS);
+    fabStartLeft=r.left; fabStartTop=r.top;
+    cx=r.left+r.width/2; cy=r.top+r.height/2;
+    try{ el.setPointerCapture(e.pointerId); }catch(_){}
+    clearTimeout(lpTimer);
+    lpTimer=setTimeout(function(){ if(mode==='') enterScale(); }, FG_LP);
   });
-  fab.addEventListener('pointermove', function(e){
+
+  el.addEventListener('pointermove', function(e){
+    if(!active || (pid!==null && e.pointerId!==pid)) return;   /* 押していない/別ポインタは無視 */
+    if(e.buttons===0){                                          /* 取りこぼし保険：実際は離れている */
+      active=false; pid=null; mode=''; clearTimeout(lpTimer);
+      fab.classList.remove('dragging'); fab.classList.remove('resizing');
+      return;
+    }
     lastY=e.clientY;
-    if(resizing){                                        /* サイズ調整モード：上＝拡大 / 下＝縮小・中心固定 */
+    var dx=e.clientX-sx, dy=e.clientY-sy;
+    if(mode===''){
+      if(Math.abs(dx)>FG_MOVE || Math.abs(dy)>FG_MOVE) enterDrag(); else return;
+    }
+    if(mode==='drag'){
       e.preventDefault();
-      var f = resizeStartScale + (resizeAnchorY - e.clientY) * 0.01;
-      if(Math.abs(f-1) < 0.05) f = 1;                    /* 100%付近でスナップ */
-      f = Math.max(UI_SCALE_MIN, Math.min(UI_SCALE_MAX, f));
+      _fgClampFab(fabStartLeft+(e.clientX-sx), fabStartTop+(e.clientY-sy));
+    } else if(mode==='scale'){
+      e.preventDefault();
+      var f=scaleStart+(scaleAnchorY-e.clientY)*0.01;
+      if(Math.abs(f-1)<0.05) f=1;                        /* 100%付近でスナップ */
+      f=Math.max(UI_SCALE_MIN, Math.min(UI_SCALE_MAX, f));
       applyUiScale(f, {silent:true, noSave:true, noClamp:true});
-      /* 中心(resizeCx,resizeCy)を保ったまま左上を再計算（画面内にクランプ） */
-      var base = (window.innerWidth < 541) ? 76 : 48;
-      var sz = base * f, m = 4;
-      var left = Math.max(m, Math.min(window.innerWidth  - sz - m, resizeCx - sz/2));
-      var top  = Math.max(m, Math.min(window.innerHeight - sz - m, resizeCy - sz/2));
+      var base=(window.innerWidth<541)?76:48, sz=base*f, m=4;   /* 中心を固定して拡大縮小 */
+      var left=Math.max(m, Math.min(window.innerWidth  - sz - m, cx - sz/2));
+      var top =Math.max(m, Math.min(window.innerHeight - sz - m, cy - sz/2));
       fab.style.left=left+'px'; fab.style.top=top+'px'; fab.style.right='auto'; fab.style.bottom='auto';
       if(typeof positionJumpMenu==='function') positionJumpMenu();
-      showCenterToast('サイズ ' + Math.round(uiScale*100) + '%');
-      return;
+      showCenterToast('サイズ '+Math.round(uiScale*100)+'%');
     }
-    if(Math.abs(e.clientX-sx)>RMOVE || Math.abs(e.clientY-sy)>RMOVE) clearTimeout(resizeTimer); /* 動かした＝移動操作 */
-    if(!dragging){
-      if(Math.abs(e.clientX-sx)>MOVE || Math.abs(e.clientY-sy)>MOVE) clearTimeout(lpTimer);
-      return;
-    }
-    e.preventDefault();
-    clampSet(e.clientX-offX, e.clientY-offY);
-  });
-  function end(e){
-    clearTimeout(lpTimer); clearTimeout(resizeTimer);
-    if(resizing){
-      resizing=false; suppressClick=true;
-      fab.classList.remove('resizing');
-      try{ localStorage.setItem('pwgen_uiscale', String(uiScale)); }catch(_){}
-      savePos();
-      showCenterToast('サイズ ' + Math.round(uiScale*100) + '%');
-      try{ fab.releasePointerCapture(e.pointerId); }catch(_){}
-    } else if(dragging){
-      dragging=false; suppressClick=true;
-      fab.classList.remove('dragging');
-      savePos();
-      try{ fab.releasePointerCapture(e.pointerId); }catch(_){}
-    }
-  }
-  fab.addEventListener('pointerup', end);
-  fab.addEventListener('pointercancel', end);
-  fab.addEventListener('click', function(e){
-    if(suppressClick){ suppressClick=false; e.preventDefault(); e.stopPropagation(); return; }  /* ドラッグ直後は再生成しない */
-    generate();
-  });
-  /* 画面サイズ変更時に枠外へ出ないよう再クランプ */
-  window.addEventListener('resize', function(){
-    if(fab.style.left){ var r=fab.getBoundingClientRect(); clampSet(r.left, r.top); }
   });
 
-  restorePos();
+  function end(e){
+    active=false; pid=null;
+    clearTimeout(lpTimer);
+    try{ el.releasePointerCapture(e.pointerId); }catch(_){}
+    if(mode==='drag'){
+      fab.classList.remove('dragging'); _fgSavePos(); suppressClick=true;
+    } else if(mode==='scale'){
+      fab.classList.remove('resizing');
+      try{ localStorage.setItem('pwgen_uiscale', String(uiScale)); }catch(_){}
+      _fgSavePos(); showCenterToast('サイズ '+Math.round(uiScale*100)+'%'); suppressClick=true;
+    } else {
+      if(typeof onTap==='function') onTap();              /* きれいなタップ */
+    }
+    mode='';
+  }
+  el.addEventListener('pointerup', end);
+  el.addEventListener('pointercancel', function(e){
+    active=false; pid=null;
+    clearTimeout(lpTimer);
+    fab.classList.remove('dragging'); fab.classList.remove('resizing');
+    try{ el.releasePointerCapture(e.pointerId); }catch(_){}
+    mode='';
+  });
+  /* ドラッグ/スケール直後のclickで誤発火させない */
+  el.addEventListener('click', function(e){
+    if(suppressClick){ suppressClick=false; e.preventDefault(); e.stopPropagation(); }
+  });
+}
+
+function initFloatGestures(){
+  var fab=gv('fab-regen'); if(!fab) return;
+  floatGestureAttach(fab, function(){ generate(); });
+  window.addEventListener('resize', function(){
+    if(fab.style.left){ var r=fab.getBoundingClientRect(); _fgClampFab(r.left, r.top); }
+  });
+  _fgRestorePos();
 }
 
 /* ===== INIT ===== */
@@ -4045,7 +4075,7 @@ loadLayout();
 initSectionPins();
 renderJumpMenu();
 initSectionDrag();
-initFabDrag();
+initFloatGestures();
 positionJumpMenu();
 loadUiScale();
 
