@@ -463,7 +463,7 @@ input { -webkit-tap-highlight-color: transparent; font-family: inherit; }
         </div>
         <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
           <label class="se-opt"><input type="checkbox" id="start-custom-on" onchange="onStartPick('custom')">文字を指定</label>
-          <input type="text" id="start-custom" placeholder="例: Brr23（複数文字OK）" oninput="onStartCustomInput()" style="flex:1;min-width:120px;padding:3px 6px;font-size:13px;border:1px solid #ddd;border-radius:6px;">
+          <input type="text" id="start-custom" placeholder="例: Brr23 / 12【#A】（【】内は種類）" oninput="onStartCustomInput()" style="flex:1;min-width:120px;padding:3px 6px;font-size:13px;border:1px solid #ddd;border-radius:6px;">
         </div>
       </div>
       <div class="startend-block" style="margin-bottom:6px;">
@@ -476,9 +476,11 @@ input { -webkit-tap-highlight-color: transparent; font-family: inherit; }
         </div>
         <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
           <label class="se-opt"><input type="checkbox" id="end-custom-on" onchange="onEndPick('custom')">文字を指定</label>
-          <input type="text" id="end-custom" placeholder="例: 234PP（複数文字OK）" oninput="onEndCustomInput()" style="flex:1;min-width:120px;padding:3px 6px;font-size:13px;border:1px solid #ddd;border-radius:6px;">
+          <input type="text" id="end-custom" placeholder="例: 234PP / 【A#】Z（【】内は種類）" oninput="onEndCustomInput()" style="flex:1;min-width:120px;padding:3px 6px;font-size:13px;border:1px solid #ddd;border-radius:6px;">
         </div>
       </div>
+      <div style="font-size:11px;color:#aaa;line-height:1.6;margin:0 2px 8px;">
+        「文字を指定」では <b>全角【】</b> で囲んだ中の文字が「その種類のランダム文字」になります（<span class="c-num" style="font-weight:700;">数字</span>→数字 / <span class="c-upper" style="font-weight:700;">A</span>→大文字 / <span class="c-lower" style="font-weight:700;">a</span>→小文字 / <span class="c-sym" style="font-weight:700;">記号</span>→記号）。例: <span style="font-family:monospace;">124【35$A】</span> → <span style="font-family:monospace;">12412!B</span> のように。【】の外はそのまま使われ、使った文字種は割合(%)に含めて計算されます。
       <div class="row-toggle">
         <span class="lbl">紛らわしい文字を除外 <small>（0 O o l 1 I）</small></span>
         <label class="toggle"><input type="checkbox" id="exclude-ambig" checked onchange="generate()"><span class="slider-tog"></span></label>
@@ -1106,9 +1108,12 @@ function applyStartEndSpec(prefix, mode, custom){
    その記号を使用記号へ自動追加してボタンをオンにする */
 function autoEnableSymsFromText(str){
   if(!str) return false;
-  var changed=false;
+  var changed=false, inBr=false;
   for(var i=0;i<str.length;i++){
     var ch=str[i];
+    if(ch==='【'){ inBr=true; continue; }
+    if(ch==='】'){ inBr=false; continue; }
+    if(inBr) continue;   /* 【】内は種類トークン → その記号自体は自動追加しない */
     if(ALL_SYMS.indexOf(ch)!==-1 && !activeSyms.has(ch)){ activeSyms.add(ch); changed=true; }
   }
   if(changed){
@@ -1158,9 +1163,31 @@ function buildOne(){
   if(excludeAmbig){lower=lower.replace(/[ol]/g,'');upper=upper.replace(/[OI]/g,'');nums=nums.replace(/[01]/g,'');}
   var lArr=lower.split(''),uArr=upper.split(''),nArr=nums.split('');
 
-  /* === 固定の先頭/末尾文字列（「文字を指定」＝複数文字対応・そのまま埋め込む） === */
-  var prefix = (sSpec.mode==='custom' && sSpec.custom) ? sSpec.custom : '';
-  var suffix = (eSpec.mode==='custom' && eSpec.custom) ? eSpec.custom : '';
+  /* 「文字を指定」テンプレート展開：全角【】内の各文字は「その文字種のランダム文字」に置換。
+     【】の外はリテラルとしてそのまま使う。例: 124【35$A】 → 124 + 数字 + 数字 + 記号 + 大文字 */
+  function pickByType(t){
+    if(t==='num')   return nArr.length ? pick(nArr) : '';
+    if(t==='upper') return uArr.length ? pick(uArr) : '';
+    if(t==='lower') return lArr.length ? pick(lArr) : '';
+    /* sym：有効な記号から。無ければ全記号からフォールバック */
+    if(symArr.length) return pick(symArr);
+    return (typeof ALL_SYMS!=='undefined' && ALL_SYMS.length) ? pick(ALL_SYMS) : '';
+  }
+  function expandSpec(str){
+    if(!str) return '';
+    var out='', inBr=false;
+    for(var i=0;i<str.length;i++){
+      var ch=str[i];
+      if(ch==='【'){ inBr=true; continue; }
+      if(ch==='】'){ inBr=false; continue; }
+      out += inBr ? pickByType(charType(ch)) : ch;   /* 【】内＝種類トークン / 外＝リテラル */
+    }
+    return out;
+  }
+
+  /* === 固定の先頭/末尾文字列（「文字を指定」＝複数文字対応・【】テンプレートを展開して埋め込む） === */
+  var prefix = (sSpec.mode==='custom' && sSpec.custom) ? expandSpec(sSpec.custom) : '';
+  var suffix = (eSpec.mode==='custom' && eSpec.custom) ? expandSpec(eSpec.custom) : '';
   var fixedLen = prefix.length + suffix.length;
   /* 自動生成する中間部の長さ。固定分が桁数を超える場合は中間0（＝固定文字だけ） */
   var midLen = Math.max(0, len - fixedLen);
@@ -1354,7 +1381,7 @@ function condToHtml(c){
   var sep='<span style="color:#ccc;"> : </span>';
   var parts=[];
   /* 固定文字（文字を指定）の文字種カウント */
-  function _cntTypes(s){ var r={num:0,sym:0,upper:0,lower:0}; if(s){ String(s).split('').forEach(function(x){ r[charType(x)]++; }); } return r; }
+  function _cntTypes(s){ var r={num:0,sym:0,upper:0,lower:0}; if(s){ String(s).split('').forEach(function(x){ if(x==='【'||x==='】') return; r[charType(x)]++; }); } return r; }
   var _fc={num:0,sym:0,upper:0,lower:0};
   if(c.startMode==='custom'&&c.startCustom){ var _a=_cntTypes(c.startCustom); _fc.num+=_a.num;_fc.sym+=_a.sym;_fc.upper+=_a.upper;_fc.lower+=_a.lower; }
   if(c.endMode==='custom'&&c.endCustom){ var _b=_cntTypes(c.endCustom); _fc.num+=_b.num;_fc.sym+=_b.sym;_fc.upper+=_b.upper;_fc.lower+=_b.lower; }
@@ -1384,6 +1411,7 @@ function condToHtml(c){
     if(mode==='alpha') return Aa;
     if(mode==='custom' && custom){
       return String(custom).split('').map(function(ch0){
+        if(ch0==='【'||ch0==='】') return '<span style="color:#bbb;font-weight:700;">'+ch0+'</span>';
         return '<span class="c-'+charType(ch0)+'" style="font-weight:700;">'+esc(ch0)+'</span>';
       }).join('');
     }
