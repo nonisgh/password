@@ -3694,6 +3694,45 @@ function syncManualFromDOM(){
   manualOpen['profiles'] = false;
 }
 
+/* ===== ジャンプメニューの右揃え／左揃え（ダブルタップで切替・ローカル保存のみ） ===== */
+var jumpAlign = 'right';                 /* 'right' | 'left' */
+var JUMP_ALIGN_KEY = 'pwgen_jumpalign';
+var _jumpTapTimer = null, _jumpTapLast = 0, _jumpTapId = null;
+var JUMP_DBLTAP_MS = 230;                /* この時間内に同じチップを再タップ＝ダブル */
+
+function loadJumpAlign(){
+  try{ var v = localStorage.getItem(JUMP_ALIGN_KEY); if(v==='left'||v==='right') jumpAlign = v; }catch(e){}
+  applyJumpAlign();
+}
+function saveJumpAlign(){
+  /* この設定はローカルストレージのみ（クラウド同期・レイアウト保存には含めない） */
+  try{ localStorage.setItem(JUMP_ALIGN_KEY, jumpAlign); }catch(e){}
+}
+function applyJumpAlign(){
+  if(typeof positionJumpMenu === 'function') positionJumpMenu();
+}
+function toggleJumpAlign(){
+  jumpAlign = (jumpAlign === 'left') ? 'right' : 'left';
+  saveJumpAlign();
+  applyJumpAlign();
+  if(typeof showCenterToast === 'function') showCenterToast(jumpAlign === 'left' ? '左揃え' : '右揃え');
+}
+/* チップのタップ処理：シングル＝ジャンプ（少し待つ）／同じチップをダブル＝揃え切替（ジャンプしない） */
+function jumpChipTap(id){
+  var now = Date.now();
+  if(_jumpTapTimer && _jumpTapId === id && (now - _jumpTapLast) < JUMP_DBLTAP_MS){
+    clearTimeout(_jumpTapTimer); _jumpTapTimer = null; _jumpTapLast = 0; _jumpTapId = null;
+    toggleJumpAlign();
+    return;
+  }
+  if(_jumpTapTimer) clearTimeout(_jumpTapTimer);
+  _jumpTapLast = now; _jumpTapId = id;
+  _jumpTapTimer = setTimeout(function(){
+    _jumpTapTimer = null; _jumpTapLast = 0; _jumpTapId = null;
+    jumpToSection(id);
+  }, JUMP_DBLTAP_MS);
+}
+
 function sectionLabel(id){
   var map = { passwords:'生成結果', profiles:'プロファイル' };
   if(map[id]) return map[id];
@@ -3773,9 +3812,9 @@ function renderJumpMenu(){
     chip.textContent = sectionLabel(id);
     chip.title = 'ジャンプ: ' + sectionLabel(id);
     if(typeof floatGestureAttach==='function'){
-      floatGestureAttach(chip, function(){ jumpToSection(id); });
+      floatGestureAttach(chip, function(){ jumpChipTap(id); });
     } else {
-      chip.addEventListener('click', function(e){ e.stopPropagation(); jumpToSection(id); });
+      chip.addEventListener('click', function(e){ e.stopPropagation(); jumpChipTap(id); });
     }
     menu.appendChild(chip);
   });
@@ -3789,8 +3828,16 @@ function positionJumpMenu(){
   if(menu.style.display === 'none') return;
   var r = fab.getBoundingClientRect();
   var gap = 8;
-  menu.style.right = Math.max(4, (window.innerWidth - r.right)) + 'px';
-  menu.style.left = 'auto';
+  /* 右揃え：更新ボタンの右端に合わせて左へ伸ばす ／ 左揃え：左端に合わせて右へ伸ばす */
+  if(jumpAlign === 'left'){
+    menu.style.alignItems = 'flex-start';
+    menu.style.left = Math.max(4, r.left) + 'px';
+    menu.style.right = 'auto';
+  } else {
+    menu.style.alignItems = 'flex-end';
+    menu.style.right = Math.max(4, (window.innerWidth - r.right)) + 'px';
+    menu.style.left = 'auto';
+  }
   var roomAbove = r.top - 8;
   var roomBelow = window.innerHeight - r.bottom - 8;
   if(roomAbove >= 80 || roomAbove >= roomBelow){       /* 基本は更新ボタンの上 */
@@ -4126,6 +4173,7 @@ initSectionPins();
 renderJumpMenu();
 initSectionDrag();
 initFloatGestures();
+loadJumpAlign();
 positionJumpMenu();
 loadUiScale();
 
