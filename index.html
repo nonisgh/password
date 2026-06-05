@@ -3593,7 +3593,7 @@ function saveLayout(){
   sections.forEach(function(s){
     var id = s.dataset.sectionId;
     layout.order.push(id);
-    layout.collapsed[id] = !manualOpen[id];   /* 永続化は手動状態のみ（ジャンプの一時開閉は保存しない） */
+    layout.collapsed[id] = (id==='passwords'||id==='profiles') ? false : !manualOpen[id];   /* 手動状態のみ永続化。生成結果・プロファイルは常に開いた状態で保存し起動時に表示 */
     layout.jump[id] = !!jumpPins[id];
   });
   try{ localStorage.setItem(LAYOUT_KEY, JSON.stringify(layout)); }catch(e){}
@@ -3636,6 +3636,10 @@ function applyLayout(layout){
     if(typeof renderJumpMenu==='function') renderJumpMenu();
   }
   /* 適用後のDOM状態を「手動で開いた状態」の基準として取り込む */
+  ['passwords','profiles'].forEach(function(id){           /* 生成結果・プロファイルは起動時は必ず開く */
+    var sec = container.querySelector('[data-section-id="'+id+'"]');
+    if(sec) sec.classList.remove('collapsed');
+  });
   syncManualFromDOM();
 }
 
@@ -3647,7 +3651,7 @@ function getLayoutForExport(){
   sections.forEach(function(s){
     var id = s.dataset.sectionId;
     layout.order.push(id);
-    layout.collapsed[id] = !manualOpen[id];   /* 永続化は手動状態のみ（ジャンプの一時開閉は保存しない） */
+    layout.collapsed[id] = (id==='passwords'||id==='profiles') ? false : !manualOpen[id];   /* 手動状態のみ永続化。生成結果・プロファイルは常に開いた状態で保存し起動時に表示 */
     layout.jump[id] = !!jumpPins[id];
   });
   return layout;
@@ -3661,11 +3665,8 @@ var manualOpen = {};
 
 /* ジャンプ時に自動で閉じてよいセクションか（生成結果・プロファイルは常時開なので対象外） */
 function isJumpCollapsible(sec){
-  if(!sec) return false;
-  var id = sec.dataset.sectionId;
-  if(id === 'passwords' || id === 'profiles') return false;
-  if(sec.querySelector('.section-head-mini')) return false;
-  return true;
+  /* すべてのセクションをジャンプ時の開閉対象にする（生成結果・プロファイルも含む） */
+  return !!sec;
 }
 /* DOMの開閉を反映しつつ手動フラグも更新 */
 function setSectionOpen(sec, open){
@@ -3687,6 +3688,10 @@ function syncManualFromDOM(){
   container.querySelectorAll('.section[data-section-id]').forEach(function(s){
     manualOpen[s.dataset.sectionId] = !s.classList.contains('collapsed');
   });
+  /* 生成結果・プロファイルは既定では手動開にしない＝別の場所へジャンプすると閉じる対象にする
+     （その場でグリップを押して開けば、そのセッション中は開いたまま維持される） */
+  manualOpen['passwords'] = false;
+  manualOpen['profiles'] = false;
 }
 
 function sectionLabel(id){
