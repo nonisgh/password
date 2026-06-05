@@ -246,7 +246,7 @@ input { -webkit-tap-highlight-color: transparent; font-family: inherit; }
 /* ===== ジャンプメニュー（更新ボタンの上に半透明チップを縦積み） ===== */
 #jump-menu{
   position:fixed; z-index:60; display:none; flex-direction:column; gap:6px; align-items:flex-end;
-  overflow-y:auto; padding:2px; -webkit-overflow-scrolling:touch; max-width:62vw;
+  overflow-y:auto; padding:6px 8px; -webkit-overflow-scrolling:touch; max-width:62vw;
   font-size: calc(12px * var(--ui-scale, 1));
 }
 .jump-chip{
@@ -3768,6 +3768,19 @@ function assignShortcut(combo, id){
   if(typeof renderJumpMenu==='function') renderJumpMenu();
   if(typeof showCenterToast==='function') showCenterToast(sectionLabel(id) + ' ← ' + combo);
 }
+function unassignShortcut(id){
+  var prev = chipCombo(id); if(!prev) return false;
+  delete jumpShortcuts[prev];
+  saveJumpShortcuts();
+  if(typeof renderJumpMenu==='function') renderJumpMenu();
+  if(typeof showCenterToast==='function') showCenterToast(sectionLabel(id) + ' の割り当てを解除');
+  return true;
+}
+/* 長押し時：今そのチップに付いているのと同じキーなら解除、違えば割り当て */
+function scLongPressAssign(combo, id){
+  if(chipCombo(id) === combo){ unassignShortcut(id); return; }
+  assignShortcut(combo, id);
+}
 function setFocusedChip(id){
   focusedChipId = id;
   var menu = gv('jump-menu'); if(!menu) return;
@@ -4127,7 +4140,7 @@ document.addEventListener('keydown', function(e){
     var targetId = focusedChipId, combo = p.combo;
     _scState.timer = setTimeout(function(){
       if(_scState){ _scState.consumed = true; }
-      assignShortcut(combo, targetId);
+      scLongPressAssign(combo, targetId);
     }, SC_LONGPRESS_MS);
   }
 }, true);
