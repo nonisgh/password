@@ -2014,9 +2014,10 @@ function renderMemos(){
 
     /* メモ行：シングルタップ＝コピー、ダブルタップ/右クリック＝詳細パネル開閉 */
     (function(plain){
-      var lastTap=0, sx=0, sy=0, moved=false, DBL=400;
+      var lastTap=0, singleTimer=null, sx=0, sy=0, moved=false, DBL=400;
       function downXY(x,y){ sx=x; sy=y; moved=false; }
       function moveCancel(x,y){ if(Math.abs(x-sx)>10||Math.abs(y-sy)>10) moved=true; }
+      function isOpen(){ return detail.style.display !== 'none'; }
       function doCopy(){
         copyText(plain, {textContent:'',set textContent(v){}});
         row.classList.remove('memoed'); row.classList.add('copied');
@@ -2024,12 +2025,17 @@ function renderMemos(){
         clearTimeout(row._ct);
         row._ct=setTimeout(function(){ row.classList.remove('copied'); badge.style.opacity='0'; }, 1500);
       }
-      function openDetail(){ lastTap=0; toggleDetail(); }
+      function openDetail(){ clearTimeout(singleTimer); singleTimer=null; lastTap=0; toggleDetail(); }
       function onTap(){
         if(moved) return;
         var now=Date.now();
-        if(now-lastTap < DBL){ openDetail(); }     /* 2タップ目＝詳細（コピーは1タップ目で完了済み） */
-        else { lastTap=now; doCopy(); }            /* 1タップ目＝即コピー（遅延なし） */
+        if(now-lastTap < DBL){                    /* 2タップ目＝詳細トグル */
+          lastTap=0; clearTimeout(singleTimer); singleTimer=null; toggleDetail();
+        } else {
+          lastTap=now;
+          if(isOpen()){ doCopy(); }               /* 詳細が開いている → 即コピー（遅延なし） */
+          else { clearTimeout(singleTimer); singleTimer=setTimeout(function(){ singleTimer=null; doCopy(); }, DBL); } /* 閉じている → ダブルタップ優先 */
+        }
       }
       row.addEventListener('mousedown', function(e){ if(e.button!==2) downXY(e.clientX,e.clientY); });
       row.addEventListener('mousemove', function(e){ moveCancel(e.clientX,e.clientY); });
@@ -2217,7 +2223,7 @@ function renderHistory(){
 
     /* 履歴行：シングルタップ＝コピー、ダブルタップ/右クリック＝詳細、長押し＝メモへ移動 */
     (function(itemObj, plain){
-      var lpTimer=null, lpFired=false, lastTap=0, sx=0, sy=0, moved=false, DBL=400, LP=550;
+      var lpTimer=null, lpFired=false, lastTap=0, singleTimer=null, sx=0, sy=0, moved=false, DBL=400, LP=550;
       function downXY(x,y){
         sx=x; sy=y; moved=false; lpFired=false;
         clearTimeout(lpTimer);
@@ -2225,6 +2231,7 @@ function renderHistory(){
       }
       function moveCancel(x,y){ if(Math.abs(x-sx)>10||Math.abs(y-sy)>10){ moved=true; clearTimeout(lpTimer); } }
       function up(){ clearTimeout(lpTimer); }
+      function isOpen(){ return detail.style.display !== 'none'; }
       function doCopy(){
         copyText(plain, {textContent:'',set textContent(v){}});
         row.classList.remove('memoed'); row.classList.add('copied');
@@ -2234,18 +2241,24 @@ function renderHistory(){
       }
       function doMove(){
         /* メモへ移動：パスワード欄と同じピンク系で「MEMO」を一瞬出してから移す */
+        clearTimeout(singleTimer); singleTimer=null;
         row.classList.remove('copied'); row.classList.add('memoed');
         badge.textContent='MEMO'; badge.style.opacity='1';
         clearTimeout(row._ct);
         row._ct=setTimeout(function(){ moveHistoryToMemo(itemObj); }, 1100);
       }
-      function openDetail(){ lastTap=0; toggleDetail(); }
+      function openDetail(){ clearTimeout(singleTimer); singleTimer=null; lastTap=0; toggleDetail(); }
       function onTap(){
         if(lpFired){ lpFired=false; return; }      /* 長押しで移動済み → コピーしない */
         if(moved) return;
         var now=Date.now();
-        if(now-lastTap < DBL){ openDetail(); }      /* 2タップ目＝詳細（コピーは1タップ目で完了済み） */
-        else { lastTap=now; doCopy(); }             /* 1タップ目＝即コピー（遅延なし） */
+        if(now-lastTap < DBL){                     /* 2タップ目＝詳細トグル */
+          lastTap=0; clearTimeout(singleTimer); singleTimer=null; toggleDetail();
+        } else {
+          lastTap=now;
+          if(isOpen()){ doCopy(); }                /* 詳細が開いている → 即コピー（遅延なし） */
+          else { clearTimeout(singleTimer); singleTimer=setTimeout(function(){ singleTimer=null; doCopy(); }, DBL); } /* 閉じている → ダブルタップ優先 */
+        }
       }
       row.addEventListener('mousedown', function(e){ if(e.button!==2) downXY(e.clientX,e.clientY); });
       row.addEventListener('mousemove', function(e){ moveCancel(e.clientX,e.clientY); });
