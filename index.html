@@ -712,9 +712,9 @@ input { -webkit-tap-highlight-color: transparent; font-family: inherit; }
     </div>
   </div>
 
-  <!-- パスワードメモ -->
+  <!-- ストック -->
   <div class="section" data-section-id="memo">
-    <div class="section-head" onclick="toggleSection(this,event)"><span class="section-drag-handle">⠿</span><span class="section-title">パスワードメモ</span></div>
+    <div class="section-head" onclick="toggleSection(this,event)"><span class="section-drag-handle">⠿</span><span class="section-title">ストック</span></div>
     <div class="section-body">
       <div style="display:flex;align-items:center;gap:8px;">
         <span style="font-size:12px;color:#888;flex:1;">パスワード行を長押しでここに追加（最大<span id="memo-max-cap">30</span>件）</span>
@@ -728,7 +728,7 @@ input { -webkit-tap-highlight-color: transparent; font-family: inherit; }
         <label style="display:flex;align-items:center;gap:4px;cursor:pointer;font-size:12px;color:#666;white-space:nowrap;"><input type="checkbox" id="memo-filter-hour" onchange="toggleMemoFilter()" style="margin:0;width:13px;height:13px;"><span id="memo-hour-label">直近1時間</span></label>
       </div>
       <div class="memo-list" id="memo-list"></div>
-      <div id="memo-empty" style="font-size:12px;color:#bbb;padding:6px 2px;">メモはまだありません。</div>
+      <div id="memo-empty" style="font-size:12px;color:#bbb;padding:6px 2px;">ストックはまだありません。</div>
     </div>
   </div>
 
@@ -737,7 +737,7 @@ input { -webkit-tap-highlight-color: transparent; font-family: inherit; }
     <div class="section-head" onclick="toggleSection(this,event)"><span class="section-drag-handle">⠿</span><span class="section-title">履歴</span></div>
     <div class="section-body">
       <div style="display:flex;align-items:center;gap:8px;">
-        <span style="font-size:12px;color:#888;flex:1;">コピー・メモした行を自動記録（最大<span id="hist-max-cap">30</span>件）</span>
+        <span style="font-size:12px;color:#888;flex:1;">コピー・ストックした行を自動記録（最大<span id="hist-max-cap">30</span>件）</span>
         <label style="display:flex;align-items:center;gap:4px;cursor:pointer;font-size:11px;color:#888;white-space:nowrap;"><input type="checkbox" id="hist-color-on" checked onchange="toggleHistColor()" style="margin:0;width:13px;height:13px;">色を付ける</label>
         <span id="hist-count" style="font-size:11px;color:#aaa;">0/30</span>
         <button class="btn" id="hist-clear-btn" onclick="clearHistory()" style="height:32px;padding:0 12px;font-size:13px;">クリア</button>
@@ -746,18 +746,18 @@ input { -webkit-tap-highlight-color: transparent; font-family: inherit; }
         <span style="font-size:11px;color:#aaa;">表示:</span>
         <label style="display:flex;align-items:center;gap:4px;cursor:pointer;font-size:12px;color:#666;white-space:nowrap;"><input type="checkbox" id="hist-filter-latest" onchange="toggleHistFilter()" style="margin:0;width:13px;height:13px;">最新<span id="hist-latest-label">1</span>件のみ</label>
         <label style="display:flex;align-items:center;gap:4px;cursor:pointer;font-size:12px;color:#666;white-space:nowrap;"><input type="checkbox" id="hist-filter-hour" onchange="toggleHistFilter()" style="margin:0;width:13px;height:13px;"><span id="hist-hour-label">直近1時間</span></label>
-        <label style="display:flex;align-items:center;gap:4px;cursor:pointer;font-size:12px;color:#666;white-space:nowrap;"><input type="checkbox" id="hist-filter-notmemo" onchange="toggleHistFilter()" style="margin:0;width:13px;height:13px;">メモにあるものを除く</label>
+        <label style="display:flex;align-items:center;gap:4px;cursor:pointer;font-size:12px;color:#666;white-space:nowrap;"><input type="checkbox" id="hist-filter-notmemo" onchange="toggleHistFilter()" style="margin:0;width:13px;height:13px;">ストックにあるものを除く</label>
       </div>
       <div class="memo-list" id="hist-list"></div>
       <div id="hist-empty" style="font-size:12px;color:#bbb;padding:6px 2px;">履歴はまだありません。</div>
     </div>
   </div>
 
-  <!-- 記録設定（メモ・履歴の共通設定） -->
+  <!-- 記録設定（ストック・履歴の共通設定） -->
   <div class="section" data-section-id="recset">
     <div class="section-head" onclick="toggleSection(this,event)"><span class="section-drag-handle">⠿</span><span class="section-title">記録設定</span></div>
     <div class="section-body">
-      <div style="font-size:11px;color:#888;font-weight:700;margin-bottom:4px;">メモの絞り込み</div>
+      <div style="font-size:11px;color:#888;font-weight:700;margin-bottom:4px;">ストックの絞り込み</div>
       <div style="font-size:11px;color:#aaa;margin-bottom:2px;">「直近◯◯」の対象時間</div>
       <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
         <div class="recset-time"><input type="text" inputmode="numeric" id="rec-memo-hh" value="1" onchange="onRecTimeInput()" oninput="onRecTimeInput()"><span>時間</span></div>
@@ -808,11 +808,11 @@ input { -webkit-tap-highlight-color: transparent; font-family: inherit; }
 
       <div style="font-size:11px;color:#aaa;margin-top:10px;margin-bottom:2px;">保存件数</div>
       <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;">
-        <div class="recset-time"><span style="color:#888;">メモ</span><input type="text" inputmode="numeric" id="rec-memo-max" value="30" onchange="onRecMaxInput()" oninput="onRecMaxInput()"><span>件</span></div>
+        <div class="recset-time"><span style="color:#888;">ストック</span><input type="text" inputmode="numeric" id="rec-memo-max" value="30" onchange="onRecMaxInput()" oninput="onRecMaxInput()"><span>件</span></div>
         <div class="recset-time"><span style="color:#888;">履歴</span><input type="text" inputmode="numeric" id="rec-hist-max" value="30" onchange="onRecMaxInput()" oninput="onRecMaxInput()"><span>件</span></div>
       </div>
 
-      <div style="font-size:11px;color:#aaa;margin-top:10px;margin-bottom:2px;">記録のエクスポート（メモ・履歴のみ）</div>
+      <div style="font-size:11px;color:#aaa;margin-top:10px;margin-bottom:2px;">記録のエクスポート（ストック・履歴のみ）</div>
       <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
         <button class="btn" onclick="exportRecords()" style="height:32px;padding:0 12px;font-size:13px;">記録をJSON書き出し</button>
         <span id="rec-export-status" style="font-size:11px;color:#3B6D11;"></span>
@@ -1772,7 +1772,7 @@ function renderResults(results){
           /* メモ＋コピーのフィードバック（ピンク/赤系で一瞬光らせる） */
           rowEl.classList.remove('copied');
           rowEl.classList.add('memoed');
-          badge.textContent='MEMO + COPIED';
+          badge.textContent='ストック + COPIED';
           badge.style.opacity='1';
           clearTimeout(rowEl._ct);
           rowEl._ct=setTimeout(function(){ rowEl.classList.remove('memoed'); badge.style.opacity='0'; badge.textContent='COPIED'; }, 1300);
@@ -1876,7 +1876,7 @@ function withScrollCompensation(fn, anchor){
   });});
 }
 
-/* ===== 記録設定（メモ・履歴の共通設定） ===== */
+/* ===== 記録設定（ストック・履歴の共通設定） ===== */
 var RECSET_KEY = 'pwgen_recset_v1';
 /* 既定値 */
 var recClearLink = false;
@@ -2048,7 +2048,7 @@ function onRecMaxInput(){
 /* 記録（メモ・履歴）だけをエクスポート */
 function exportRecords(){
   downloadJson({
-    "_comment": "PASSWORD GENERATOR 記録（メモ・履歴）",
+    "_comment": "PASSWORD GENERATOR 記録（ストック・履歴）",
     memos: memos,
     history: pwHistory
   });
@@ -2156,14 +2156,14 @@ var openHistKeys = new Set();
 function clearMemos(){
   if(recClearLink){
     if(memos.length === 0 && pwHistory.length === 0) return;
-    if(recClearConfirm && !window.confirm('メモと履歴の両方をすべて削除しますか？（クリア連動が有効です）')) return;
+    if(recClearConfirm && !window.confirm('ストックと履歴の両方をすべて削除しますか？（クリア連動が有効です）')) return;
     memos = []; pwHistory = [];
     saveMemos(); saveHistory();
     renderMemos(); renderHistory();
     return;
   }
   if(memos.length === 0) return;
-  if(recClearConfirm && !window.confirm('メモをすべて削除しますか？')) return;
+  if(recClearConfirm && !window.confirm('ストックをすべて削除しますか？')) return;
   memos = [];
   saveMemos();
   renderMemos();
@@ -2218,8 +2218,8 @@ function renderMemos(){
   if(cnt) cnt.textContent = (filtering ? (visible.length + '/' + memos.length + '件 (全' + MEMO_MAX + ')') : (memos.length + '/' + MEMO_MAX));
   var empty = gv('memo-empty');
   if(empty){
-    if(memos.length === 0){ empty.style.display=''; empty.textContent='メモはまだありません。'; }
-    else if(visible.length === 0){ empty.style.display=''; empty.textContent='表示条件に合うメモがありません。'; }
+    if(memos.length === 0){ empty.style.display=''; empty.textContent='ストックはまだありません。'; }
+    else if(visible.length === 0){ empty.style.display=''; empty.textContent='表示条件に合うストックがありません。'; }
     else empty.style.display='none';
   }
   var colorOn = (function(){ var cb=gv('memo-color-on'); return cb ? cb.checked : true; })();
@@ -2301,7 +2301,7 @@ function renderMemos(){
     list.appendChild(detail);
   });
   ensureRelTimeTimer();
-  /* メモ内容が変わると「メモにあるものを除く」表示も変わるので履歴も更新 */
+  /* メモ内容が変わると「ストックにあるものを除く」表示も変わるので履歴も更新 */
   if(typeof renderHistory === 'function') renderHistory();
 }
 
@@ -2376,7 +2376,7 @@ function moveHistoryToMemo(item){
 function clearHistory(){
   if(recClearLink){
     if(memos.length === 0 && pwHistory.length === 0) return;
-    if(recClearConfirm && !window.confirm('履歴とメモの両方をすべて削除しますか？（クリア連動が有効です）')) return;
+    if(recClearConfirm && !window.confirm('履歴とストックの両方をすべて削除しますか？（クリア連動が有効です）')) return;
     pwHistory = []; memos = [];
     saveHistory(); saveMemos();
     renderHistory(); renderMemos();
@@ -2399,7 +2399,7 @@ function toggleHistColor(){ saveHistColorPref(); renderHistory(); }
 function toggleHistFilter(){ saveHistFilterPref(); renderHistory(); }
 
 /* 表示対象の履歴。最新1件／直近1時間は両ONでAND、片方のみ＝その条件。
-   さらに「メモにあるものを除く」が独立に AND で効く */
+   さらに「ストックにあるものを除く」が独立に AND で効く */
 function getVisibleHistory(){
   var latest  = (function(){ var c=gv('hist-filter-latest');  return c && c.checked; })();
   var hour    = (function(){ var c=gv('hist-filter-hour');    return c && c.checked; })();
@@ -2409,7 +2409,7 @@ function getVisibleHistory(){
   var memoSet = {};
   if(notmemo){ memos.forEach(function(m){ memoSet[m.plain]=true; }); }
 
-  /* 1) 先に「メモにあるものを除く」と「直近◯◯」で絞り込む */
+  /* 1) 先に「ストックにあるものを除く」と「直近◯◯」で絞り込む */
   var pool = pwHistory.filter(function(h){
     if(notmemo && memoSet[h.plain]) return false;
     if(hour){
@@ -2492,7 +2492,7 @@ function renderHistory(){
         /* メモへ移動：パスワード欄と同じピンク系で「MEMO」を一瞬出してから移す */
         clearTimeout(singleTimer); singleTimer=null;
         row.classList.remove('copied'); row.classList.add('memoed');
-        badge.textContent='MEMO'; badge.style.opacity='1';
+        badge.textContent='ストック'; badge.style.opacity='1';
         clearTimeout(row._ct);
         row._ct=setTimeout(function(){ moveHistoryToMemo(itemObj); }, 1100);
       }
@@ -3116,7 +3116,7 @@ function maybeRestoreMemos(data){
   if(!data || !Array.isArray(data.memos)) return;
   var incoming = data.memos.map(normMemo).filter(Boolean);
   if(incoming.length === 0) return;
-  var ok = window.confirm('このファイルにはメモが ' + incoming.length + ' 件含まれています。\n今のメモに追記（マージ）しますか？\n（OK：今のメモに追加／キャンセル：メモは変更しない）\n※合計が最大' + MEMO_MAX + '件を超えた分は古いものから削除されます。');
+  var ok = window.confirm('このファイルにはストックが ' + incoming.length + ' 件含まれています。\n今のストックに追記（マージ）しますか？\n（OK：今のストックに追加／キャンセル：ストックは変更しない）\n※合計が最大' + MEMO_MAX + '件を超えた分は古いものから削除されます。');
   if(!ok) return;
   /* 既存の平文集合（重複は追加しない） */
   var seen = {};
