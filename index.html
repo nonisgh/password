@@ -3861,23 +3861,38 @@ function clearCurrentJumpChip(){
 
 /* ===== ピン留めされていないがショートカット割り当て済みの項目を出す小パネル ===== */
 var SC_ORPHAN_POS_KEY = 'pwgen_scorphanpos';
+var ORPH_M = 10;        /* 画面端からの余白 */
+var ORPH_SNAP = 72;     /* この距離まで左下隅に近づくと吸着 */
 function _orphanClamp(box, left, top){
   var w=box.offsetWidth, h=box.offsetHeight, m=4;
   left=Math.max(m, Math.min(window.innerWidth  - w - m, left));
   top =Math.max(m, Math.min(window.innerHeight - h - m, top));
   box.style.left=left+'px'; box.style.top=top+'px'; box.style.right='auto'; box.style.bottom='auto';
 }
-function _orphanSavePos(box){
+/* 左下隅に吸着（bottom指定なのでリサイズしても隅に貼り付き続ける） */
+function _orphanApplyDock(box){
+  box.style.left=ORPH_M+'px'; box.style.bottom=ORPH_M+'px';
+  box.style.top='auto'; box.style.right='auto';
+}
+/* 現在位置が左下隅の近くか */
+function _orphanNearBL(box){
   var r=box.getBoundingClientRect();
-  try{ localStorage.setItem(SC_ORPHAN_POS_KEY, JSON.stringify({left:r.left, top:r.top})); }catch(e){}
+  return (r.left <= ORPH_M + ORPH_SNAP) && (r.bottom >= window.innerHeight - ORPH_M - ORPH_SNAP);
+}
+function _orphanSavePos(box){
+  if(_orphanNearBL(box)){                                  /* 左下隅へスナップして吸着保存 */
+    _orphanApplyDock(box);
+    try{ localStorage.setItem(SC_ORPHAN_POS_KEY, JSON.stringify({dock:'bl'})); }catch(e){}
+  } else {                                                 /* それ以外は自由座標で保存 */
+    var r=box.getBoundingClientRect();
+    try{ localStorage.setItem(SC_ORPHAN_POS_KEY, JSON.stringify({left:r.left, top:r.top})); }catch(e){}
+  }
 }
 function _orphanRestorePos(box){
   var p=null; try{ p=JSON.parse(localStorage.getItem(SC_ORPHAN_POS_KEY)||'null'); }catch(e){}
-  if(p && typeof p.left==='number' && typeof p.top==='number') _orphanClamp(box, p.left, p.top);
-  else {                                                 /* 既定：画面左下に固定 */
-    var bh = box.offsetHeight || 0;
-    _orphanClamp(box, 10, window.innerHeight - bh - 10);
-  }
+  if(p && p.dock==='bl') _orphanApplyDock(box);
+  else if(p && typeof p.left==='number' && typeof p.top==='number') _orphanClamp(box, p.left, p.top);
+  else _orphanApplyDock(box);                              /* 既定：左下に吸着 */
 }
 function _initOrphanGripDrag(grip, box){
   var active=false, pid=null, sx=0, sy=0, bl=0, bt=0;
@@ -3892,7 +3907,12 @@ function _initOrphanGripDrag(grip, box){
     if(!active || (pid!==null && e.pointerId!==pid)) return;
     if(e.buttons===0){ active=false; pid=null; return; }
     e.preventDefault();
-    _orphanClamp(box, bl+(e.clientX-sx), bt+(e.clientY-sy));
+    var L=bl+(e.clientX-sx), T=bt+(e.clientY-sy), h=box.offsetHeight;
+    if(L <= ORPH_M + ORPH_SNAP && (T + h) >= window.innerHeight - ORPH_M - ORPH_SNAP){
+      _orphanApplyDock(box);                               /* 隅の近くは吸着プレビュー */
+    } else {
+      _orphanClamp(box, L, T);
+    }
   });
   function end(e){
     if(!active) return; active=false; pid=null;
@@ -3935,15 +3955,12 @@ function renderOrphanShortcuts(){
 }
 window.addEventListener('resize', function(){
   var box = gv('sc-orphan');
-  if(box && box.style.display !== 'none' && box.style.left){
-    var saved=null; try{ saved=JSON.parse(localStorage.getItem(SC_ORPHAN_POS_KEY)||'null'); }catch(e){}
-    if(saved && typeof saved.left==='number'){            /* 手動配置：その場でクランプ */
-      var r=box.getBoundingClientRect(); _orphanClamp(box, r.left, r.top);
-    } else {                                              /* 既定：左下へ貼り付き直す */
-      var bh = box.offsetHeight || 0;
-      _orphanClamp(box, 10, window.innerHeight - bh - 10);
-    }
-  }
+  if(!box || box.style.display === 'none' || !box.style.left) return;
+  var saved=null; try{ saved=JSON.parse(localStorage.getItem(SC_ORPHAN_POS_KEY)||'null'); }catch(e){}
+  if(saved && saved.dock==='bl') _orphanApplyDock(box);                 /* 吸着中：隅に貼り付き */
+  else if(saved && typeof saved.left==='number'){                       /* 自由配置：クランプ */
+    var r=box.getBoundingClientRect(); _orphanClamp(box, r.left, r.top);
+  } else _orphanApplyDock(box);                                         /* 既定も左下吸着 */
 });
 function _scIsModifierCode(code){ return /^(Shift|Control|Alt|Meta|OS)/.test(code); }
 function _scCodeLabel(code){
