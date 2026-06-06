@@ -214,6 +214,18 @@ input { -webkit-tap-highlight-color: transparent; font-family: inherit; }
 #ratio-section.ratio-locked .section-body button {
   pointer-events: none; opacity: 0.35;
 }
+/* 割合フッター：5%・ロックをフィールド内に配置 */
+.ratio-foot { display:flex; align-items:center; gap:12px; margin-top:4px; }
+.ratio-foot .pct-total { flex:1; margin:0; }
+.ratio-ctl { display:flex; align-items:center; gap:4px; cursor:pointer; padding:0 2px; line-height:1; white-space:nowrap; }
+.ratio-ctl input { margin:0; width:14px; height:14px; flex-shrink:0; }
+.ratio-ctl .ratio-ctl-tx { font-size:11px; color:#999; }
+/* 独自の鍵（南京錠）アイコン：未ロックは開・グレー／ロックは閉・青 */
+.lock-ico { width:16px; height:16px; display:block; color:#aaa; transition:color .12s; }
+.lock-ico .lk-closed { display:none; }
+#ratio-lock:checked ~ .lock-ico { color:#185FA5; }
+#ratio-lock:checked ~ .lock-ico .lk-open { display:none; }
+#ratio-lock:checked ~ .lock-ico .lk-closed { display:block; }
 
 /* ===== フローティング再生成ボタン ===== */
 .fab-regen {
@@ -579,8 +591,7 @@ input { -webkit-tap-highlight-color: transparent; font-family: inherit; }
   <!-- 文字種の割合 -->
   <div class="section" id="ratio-section" data-section-id="ratio">
     <div class="section-head" onclick="toggleSection(this,event)">
-      <span class="section-drag-handle">⠿</span><span class="section-title" style="flex:1;">文字種の割合 (%)</span><label style="display:flex;align-items:center;gap:3px;cursor:pointer;margin-right:8px;padding:0 4px;line-height:1;" onclick="event.stopPropagation()" ontouchstart="event.stopPropagation()" ontouchend="event.stopPropagation()" title="5%刻みでスライダーを動かす"><input type="checkbox" id="ratio-snap5" onchange="toggleSnap5()" style="margin:0;width:14px;height:14px;"><span style="font-size:10px;color:#999;">5%</span></label><label style="display:flex;align-items:center;gap:3px;cursor:pointer;margin-right:4px;padding:0 4px;line-height:1;" onclick="event.stopPropagation()" ontouchstart="event.stopPropagation()" ontouchend="event.stopPropagation()"><input type="checkbox" id="ratio-lock" onchange="toggleRatioLock()" style="margin:0;width:14px;height:14px;"><span style="font-size:10px;color:#aaa;">🔒</span></label>
-
+      <span class="section-drag-handle">⠿</span><span class="section-title" style="flex:1;">文字種の割合 (%)</span>
     </div>
     <div class="section-body">
       <div class="stepper-row">
@@ -622,7 +633,11 @@ input { -webkit-tap-highlight-color: transparent; font-family: inherit; }
         <span style="font-size:13px;color:#999;margin-left:-2px;">%</span>
         <input type="range" class="stepper-slider" id="pct-upper" min="0" max="100" value="20" step="1" oninput="onSliderInput('pct-upper');updateTotal();generate()" onchange="onSliderDone('pct-upper',updateTotal)">
       </div>
-      <div class="pct-total" id="pct-total">残り（小文字）: 45%</div>
+      <div class="ratio-foot">
+        <label class="ratio-ctl" title="5%刻みでスライダーを動かす"><input type="checkbox" id="ratio-snap5" onchange="toggleSnap5()"><span class="ratio-ctl-tx">5%</span></label>
+        <label class="ratio-ctl" title="この割合を固定（ロック）"><input type="checkbox" id="ratio-lock" onchange="toggleRatioLock()"><svg class="lock-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path class="lk-open" d="M8.4 10.2 V7.4 a3.7 3.7 0 0 1 6.9 -1.55"/><path class="lk-closed" d="M8.4 10.2 V7.4 a3.7 3.7 0 0 1 7.4 0 V10.2"/><rect x="5" y="10.2" width="14" height="9.6" rx="2.2"/><circle cx="12" cy="14.2" r="1.4"/><path d="M12 15.5 V17.4"/></svg></label>
+        <div class="pct-total" id="pct-total">残り（小文字）: 45%</div>
+      </div>
     </div>
   </div>
 
