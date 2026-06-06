@@ -686,23 +686,6 @@ input { -webkit-tap-highlight-color: transparent; font-family: inherit; }
     </div>
   </div>
 
-  <!-- 設定ファイルを読み込む -->
-  <div class="section" data-section-id="config">
-    <div class="section-head" onclick="toggleSection(this,event)">
-      <span class="section-drag-handle">⠿</span><span class="section-title">設定ファイルを読み込む</span>
-    </div>
-    <div class="section-body">
-      <!-- URL読み込み -->
-      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
-        <input type="url" id="config-url" placeholder="https://gist.githubusercontent.com/..."
-          style="flex:1;min-width:0;font-family:inherit;font-size:12px;border:1px solid #ccc;border-radius:7px;padding:8px 10px;background:#fff;outline:none;"
-          onfocus="this.style.borderColor='#185FA5'" onblur="this.style.borderColor='#ccc'"
-          onkeydown="if(event.key==='Enter') loadRemoteConfig()">
-        <button class="btn" onclick="loadRemoteConfig()" style="white-space:nowrap;">読み込む</button>
-      </div>
-      <div id="config-status" style="font-size:11px;color:#888;min-height:16px;"></div>
-    </div>
-  </div>
   <div class="section" data-section-id="advanced">
     <div class="section-head" onclick="toggleSection(this,event)"><span class="section-drag-handle">⠿</span><span class="section-title">高度な設定</span></div>
     <div class="section-body">
@@ -2997,14 +2980,13 @@ function toggleSnap5(){
 
 /* ===== ファイル読み込み ===== */
 function processFile(file){
+  function csToast(msg){ if(typeof showCenterToast==='function') showCenterToast(msg); }
   if(!file){
-    gv('config-status').textContent = 'ファイルが取得できませんでした';
-    gv('config-status').style.color = '#993C1D';
+    csToast('ファイルが取得できませんでした');
     return;
   }
   if(!file.name.match(/\.json$/i)){
-    gv('config-status').textContent = 'JSONファイルを選択してください（' + file.name + '）';
-    gv('config-status').style.color = '#993C1D';
+    csToast('JSONファイルを選択してください（' + file.name + '）');
     return;
   }
   var reader = new FileReader();
@@ -3021,20 +3003,17 @@ function processFile(file){
         if(data.layout){ applyLayout(data.layout); saveLayout(); }
         applyShortcutsData(data);
         saveProfilesToStorage();
-        gv('config-status').textContent = '✓ '+profiles.length+'個のプロファイルを読み込みました';
+        csToast('✓ '+profiles.length+'個のプロファイルを読み込みました');
       } else {
         profiles = []; renderProfileBtns();
         applyRemoteConfig(data);
-        gv('config-status').textContent = '✓ ' + file.name + ' 読み込み完了';
+        csToast('✓ ' + file.name + ' 読み込み完了');
       }
-      gv('config-status').style.color = '#3B6D11';
-      setTimeout(function(){ gv('config-status').textContent=''; }, 3000);
       maybeRestoreMemos(data);
       maybeRestoreHistory(data);
       maybeRestoreRecSettings(data);
     } catch(err) {
-      gv('config-status').textContent = 'JSONパースエラー: ' + err.message;
-      gv('config-status').style.color = '#993C1D';
+      csToast('JSONパースエラー: ' + err.message);
     }
   };
   reader.readAsText(file);
@@ -3166,7 +3145,6 @@ function maybeRestoreRecSettings(data){
 /* ===== プロファイル ===== */
 var profiles = [];
 var currentProfileId = null;
-var defaultConfigUrl = 'https://gist.githubusercontent.com/nonisgh/b169e3f8cbd74d73f46f902058557799/raw/password_config.json';
 
 /* ===== 中央トースト（プロファイル切替・サイズ変更などの一時表示） ===== */
 function showCenterToast(label){
@@ -3473,93 +3451,6 @@ function renderProfileBtns(){
   });
 }
 
-function loadConfigFromUrl(url, silent){
-  fetchWithFallback(url)
-    .then(function(data){
-      console.log('Config loaded:', data);
-      /* profiles配列がある場合はプロファイルモード */
-      if(Array.isArray(data.profiles) && data.profiles.length){
-        profiles = data.profiles;
-        var defId = data.defaultProfile || data.profiles[0].id;
-        var defProfile = profiles.filter(function(p){ return p.id===defId; })[0] || profiles[0];
-        currentProfileId = defProfile.id;
-        applyRemoteConfig(defProfile);
-        renderProfileBtns();
-        if(data.layout){ applyLayout(data.layout); saveLayout(); }
-        applyShortcutsData(data);
-        saveProfilesToStorage();
-        gv('config-status').textContent = '✓ '+profiles.length+'個のプロファイルを読み込みました';
-        gv('config-status').style.color = '#3B6D11';
-        setTimeout(function(){ gv('config-status').textContent=''; }, 3000);
-      } else {
-        profiles = [];
-        renderProfileBtns();
-        applyRemoteConfig(data);
-        if(!silent){
-          gv('config-status').textContent = '✓ 読み込み完了';
-          gv('config-status').style.color = '#3B6D11';
-          setTimeout(function(){ gv('config-status').textContent=''; }, 3000);
-        }
-      }
-      if(!silent) maybeRestoreMemos(data);
-      if(!silent) maybeRestoreHistory(data);
-      if(!silent) maybeRestoreRecSettings(data);
-    })
-    .catch(function(err){
-      console.error('Config load error:', err);
-      var msg = 'URLから読み込めませんでした';
-      if(location.protocol === 'file:') msg += '（ローカルファイルから開くと読み込めません。D&Dでファイルを読み込んでください）';
-      else msg += ': ' + err.message;
-      gv('config-status').textContent = msg;
-      gv('config-status').style.color = '#993C1D';
-    });
-}
-
-/* ===== リモート設定ファイル読み込み ===== */
-function normalizeUrl(url){
-  /* Google Drive の共有URLをダイレクトダウンロードURLに変換 */
-  var m = url.match(/\/file\/d\/([^/]+)/);
-  if(m) return 'https://drive.google.com/uc?export=download&id=' + m[1];
-  m = url.match(/[?&]id=([^&]+)/);
-  if(m) return 'https://drive.google.com/uc?export=download&id=' + m[1];
-  return url;
-}
-
-function fetchWithFallback(url){
-  var opts = { method: 'GET', cache: 'no-cache' };
-  return fetch(url, opts)
-    .then(function(res){
-      if(!res.ok) throw new Error('HTTP ' + res.status);
-      return res.json();
-    })
-    .catch(function(e1){
-      /* CORSプロキシ1: corsproxy.io */
-      var p1 = 'https://corsproxy.io/?' + encodeURIComponent(url);
-      return fetch(p1, opts)
-        .then(function(res){
-          if(!res.ok) throw new Error('HTTP ' + res.status);
-          return res.json();
-        })
-        .catch(function(e2){
-          /* CORSプロキシ2: allorigins */
-          var p2 = 'https://api.allorigins.win/raw?url=' + encodeURIComponent(url);
-          return fetch(p2, opts)
-            .then(function(res){
-              if(!res.ok) throw new Error('HTTP ' + res.status);
-              return res.json();
-            });
-        });
-    });
-}
-
-function loadRemoteConfig(){
-  var url = gv('config-url').value.trim();
-  var status = gv('config-status');
-  if(!url){ status.textContent = 'URLを入力してください'; status.style.color='#993C1D'; return; }
-  url = normalizeUrl(url);
-  status.textContent = '読み込み中...'; status.style.color='#888';
-  loadConfigFromUrl(url, false);
-}
 
 function applyRemoteConfig(s){
   function sr(sliderId, numId, val, mn, mx){
