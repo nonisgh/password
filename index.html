@@ -256,10 +256,10 @@ input { -webkit-tap-highlight-color: transparent; font-family: inherit; }
   box-shadow:0 1px 6px rgba(0,0,0,0.14);
   opacity:0.98; transition:background .15s, opacity .15s, transform .1s; touch-action:none;
 }
-.jump-chip:hover{ background:rgba(255,255,255,1); opacity:1; }
+.jump-chip:hover{ background:#eef3ff; border-color:#185FA5; color:#185FA5; opacity:1; }
 .jump-chip:active{ transform:scale(0.96); }
 .jump-chip.sc-focus{ outline:2px solid rgba(24,95,165,0.85); outline-offset:1px; box-shadow:0 0 0 4px rgba(24,95,165,0.18), 0 1px 6px rgba(0,0,0,0.14); }
-.jump-chip.jump-here{ background:#185FA5; color:#fff; border-color:#185FA5; opacity:1; }
+.jump-chip.jump-here, .jump-chip.jump-here:hover{ background:linear-gradient(135deg,#185FA5 0%,#3FA7DE 100%); color:#fff; border-color:#185FA5; opacity:1; }
 .jump-chip.jump-here .sc-badge{ opacity:0.85; }
 .jump-chip .sc-badge{ margin-left:0.4em; font-size:0.82em; font-weight:600; opacity:0.6; }
 @media (max-width:540px){ #jump-menu{ font-size: calc(13px * var(--ui-scale, 1)); } }
