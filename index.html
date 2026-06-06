@@ -4069,12 +4069,13 @@ function positionJumpMenu(rectOpt){
      吸着時：アンカー＝吸着側、チップ揃え＝その逆（内側を揃え、最長チップの端がフィールド端に届く）
      フリー時：jumpAlign に従う（右＝右端アンカー＆右揃え／左＝左端アンカー＆左揃え） */
   var anchorRight, alignStart;
+  /* 揃え方向（チップの開く向き）は常に jumpAlign に従う＝吸着中でもダブルクリックで反転できる。
+     アンカー（端に貼り付く側）は、吸着中は吸着側に固定、フリー時は jumpAlign に従う。 */
+  alignStart = (jumpAlign === 'left');
   if(fabDockSide){
     anchorRight = (fabDockSide === 'right');
-    alignStart  = (fabDockSide === 'right');   /* 右吸着→左揃え(flex-start) ／ 左吸着→右揃え(flex-end) */
   } else {
     anchorRight = (jumpAlign !== 'left');
-    alignStart  = (jumpAlign === 'left');
   }
   menu.style.alignItems = alignStart ? 'flex-start' : 'flex-end';
   if(anchorRight){
@@ -4384,7 +4385,7 @@ function _fgSettleAfterDrag(){
   var fab=gv('fab-regen'); if(!fab) return;
   var r=fab.getBoundingClientRect();
   var fr=_fgFieldRect();
-  var cxp=r.left + r.width/2, SNAP=64;
+  var cxp=r.left + r.width/2, SNAP=24;   /* フィールド端からこの距離以内に来たら吸着（引力の範囲。狭め） */
   var side=null;
   if(cxp > fr.right - SNAP) side='right';
   else if(cxp < fr.left + SNAP) side='left';
@@ -4392,6 +4393,11 @@ function _fgSettleAfterDrag(){
     var dock={side:side, top:r.top};
     try{ localStorage.setItem('pwgen_fabdock', JSON.stringify(dock)); }catch(e){}
     try{ localStorage.removeItem('pwgen_fabpos'); }catch(e){}
+    /* 吸着の既定の向きは「内側へ開く」：右吸着→右揃え / 左吸着→左揃え（端で揃い、コンテンツ側へ扇状に開く。ダブルクリックで反転可） */
+    if(typeof jumpAlign !== 'undefined'){
+      jumpAlign = (side==='right') ? 'right' : 'left';
+      if(typeof saveJumpAlign==='function') saveJumpAlign();
+    }
     _fgApplyDock(dock);
     if(typeof showCenterToast==='function') showCenterToast(side==='right' ? '右脇に吸着' : '左脇に吸着');
   } else {
