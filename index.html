@@ -265,6 +265,22 @@ input { -webkit-tap-highlight-color: transparent; font-family: inherit; }
 @media (max-width:540px){ #jump-menu{ font-size: calc(13px * var(--ui-scale, 1)); } }
 @media (max-width:540px){ .jump-chip .sc-badge{ display:none; } }
 
+/* ===== ピン留めされていないがショートカットが割り当て済みの項目を出す小パネル ===== */
+#sc-orphan{
+  position:fixed; z-index:59; display:none; flex-direction:column; gap:4px; align-items:stretch;
+  background:rgba(255,255,255,0.78); border:1px solid rgba(0,0,0,0.10); border-radius:10px;
+  padding:3px 5px 5px; box-shadow:0 2px 10px rgba(0,0,0,0.10);
+  backdrop-filter:blur(3px); -webkit-backdrop-filter:blur(3px);
+  font-size: calc(10.5px * var(--ui-scale,1)); max-width:52vw;
+}
+#sc-orphan .sc-orphan-grip{
+  text-align:center; color:#c2c2bb; cursor:grab; font-size:11px; line-height:1;
+  padding:1px 0 2px; touch-action:none; user-select:none; -webkit-user-select:none;
+}
+#sc-orphan .sc-orphan-grip:active{ cursor:grabbing; color:#9a9a92; }
+#sc-orphan .jump-chip{ font-size:1em; padding:0.3em 0.7em; opacity:0.92; }
+@media (max-width:540px){ #sc-orphan{ display:none !important; } }
+
 /* ===== プロファイル切替トースト（ショートカット時のみ・画面中央） ===== */
 #profile-toast{
   position:fixed; left:50%; top:50%; transform:translate(-50%,-50%) scale(0.94);
@@ -824,6 +840,7 @@ input { -webkit-tap-highlight-color: transparent; font-family: inherit; }
 </div>
 <button class="fab-regen" id="fab-regen" title="再生成 (Space / R)・ドラッグで移動・長押しでサイズ調整">↺</button>
 <div id="jump-menu"></div>
+<div id="sc-orphan" aria-hidden="true"></div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
 /* ===== Prevent double-tap zoom ===== */
@@ -3808,32 +3825,106 @@ function scLongPressAssign(combo, id){
 }
 function setFocusedChip(id){
   focusedChipId = id;
-  var menu = gv('jump-menu'); if(!menu) return;
-  menu.querySelectorAll('.jump-chip').forEach(function(c){
+  document.querySelectorAll('.jump-chip').forEach(function(c){
     c.classList.toggle('sc-focus', c.dataset.jumpId === id);
   });
 }
 function clearFocusedChip(){
   focusedChipId = null;
-  var menu = gv('jump-menu'); if(!menu) return;
-  menu.querySelectorAll('.jump-chip.sc-focus').forEach(function(c){ c.classList.remove('sc-focus'); });
+  document.querySelectorAll('.jump-chip.sc-focus').forEach(function(c){ c.classList.remove('sc-focus'); });
 }
 
 /* ジャンプ先チップの「現在地」ハイライト（スクロールで消す） */
 var currentJumpId = null;
 function setCurrentJumpChip(id){
   currentJumpId = id;
-  var menu = gv('jump-menu'); if(!menu) return;
-  menu.querySelectorAll('.jump-chip').forEach(function(c){
+  document.querySelectorAll('.jump-chip').forEach(function(c){
     c.classList.toggle('jump-here', c.dataset.jumpId === id);
   });
 }
 function clearCurrentJumpChip(){
   if(!currentJumpId) return;
   currentJumpId = null;
-  var menu = gv('jump-menu'); if(!menu) return;
-  menu.querySelectorAll('.jump-chip.jump-here').forEach(function(c){ c.classList.remove('jump-here'); });
+  document.querySelectorAll('.jump-chip.jump-here').forEach(function(c){ c.classList.remove('jump-here'); });
 }
+
+/* ===== ピン留めされていないがショートカット割り当て済みの項目を出す小パネル ===== */
+var SC_ORPHAN_POS_KEY = 'pwgen_scorphanpos';
+function _orphanClamp(box, left, top){
+  var w=box.offsetWidth, h=box.offsetHeight, m=4;
+  left=Math.max(m, Math.min(window.innerWidth  - w - m, left));
+  top =Math.max(m, Math.min(window.innerHeight - h - m, top));
+  box.style.left=left+'px'; box.style.top=top+'px'; box.style.right='auto'; box.style.bottom='auto';
+}
+function _orphanSavePos(box){
+  var r=box.getBoundingClientRect();
+  try{ localStorage.setItem(SC_ORPHAN_POS_KEY, JSON.stringify({left:r.left, top:r.top})); }catch(e){}
+}
+function _orphanRestorePos(box){
+  var p=null; try{ p=JSON.parse(localStorage.getItem(SC_ORPHAN_POS_KEY)||'null'); }catch(e){}
+  if(p && typeof p.left==='number' && typeof p.top==='number') _orphanClamp(box, p.left, p.top);
+  else _orphanClamp(box, 10, 58);   /* 既定：左上（タイトル下あたり） */
+}
+function _initOrphanGripDrag(grip, box){
+  var active=false, pid=null, sx=0, sy=0, bl=0, bt=0;
+  grip.addEventListener('pointerdown', function(e){
+    if(e.button!==undefined && e.button!==0) return;
+    active=true; pid=e.pointerId; sx=e.clientX; sy=e.clientY;
+    var r=box.getBoundingClientRect(); bl=r.left; bt=r.top;
+    try{ grip.setPointerCapture(e.pointerId); }catch(_){}
+    e.preventDefault();
+  });
+  grip.addEventListener('pointermove', function(e){
+    if(!active || (pid!==null && e.pointerId!==pid)) return;
+    if(e.buttons===0){ active=false; pid=null; return; }
+    e.preventDefault();
+    _orphanClamp(box, bl+(e.clientX-sx), bt+(e.clientY-sy));
+  });
+  function end(e){
+    if(!active) return; active=false; pid=null;
+    try{ grip.releasePointerCapture(e.pointerId); }catch(_){}
+    _orphanSavePos(box);
+  }
+  grip.addEventListener('pointerup', end);
+  grip.addEventListener('pointercancel', end);
+}
+function renderOrphanShortcuts(){
+  var box = gv('sc-orphan'); if(!box) return;
+  /* 割り当て済みだがピン留めされていない（＝ジャンプメニューに出ていない）セクション */
+  var ids = [];
+  for(var combo in jumpShortcuts){
+    var id = jumpShortcuts[combo];
+    if(jumpPins[id]) continue;
+    if(!document.querySelector('.section[data-section-id="'+id+'"]')) continue;
+    if(ids.indexOf(id) === -1) ids.push(id);
+  }
+  box.innerHTML = '';
+  if(!ids.length){ box.style.display = 'none'; return; }
+  var grip = document.createElement('div');
+  grip.className = 'sc-orphan-grip'; grip.textContent = '⠿'; grip.title = 'ドラッグで移動';
+  box.appendChild(grip);
+  ids.forEach(function(id){
+    var chip = document.createElement('button');
+    chip.className = 'jump-chip'; chip.dataset.jumpId = id;
+    var label = sectionLabel(id), combo = chipCombo(id);
+    chip.appendChild(document.createTextNode(label));
+    if(combo){ var b=document.createElement('span'); b.className='sc-badge'; b.textContent='('+combo+')'; chip.appendChild(b); }
+    chip.title = 'ジャンプ: ' + label + (combo ? ('  [' + combo + ']') : '');
+    if(id === focusedChipId) chip.classList.add('sc-focus');
+    if(id === currentJumpId) chip.classList.add('jump-here');
+    chip.addEventListener('click', function(e){ e.stopPropagation(); jumpChipTap(id); });
+    box.appendChild(chip);
+  });
+  box.style.display = 'flex';
+  _initOrphanGripDrag(grip, box);
+  _orphanRestorePos(box);
+}
+window.addEventListener('resize', function(){
+  var box = gv('sc-orphan');
+  if(box && box.style.display !== 'none' && box.style.left){
+    var r=box.getBoundingClientRect(); _orphanClamp(box, r.left, r.top);
+  }
+});
 function _scIsModifierCode(code){ return /^(Shift|Control|Alt|Meta|OS)/.test(code); }
 function _scCodeLabel(code){
   var m;
@@ -3965,6 +4056,7 @@ function renderJumpMenu(){
   });
   menu.style.display = any ? 'flex' : 'none';
   positionJumpMenu();
+  if(typeof renderOrphanShortcuts==='function') renderOrphanShortcuts();
 }
 
 function positionJumpMenu(){
@@ -4202,15 +4294,15 @@ document.addEventListener('keyup', function(e){
 /* メニュー外をタップ/クリックしたらフォーカス解除 */
 document.addEventListener('pointerdown', function(e){
   if(!focusedChipId) return;
-  var menu = gv('jump-menu');
-  if(menu && menu.contains(e.target)) return;     /* チップ操作はフォーカス維持 */
+  var t = e.target;
+  if(t && t.closest && (t.closest('#jump-menu') || t.closest('#sc-orphan'))) return;  /* メニュー内操作は維持 */
   clearFocusedChip();
 }, true);
 
 /* マウスホイール／スワイプで画面をスクロールしたら現在地ハイライトを消す
    （ジャンプ時のプログラム的スクロールは wheel/touchmove を出さないので消えない） */
 function _isOnFloatUI(t){
-  return !!(t && t.closest && (t.closest('#jump-menu') || t.closest('#fab-regen')));
+  return !!(t && t.closest && (t.closest('#jump-menu') || t.closest('#sc-orphan') || t.closest('#fab-regen')));
 }
 function _maybeClearJumpHighlight(target){
   if(!currentJumpId) return;
