@@ -4065,16 +4065,24 @@ function positionJumpMenu(rectOpt){
   if(menu.style.display === 'none') return;
   var r = rectOpt || fab.getBoundingClientRect();
   var gap = 8;
-  var eff = fabDockSide ? fabDockSide : jumpAlign;
-  /* 右：更新ボタンの右端に合わせて左へ伸ばす ／ 左：左端に合わせて右へ伸ばす */
-  if(eff === 'left'){
-    menu.style.alignItems = 'flex-start';
-    menu.style.left = Math.max(4, r.left) + 'px';
-    menu.style.right = 'auto';
+  /* アンカー（端に寄せる側）と、チップの揃え方向を決める。
+     吸着時：アンカー＝吸着側、チップ揃え＝その逆（内側を揃え、最長チップの端がフィールド端に届く）
+     フリー時：jumpAlign に従う（右＝右端アンカー＆右揃え／左＝左端アンカー＆左揃え） */
+  var anchorRight, alignStart;
+  if(fabDockSide){
+    anchorRight = (fabDockSide === 'right');
+    alignStart  = (fabDockSide === 'right');   /* 右吸着→左揃え(flex-start) ／ 左吸着→右揃え(flex-end) */
   } else {
-    menu.style.alignItems = 'flex-end';
+    anchorRight = (jumpAlign !== 'left');
+    alignStart  = (jumpAlign === 'left');
+  }
+  menu.style.alignItems = alignStart ? 'flex-start' : 'flex-end';
+  if(anchorRight){
     menu.style.right = Math.max(4, (window.innerWidth - r.right)) + 'px';
     menu.style.left = 'auto';
+  } else {
+    menu.style.left = Math.max(4, r.left) + 'px';
+    menu.style.right = 'auto';
   }
   var roomAbove = r.top - 8;
   var roomBelow = window.innerHeight - r.bottom - 8;
@@ -4357,9 +4365,10 @@ function _fgLoadDock(){
 function _fgApplyDock(dock){
   var fab=gv('fab-regen'); if(!fab||!dock) return;
   fabDockSide = dock.side;
-  var w=fab.offsetWidth, h=fab.offsetHeight, m=4, gap=8;
+  var w=fab.offsetWidth, h=fab.offsetHeight, m=4;
   var fr=_fgFieldRect();
-  var left = (dock.side==='left') ? (fr.left - gap - w) : (fr.right + gap);
+  /* 更新ボタンの端をフィールド端に合わせる（メニュー最長チップと同じ端で揃う） */
+  var left = (dock.side==='left') ? fr.left : (fr.right - w);
   left = Math.max(m, Math.min(window.innerWidth  - w - m, left));
   var top = (typeof dock.top==='number') ? dock.top : (window.innerHeight - h - 24);
   top = Math.max(m, Math.min(window.innerHeight - h - m, top));
