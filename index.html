@@ -2624,6 +2624,40 @@ function cloudIconSvg(dir){
     '<path d="M7 18h10a4 4 0 0 0 .6-7.96A5.5 5.5 0 0 0 6.8 9.2 3.8 3.8 0 0 0 7 18z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/>' +
     arrow + '</svg>';
 }
+/* ===== クラウド表示の衝突回避：FAB等と重なるときだけ空いた隅へ一時退避 ===== */
+function _csOverlap(a,b){ return !(a.right<=b.left || a.left>=b.right || a.bottom<=b.top || a.top>=b.bottom); }
+function _csObstacles(){
+  var out=[], ids=['fab-regen','jump-menu','sc-orphan'];
+  ids.forEach(function(id){
+    var e=gv(id); if(!e) return;
+    var st=getComputedStyle(e);
+    if(st.display==='none' || st.visibility==='hidden') return;
+    var r=e.getBoundingClientRect();
+    if(r.width>0 && r.height>0) out.push({left:r.left-8, top:r.top-8, right:r.right+8, bottom:r.bottom+8});
+  });
+  return out;
+}
+function _positionCloudStatus(){
+  var el=gv('cloud-status'); if(!el) return;
+  var w=el.offsetWidth, h=el.offsetHeight; if(!w||!h) return;
+  var W=window.innerWidth, H=window.innerHeight, M=12;
+  /* 候補：右下（既定）→ 左下 → 右上 → 左上 */
+  var cands=[ {right:M,bottom:M}, {left:M,bottom:M}, {right:M,top:M}, {left:M,top:M} ];
+  var obs=_csObstacles(), pick=cands[0];
+  for(var i=0;i<cands.length;i++){
+    var c=cands[i];
+    var left=('left' in c)? c.left : (W - w - c.right);
+    var top =('top'  in c)? c.top  : (H - h - c.bottom);
+    var rect={left:left, top:top, right:left+w, bottom:top+h};
+    var hit=false;
+    for(var j=0;j<obs.length;j++){ if(_csOverlap(rect, obs[j])){ hit=true; break; } }
+    if(!hit){ pick=c; break; }     /* ぶつからない最初の候補に決定（全滅なら既定の右下） */
+  }
+  el.style.left   = ('left'  in pick)? pick.left  +'px' : 'auto';
+  el.style.right  = ('right' in pick)? pick.right +'px' : 'auto';
+  el.style.top    = ('top'   in pick)? pick.top   +'px' : 'auto';
+  el.style.bottom = ('bottom'in pick)? pick.bottom+'px' : 'auto';
+}
 /* msg: 表示文字 / color: 色 / icon: 'up'|'down'|undefined */
 function setCloudStatus(msg, color, icon){
   var el = gv('cloud-status');
@@ -2635,6 +2669,7 @@ function setCloudStatus(msg, color, icon){
   }
   el.style.color = color || '#888';
   el.style.opacity = msg ? '1' : '0';
+  if(msg) _positionCloudStatus();   /* 表示時に重なりを避けて配置（基本は右下のまま） */
 }
 
 /* クラウドへ保存（upsert）。デバウンスして呼ぶ */
