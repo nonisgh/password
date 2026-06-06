@@ -3745,6 +3745,10 @@ function toggleJumpAlign(){
   if(fabDockSide){
     /* 吸着中：内向き⇔外向きを切替（更新ボタンも内/外へ移動） */
     var dk=_fgLoadDock();
+    if(dk && dk.corner){   /* 四隅吸着中は隅から内側に開く向きで固定 */
+      if(typeof showCenterToast==='function') showCenterToast('隅に吸着中');
+      return;
+    }
     if(!dk){ var fb=gv('fab-regen'); dk={side:fabDockSide, out:fabDockOut, top: fb?fb.getBoundingClientRect().top:0}; }
     dk.out=!dk.out;
     try{ localStorage.setItem('pwgen_fabdock', JSON.stringify(dk)); }catch(e){}
@@ -4449,14 +4453,29 @@ function _fgFieldRect(){
 }
 function _fgLoadDock(){
   try{ var d=JSON.parse(localStorage.getItem('pwgen_fabdock')||'null');
+    if(d && d.corner && /^(t|b)(l|r)$/.test(d.corner)) return d;
     if(d && (d.side==='left'||d.side==='right')){ d.out = !!d.out; return d; } }catch(e){}
   return null;
 }
 function _fgApplyDock(dock){
   var fab=gv('fab-regen'); if(!fab||!dock) return;
-  fabDockSide = dock.side; fabDockOut = !!dock.out;
   var w=fab.offsetWidth, h=fab.offsetHeight, m=4;
+  if(dock.corner){                                   /* ===== 四隅吸着 ===== */
+    var hr=(dock.corner.charAt(1)==='r');            /* 右側か */
+    var tp=(dock.corner.charAt(0)==='t');            /* 上側か */
+    fabDockSide = hr ? 'right' : 'left';             /* メニューはその横側にアンカー */
+    fabDockOut  = false;
+    var FM=16;                                       /* 隅からの余白 */
+    var cl = hr ? (window.innerWidth - w - FM) : FM;
+    var ct = tp ? FM : (window.innerHeight - h - FM);
+    cl = Math.max(m, Math.min(window.innerWidth  - w - m, cl));
+    ct = Math.max(m, Math.min(window.innerHeight - h - m, ct));
+    fab.style.left=cl+'px'; fab.style.top=ct+'px'; fab.style.right='auto'; fab.style.bottom='auto';
+    if(typeof positionJumpMenu==='function') positionJumpMenu();
+    return;
+  }
   var fr=_fgFieldRect();
+  fabDockSide = dock.side; fabDockOut = !!dock.out;
   /* 内側：更新ボタンの端をフィールド端に合わせる（コンテンツ側）。
      外側：更新ボタンを余白側へ出し、内側の端がフィールド端に接する。 */
   var left;
@@ -4479,6 +4498,22 @@ function _fgClearDock(){
 function _fgSettleAfterDrag(){
   var fab=gv('fab-regen'); if(!fab) return;
   var r=fab.getBoundingClientRect();
+  /* まずブラウザ四隅への吸着を判定（上下×左右の両方が端に近ければ隅へ） */
+  var cx=r.left+r.width/2, cy=r.top+r.height/2;
+  var W=window.innerWidth, H=window.innerHeight, CS=96;   /* 隅の吸着帯 */
+  var nL=cx<=CS, nR=cx>=W-CS, nT=cy<=CS, nB=cy>=H-CS;
+  if((nT||nB) && (nL||nR)){
+    var corner=(nT?'t':'b')+(nL?'l':'r');
+    var cdock={corner:corner};
+    try{ localStorage.setItem('pwgen_fabdock', JSON.stringify(cdock)); }catch(e){}
+    try{ localStorage.removeItem('pwgen_fabpos'); }catch(e){}
+    _fgApplyDock(cdock);
+    if(typeof showCenterToast==='function'){
+      var jp={tl:'左上',tr:'右上',bl:'左下',br:'右下'};
+      showCenterToast(jp[corner]+'の隅に吸着');
+    }
+    return;
+  }
   var fr=_fgFieldRect();
   var cxp=r.left + r.width/2, SNAP=24;   /* 端の内側・外側ともこの幅だけが吸着帯（引力の範囲） */
   var side=null, out=false;
@@ -4595,7 +4630,7 @@ function floatGestureAttach(el, onTap){
       fab.classList.remove('resizing');
       try{ localStorage.setItem('pwgen_uiscale', String(uiScale)); }catch(_){}
       var dk=_fgLoadDock();
-      if(dk){ dk.top=fab.getBoundingClientRect().top; try{ localStorage.setItem('pwgen_fabdock', JSON.stringify(dk)); }catch(_){}; _fgApplyDock(dk); }
+      if(dk){ if(!dk.corner) dk.top=fab.getBoundingClientRect().top; try{ localStorage.setItem('pwgen_fabdock', JSON.stringify(dk)); }catch(_){}; _fgApplyDock(dk); }
       else { _fgSavePos(); }
       showCenterToast('サイズ '+Math.round(uiScale*100)+'%'); suppressClick=true;
     } else {
