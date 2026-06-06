@@ -708,21 +708,17 @@ input { -webkit-tap-highlight-color: transparent; font-family: inherit; }
         <span class="lbl">同じ文字の連続を禁止</span>
         <label class="toggle"><input type="checkbox" id="no-repeat" onchange="generate()"><span class="slider-tog"></span></label>
       </div>
-      <div class="row-toggle">
-        <span class="lbl">各種文字を最低1文字含める</span>
-        <label class="toggle"><input type="checkbox" id="min-one" checked onchange="generate()"><span class="slider-tog"></span></label>
-      </div>
       <div class="stepper-row">
-        <span class="s-label">最大連続同種文字数</span>
+        <span class="s-label">散らばり度<br><small style="color:#bbb;font-weight:400;">同じ文字を散らす傾向</small></span>
         <div class="stepper-group">
-          <button onclick="stepField('max-seq',-1)">−</button>
-          <input type="text" inputmode="numeric" class="stepper-num" id="max-seq-num" value="5"
-                 oninput="onNumInput(this,'max-seq',1,10);generate()"
-                 onblur="onNumBlur(this,'max-seq',1,10);generate()"
+          <button onclick="stepField('scatter',-1)">−</button>
+          <input type="text" inputmode="numeric" class="stepper-num" id="scatter-num" value="60"
+                 oninput="onNumInput(this,'scatter',0,100);generate()"
+                 onblur="onNumBlur(this,'scatter',0,100);generate()"
                  onkeydown="if(event.key==='Enter')this.blur()">
-          <button onclick="stepField('max-seq',1)">+</button>
+          <button onclick="stepField('scatter',1)">+</button>
         </div>
-        <input type="range" class="stepper-slider" id="max-seq" min="1" max="10" value="5" step="1" oninput="onSliderInput('max-seq');generate()" onchange="onSliderDone('max-seq')">
+        <input type="range" class="stepper-slider" id="scatter" min="0" max="100" value="60" step="1" oninput="onSliderInput('scatter');generate()" onchange="onSliderDone('scatter')">
       </div>
     </div>
   </div>
@@ -1270,7 +1266,8 @@ function buildOne(){
 
   var excludeAmbig=gv('exclude-ambig').checked;
   var sSpec=startSpec(), eSpec=endSpec();   /* {mode, custom} */
-  var noRepeat=gv('no-repeat').checked,minOne=gv('min-one').checked,maxSeq=parseInt(gv('max-seq').value,10)||5;
+  var noRepeat=gv('no-repeat').checked;
+  var scatter=parseInt(gv('scatter').value,10); if(isNaN(scatter)) scatter=60;
 
   var lower='abcdefghijklmnopqrstuvwxyz',upper='ABCDEFGHIJKLMNOPQRSTUVWXYZ',nums='0123456789';
   if(excludeAmbig){lower=lower.replace(/[ol]/g,'');upper=upper.replace(/[OI]/g,'');nums=nums.replace(/[01]/g,'');}
@@ -1396,13 +1393,6 @@ function buildOne(){
   /* ランダム埋めで作る個数 ＝ 全体目標 − 固定分（負はクランプ） */
   var cntN=Math.max(0,tN-fN), cntS=Math.max(0,tS-fS), cntU=Math.max(0,tU-fU), cntL=Math.max(0,tL-fL);
 
-  /* 各種最低1文字：全体（固定含む）にその文字種が無く、ランダム埋めに余地があれば1つ確保 */
-  if(minOne && fillTotal>0){
-    if(pctN>0&&nArr.length>0&&(fN+cntN)<1)cntN=1;
-    if(pctS>0&&symArr.length>0&&(fS+cntS)<1)cntS=1;
-    if(pctU>0&&uArr.length>0&&(fU+cntU)<1)cntU=1;
-  }
-
   /* ランダム埋め合計を fillTotal に厳密に合わせる */
   var sumC=cntN+cntS+cntU+cntL;
   while(sumC<fillTotal){ cntL++; sumC++; }            /* 余りは小文字(残り)で埋める */
@@ -1422,8 +1412,21 @@ function buildOne(){
   for(var i=0;i<cntL;i++) pool.push({c:pick(lArr),t:'lower'});
 
   shuffleInPlace(pool);
+  /* 散らばり度：隣接の「同じ文字(強)・同じ種類(弱)」が増えない入れ替えだけ採用する軽い局所探索（傾向） */
+  if(scatter>0 && pool.length>2){
+    var _n=pool.length;
+    var _pp=function(a,b){ if(!a||!b) return 0; if(a.c===b.c) return 4; if(a.t===b.t) return 1; return 0; };
+    var _lp=function(ix){ var p=0; if(ix>0)p+=_pp(pool[ix-1],pool[ix]); if(ix<_n-1)p+=_pp(pool[ix],pool[ix+1]); return p; };
+    var _iters=Math.round(_n*(scatter/100)*6);
+    for(var _t=0;_t<_iters;_t++){
+      var _i=randInt(_n), _j=randInt(_n);
+      if(_i===_j) continue;
+      var _before=_lp(_i)+_lp(_j);
+      var _tmp=pool[_i]; pool[_i]=pool[_j]; pool[_j]=_tmp;
+      if(_lp(_i)+_lp(_j) > _before){ var _t2=pool[_i]; pool[_i]=pool[_j]; pool[_j]=_t2; }  /* 悪化したら戻す */
+    }
+  }
   if(noRepeat){for(var i=1;i<pool.length;i++){if(pool[i].c===pool[i-1].c){for(var k=i+1;k<pool.length;k++){if(pool[k].c!==pool[i-1].c){var tmp=pool[i];pool[i]=pool[k];pool[k]=tmp;break;}}}}}
-  if(maxSeq<10){for(var att=0;att<80;att++){var bad=false;for(var i=0;i+maxSeq<pool.length;i++){var t0=pool[i].t,run=true;for(var k=i+1;k<=i+maxSeq;k++){if(pool[k].t!==t0){run=false;break;}}if(run){bad=true;break;}}if(!bad)break;shuffleInPlace(pool);}}
 
   /* 文字種指定のヘルパー（alpha＝大文字小文字問わずアルファベット に対応） */
   function matchMode(t, mode){ return (mode==='alpha') ? (t==='upper'||t==='lower') : (t===mode); }
@@ -2875,8 +2878,8 @@ function saveSettings(){
     maskOn:(function(){var c=gv('mask-on');return !!(c&&c.checked);})(),
     maskPattern:(function(){var p=gv('mask-pattern');return p?p.value:'';})(),
     excludeAmbig:gv('exclude-ambig').checked,
-    noRepeat:gv('no-repeat').checked,minOne:gv('min-one').checked,
-    maxSeq:gv('max-seq').value,activeSyms:Array.from(activeSyms),
+    noRepeat:gv('no-repeat').checked,
+    scatter:gv('scatter').value,activeSyms:Array.from(activeSyms),
     colorUpperOn:gv('color-upper-on').checked,colorNumOn:gv('color-num-on').checked,colorSymOn:gv('color-sym-on').checked,colorLowerOn:gv('color-lower-on').checked,
     colorUpper:currentColors.upper,colorNum:currentColors.num,colorSym:currentColors.sym,colorLower:currentColors.lower,
     sortOrder:sortOrder,
@@ -2914,14 +2917,14 @@ function loadSettings(){
   function sc(id,val){var el=gv(id);if(el)el.checked=!!val;}
   sr('len',4,128,s.len);
   sr('pct-num',0,100,s.pctNum);sr('pct-sym',0,100,s.pctSym);sr('pct-upper',0,100,s.pctUpper);
-  sr('max-seq',1,10,s.maxSeq);
+  sr('scatter',0,100,(s.scatter!==undefined?s.scatter:60));
   if(s.pwCount){var pc=gv('pw-count');if(pc)pc.value=Math.max(1,Math.min(50,parseInt(s.pwCount,10)||10));}
   applyStartEndSpec('start', s.startMode, s.startCustom);
   applyStartEndSpec('end', s.endMode, s.endCustom);
   if(gv('mask-pattern')) gv('mask-pattern').value = s.maskPattern || '';
   if(gv('mask-on')) gv('mask-on').checked = !!(s.maskOn && s.maskPattern);
   sc('exclude-ambig',s.excludeAmbig);
-  sc('no-repeat',s.noRepeat);sc('min-one',s.minOne);
+  sc('no-repeat',s.noRepeat);
   if(Array.isArray(s.activeSyms))activeSyms=new Set(s.activeSyms);
   if(s.colorUpperOn!==undefined)sc('color-upper-on',s.colorUpperOn);
   if(s.colorNumOn!==undefined)sc('color-num-on',s.colorNumOn);
@@ -3058,8 +3061,7 @@ function getCurrentSettingsObj(){
     maskPattern:  (function(){var p=gv('mask-pattern');return p?p.value:'';})(),
     excludeAmbig: gv('exclude-ambig').checked,
     noRepeat:     gv('no-repeat').checked,
-    minOne:       gv('min-one').checked,
-    maxSeq:       +gv('max-seq').value,
+    scatter:      +gv('scatter').value,
     activeSyms:   Array.from(activeSyms),
     colorUpperOn: gv('color-upper-on').checked,
     colorUpper:   currentColors.upper,
@@ -3488,7 +3490,7 @@ function applyRemoteConfig(s){
   if(s.pctNum!==undefined)   sr('pct-num',   'pct-num-num',   s.pctNum,   0,   100);
   if(s.pctSym!==undefined)   sr('pct-sym',   'pct-sym-num',   s.pctSym,   0,   100);
   if(s.pctUpper!==undefined) sr('pct-upper', 'pct-upper-num', s.pctUpper, 0,   100);
-  if(s.maxSeq!==undefined)   sr('max-seq',   'max-seq-num',   s.maxSeq,   1,   10);
+  if(s.scatter!==undefined)  sr('scatter',   'scatter-num',   s.scatter,  0,   100);
   if(typeof s.startMode!=='undefined') applyStartEndSpec('start', s.startMode, s.startCustom);
   if(typeof s.endMode!=='undefined')   applyStartEndSpec('end', s.endMode, s.endCustom);
   if(typeof s.maskPattern!=='undefined' || typeof s.maskOn!=='undefined'){
@@ -3497,7 +3499,6 @@ function applyRemoteConfig(s){
   }
   sc('exclude-ambig', s.excludeAmbig);
   sc('no-repeat',     s.noRepeat);
-  sc('min-one',       s.minOne);
   /* 色（on/off と 色値）は「色指定も反映」がONのときだけプロファイルから反映。
      OFFのときは今の文字色設定（トグル・色）を維持する */
   var applyColorsFromProfile = (function(){ var c=gv('apply-profile-colors'); return c && c.checked; })();
