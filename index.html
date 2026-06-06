@@ -250,11 +250,11 @@ input { -webkit-tap-highlight-color: transparent; font-family: inherit; }
   font-size: calc(12px * var(--ui-scale, 1));
 }
 .jump-chip{
-  background:rgba(255,255,255,0.92); border:1px solid rgba(0,0,0,0.14); color:#444;
+  background:rgba(255,255,255,0.96); border:1px solid rgba(0,0,0,0.14); color:#444;
   font-size:1em; font-weight:700; font-family:inherit; border-radius:1.2em; padding:0.42em 1em;
   cursor:pointer; white-space:nowrap; max-width:100%; overflow:hidden; text-overflow:ellipsis;
-  box-shadow:0 1px 6px rgba(0,0,0,0.14); backdrop-filter:blur(3px); -webkit-backdrop-filter:blur(3px);
-  opacity:0.97; transition:background .15s, opacity .15s, transform .1s; touch-action:none;
+  box-shadow:0 1px 6px rgba(0,0,0,0.14);
+  opacity:0.98; transition:background .15s, opacity .15s, transform .1s; touch-action:none;
 }
 .jump-chip:hover{ background:rgba(255,255,255,1); opacity:1; }
 .jump-chip:active{ transform:scale(0.96); }
@@ -268,9 +268,8 @@ input { -webkit-tap-highlight-color: transparent; font-family: inherit; }
 /* ===== ピン留めされていないがショートカットが割り当て済みの項目を出す小パネル ===== */
 #sc-orphan{
   position:fixed; z-index:59; display:none; flex-direction:column; gap:4px; align-items:stretch;
-  background:rgba(255,255,255,0.78); border:1px solid rgba(0,0,0,0.10); border-radius:10px;
+  background:rgba(255,255,255,0.92); border:1px solid rgba(0,0,0,0.10); border-radius:10px;
   padding:3px 5px 5px; box-shadow:0 2px 10px rgba(0,0,0,0.10);
-  backdrop-filter:blur(3px); -webkit-backdrop-filter:blur(3px);
   font-size: calc(10.5px * var(--ui-scale,1)); max-width:52vw;
 }
 #sc-orphan .sc-orphan-grip{
@@ -838,7 +837,7 @@ input { -webkit-tap-highlight-color: transparent; font-family: inherit; }
   </div><!-- /sections-container -->
 
 </div>
-<button class="fab-regen" id="fab-regen" title="再生成 (Space / R)・ドラッグで移動・長押しでサイズ調整">↺</button>
+<button class="fab-regen" id="fab-regen" title="再生成 (Space / R)・ドラッグで移動（フィールド左右端でドロップすると吸着）・長押しでサイズ調整">↺</button>
 <div id="jump-menu"></div>
 <div id="sc-orphan" aria-hidden="true"></div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -4059,14 +4058,16 @@ function renderJumpMenu(){
   if(typeof renderOrphanShortcuts==='function') renderOrphanShortcuts();
 }
 
-function positionJumpMenu(){
+var fabDockSide = null;   /* 'right' | 'left' | null（吸着中はメニューを端から内側へ展開する） */
+function positionJumpMenu(rectOpt){
   var fab = gv('fab-regen'), menu = gv('jump-menu');
   if(!fab || !menu) return;
   if(menu.style.display === 'none') return;
-  var r = fab.getBoundingClientRect();
+  var r = rectOpt || fab.getBoundingClientRect();
   var gap = 8;
-  /* 右揃え：更新ボタンの右端に合わせて左へ伸ばす ／ 左揃え：左端に合わせて右へ伸ばす */
-  if(jumpAlign === 'left'){
+  var eff = fabDockSide ? fabDockSide : jumpAlign;
+  /* 右：更新ボタンの右端に合わせて左へ伸ばす ／ 左：左端に合わせて右へ伸ばす */
+  if(eff === 'left'){
     menu.style.alignItems = 'flex-start';
     menu.style.left = Math.max(4, r.left) + 'px';
     menu.style.right = 'auto';
@@ -4317,6 +4318,18 @@ document.addEventListener('touchmove', function(e){ _maybeClearJumpHighlight(e.t
 var FG_LP = 500;   /* この時間(ms)動かさず押し続けたらサイズ調整モード */
 var FG_MOVE = 10;  /* この距離(px)動いたらドラッグ移動 */
 
+/* ドラッグ更新を requestAnimationFrame でまとめ、強制レイアウトを減らす（WebKitで特に軽くなる） */
+var _fgRAF=0, _fgPendL=0, _fgPendT=0, _fgW=0, _fgH=0, _fgWW=0, _fgWH=0;
+function _fgDragApply(){
+  _fgRAF=0;
+  var fab=gv('fab-regen'); if(!fab) return;
+  var L=_fgPendL, T=_fgPendT;
+  fab.style.left=L+'px'; fab.style.top=T+'px'; fab.style.right='auto'; fab.style.bottom='auto';
+  if(typeof positionJumpMenu==='function'){
+    positionJumpMenu({left:L, top:T, right:L+_fgW, bottom:T+_fgH, width:_fgW, height:_fgH});
+  }
+}
+
 function _fgClampFab(left, top){
   var fab = gv('fab-regen'); if(!fab) return;
   var w=fab.offsetWidth, h=fab.offsetHeight, m=4;
@@ -4330,7 +4343,56 @@ function _fgSavePos(){
   var r=fab.getBoundingClientRect();
   try{ localStorage.setItem('pwgen_fabpos', JSON.stringify({left:r.left, top:r.top})); }catch(e){}
 }
+
+/* ===== フィールド（.container）の左右端へ吸着（ウィンドウサイズ変更に追従） ===== */
+function _fgFieldRect(){
+  var c=document.querySelector('.container');
+  return c ? c.getBoundingClientRect() : {left:0, right:window.innerWidth};
+}
+function _fgLoadDock(){
+  try{ var d=JSON.parse(localStorage.getItem('pwgen_fabdock')||'null');
+    if(d && (d.side==='left'||d.side==='right')) return d; }catch(e){}
+  return null;
+}
+function _fgApplyDock(dock){
+  var fab=gv('fab-regen'); if(!fab||!dock) return;
+  fabDockSide = dock.side;
+  var w=fab.offsetWidth, h=fab.offsetHeight, m=4, gap=8;
+  var fr=_fgFieldRect();
+  var left = (dock.side==='left') ? (fr.left - gap - w) : (fr.right + gap);
+  left = Math.max(m, Math.min(window.innerWidth  - w - m, left));
+  var top = (typeof dock.top==='number') ? dock.top : (window.innerHeight - h - 24);
+  top = Math.max(m, Math.min(window.innerHeight - h - m, top));
+  fab.style.left=left+'px'; fab.style.top=top+'px'; fab.style.right='auto'; fab.style.bottom='auto';
+  if(typeof positionJumpMenu==='function') positionJumpMenu();
+}
+function _fgClearDock(){
+  fabDockSide = null;
+  try{ localStorage.removeItem('pwgen_fabdock'); }catch(e){}
+}
+/* ドロップ時：フィールド端付近なら吸着、それ以外はフリー位置で保存 */
+function _fgSettleAfterDrag(){
+  var fab=gv('fab-regen'); if(!fab) return;
+  var r=fab.getBoundingClientRect();
+  var fr=_fgFieldRect();
+  var cxp=r.left + r.width/2, SNAP=64;
+  var side=null;
+  if(cxp > fr.right - SNAP) side='right';
+  else if(cxp < fr.left + SNAP) side='left';
+  if(side){
+    var dock={side:side, top:r.top};
+    try{ localStorage.setItem('pwgen_fabdock', JSON.stringify(dock)); }catch(e){}
+    try{ localStorage.removeItem('pwgen_fabpos'); }catch(e){}
+    _fgApplyDock(dock);
+    if(typeof showCenterToast==='function') showCenterToast(side==='right' ? '右脇に吸着' : '左脇に吸着');
+  } else {
+    _fgClearDock();
+    _fgSavePos();
+  }
+}
 function _fgRestorePos(){
+  var dock=_fgLoadDock();
+  if(dock){ _fgApplyDock(dock); return; }
   try{
     var p=JSON.parse(localStorage.getItem('pwgen_fabpos')||'null');
     if(p && typeof p.left==='number' && typeof p.top==='number'){
@@ -4358,6 +4420,9 @@ function floatGestureAttach(el, onTap){
   function enterDrag(){
     mode='drag'; clearTimeout(lpTimer);
     fab.classList.add('dragging');
+    _fgW=fab.offsetWidth; _fgH=fab.offsetHeight;       /* 1回だけ寸法を取得（毎フレームのレイアウト読みを避ける） */
+    _fgWW=window.innerWidth; _fgWH=window.innerHeight;
+    fabDockSide=null;                                   /* ドラッグ中はメニューを自由方向に追従 */
   }
 
   el.addEventListener('pointerdown', function(e){
@@ -4388,7 +4453,11 @@ function floatGestureAttach(el, onTap){
     }
     if(mode==='drag'){
       e.preventDefault();
-      _fgClampFab(fabStartLeft+(e.clientX-sx), fabStartTop+(e.clientY-sy));
+      var m=4;
+      var L=fabStartLeft+(e.clientX-sx), T=fabStartTop+(e.clientY-sy);
+      _fgPendL=Math.max(m, Math.min(_fgWW - _fgW - m, L));
+      _fgPendT=Math.max(m, Math.min(_fgWH - _fgH - m, T));
+      if(!_fgRAF) _fgRAF=requestAnimationFrame(_fgDragApply);
     } else if(mode==='scale'){
       e.preventDefault();
       var f=scaleStart+(scaleAnchorY-e.clientY)*0.01;
@@ -4409,11 +4478,19 @@ function floatGestureAttach(el, onTap){
     clearTimeout(lpTimer);
     try{ el.releasePointerCapture(e.pointerId); }catch(_){}
     if(mode==='drag'){
-      fab.classList.remove('dragging'); _fgSavePos(); suppressClick=true;
+      if(_fgRAF){ cancelAnimationFrame(_fgRAF); _fgRAF=0; }
+      var fab2=gv('fab-regen');
+      if(fab2){ fab2.style.left=_fgPendL+'px'; fab2.style.top=_fgPendT+'px'; }   /* 最終位置を確定 */
+      fab.classList.remove('dragging');
+      _fgSettleAfterDrag();                /* フィールド端なら吸着、それ以外はフリー保存 */
+      suppressClick=true;
     } else if(mode==='scale'){
       fab.classList.remove('resizing');
       try{ localStorage.setItem('pwgen_uiscale', String(uiScale)); }catch(_){}
-      _fgSavePos(); showCenterToast('サイズ '+Math.round(uiScale*100)+'%'); suppressClick=true;
+      var dk=_fgLoadDock();
+      if(dk){ dk.top=fab.getBoundingClientRect().top; try{ localStorage.setItem('pwgen_fabdock', JSON.stringify(dk)); }catch(_){}; _fgApplyDock(dk); }
+      else { _fgSavePos(); }
+      showCenterToast('サイズ '+Math.round(uiScale*100)+'%'); suppressClick=true;
     } else {
       if(typeof onTap==='function') onTap();              /* きれいなタップ */
     }
@@ -4423,6 +4500,7 @@ function floatGestureAttach(el, onTap){
   el.addEventListener('pointercancel', function(e){
     active=false; pid=null;
     clearTimeout(lpTimer);
+    if(_fgRAF){ cancelAnimationFrame(_fgRAF); _fgRAF=0; }
     fab.classList.remove('dragging'); fab.classList.remove('resizing');
     try{ el.releasePointerCapture(e.pointerId); }catch(_){}
     mode='';
@@ -4437,7 +4515,9 @@ function initFloatGestures(){
   var fab=gv('fab-regen'); if(!fab) return;
   floatGestureAttach(fab, function(){ generate(); });
   window.addEventListener('resize', function(){
-    if(fab.style.left){ var r=fab.getBoundingClientRect(); _fgClampFab(r.left, r.top); }
+    var dock=_fgLoadDock();
+    if(dock){ _fgApplyDock(dock); }                     /* 吸着中はフィールド端に貼り付き続ける */
+    else if(fab.style.left){ var r=fab.getBoundingClientRect(); _fgClampFab(r.left, r.top); }
   });
   _fgRestorePos();
 }
