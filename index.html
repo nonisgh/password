@@ -2671,6 +2671,11 @@ function setCloudStatus(msg, color, icon){
   el.style.opacity = msg ? '1' : '0';
   if(msg) _positionCloudStatus();   /* 表示時に重なりを避けて配置（基本は右下のまま） */
 }
+/* 表示中のときだけ、その場で重なりを再判定して逃がす（ドラッグ追従用） */
+function _cloudReflowIfVisible(){
+  var el=gv('cloud-status');
+  if(el && el.style.opacity==='1') _positionCloudStatus();
+}
 
 /* クラウドへ保存（upsert）。デバウンスして呼ぶ */
 var lastAppliedAt = 0;            /* 最後にリモート変更を適用した時刻 */
@@ -3988,6 +3993,7 @@ function _initOrphanGripDrag(grip, box){
     if(mode==='drag'){
       var L=bl+dx, T=bt+dy, w=box.offsetWidth, h=box.offsetHeight;
       _orphanApply(box, _orphanDock(L, T, w, h));   /* 辺の近くは吸着プレビュー */
+      if(typeof _cloudReflowIfVisible==='function') _cloudReflowIfVisible();
     } else if(mode==='scale'){
       var f=scaleStart+(anchorY-e.clientY)*0.01;
       if(Math.abs(f-1)<0.04) f=1;                    /* 100%付近でスナップ */
@@ -4465,6 +4471,7 @@ function _fgDragApply(){
   if(typeof positionJumpMenu==='function'){
     positionJumpMenu({left:L, top:T, right:L+_fgW, bottom:T+_fgH, width:_fgW, height:_fgH});
   }
+  if(typeof _cloudReflowIfVisible==='function') _cloudReflowIfVisible();
 }
 
 function _fgClampFab(left, top){
