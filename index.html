@@ -214,7 +214,13 @@ input { -webkit-tap-highlight-color: transparent; font-family: inherit; }
 #ratio-section.ratio-locked .section-body button {
   pointer-events: none; opacity: 0.35;
 }
-/* 割合フッター：5%・ロックをフィールド内に配置 */
+/* 散らばり度：文字種ごとのミニ行 */
+.scatter-types { display:flex; flex-direction:column; gap:3px; margin-top:2px; padding-left:2px; }
+.scat-row { display:flex; align-items:center; gap:8px; }
+.scat-lbl { width:42px; font-size:11px; font-weight:700; flex-shrink:0; }
+.scat-row input[type=range] { flex:1; height:3px; }
+.scat-val { width:14px; text-align:right; font-size:11px; color:#999; flex-shrink:0; }
+#scat-all-num[readonly] { background:#f7f7f5; }
 .ratio-foot { display:flex; align-items:center; gap:12px; margin-top:4px; }
 .ratio-foot .pct-total { flex:1; margin:0; }
 .ratio-ctl { display:flex; align-items:center; gap:4px; cursor:pointer; padding:0 2px; line-height:1; white-space:nowrap; }
@@ -709,16 +715,19 @@ input { -webkit-tap-highlight-color: transparent; font-family: inherit; }
         <label class="toggle"><input type="checkbox" id="no-repeat" onchange="generate()"><span class="slider-tog"></span></label>
       </div>
       <div class="stepper-row">
-        <span class="s-label">散らばり度<br><small style="color:#bbb;font-weight:400;">同じ文字を散らす傾向</small></span>
+        <span class="s-label">散らばり度<br><small style="color:#bbb;font-weight:400;">同じ文字を散らす（0〜6）</small></span>
         <div class="stepper-group">
-          <button onclick="stepField('scatter',-1)">−</button>
-          <input type="text" inputmode="numeric" class="stepper-num" id="scatter-num" value="60"
-                 oninput="onNumInput(this,'scatter',0,100);generate()"
-                 onblur="onNumBlur(this,'scatter',0,100);generate()"
-                 onkeydown="if(event.key==='Enter')this.blur()">
-          <button onclick="stepField('scatter',1)">+</button>
+          <button onclick="stepScatterAll(-1)">−</button>
+          <input type="text" inputmode="numeric" class="stepper-num" id="scat-all-num" value="3" readonly>
+          <button onclick="stepScatterAll(1)">+</button>
         </div>
-        <input type="range" class="stepper-slider" id="scatter" min="0" max="100" value="60" step="1" oninput="onSliderInput('scatter');generate()" onchange="onSliderDone('scatter')">
+        <input type="range" class="stepper-slider" id="scat-all" min="0" max="6" value="3" step="1" oninput="onScatterAll()" title="全体をまとめて設定">
+      </div>
+      <div class="scatter-types">
+        <div class="scat-row"><span class="scat-lbl c-num">数字</span><input type="range" id="scat-num" min="0" max="6" value="3" step="1" oninput="onScatterType()"><span class="scat-val" id="scat-num-v">3</span></div>
+        <div class="scat-row"><span class="scat-lbl c-sym">記号</span><input type="range" id="scat-sym" min="0" max="6" value="3" step="1" oninput="onScatterType()"><span class="scat-val" id="scat-sym-v">3</span></div>
+        <div class="scat-row"><span class="scat-lbl c-upper">大文字</span><input type="range" id="scat-upper" min="0" max="6" value="3" step="1" oninput="onScatterType()"><span class="scat-val" id="scat-upper-v">3</span></div>
+        <div class="scat-row"><span class="scat-lbl c-lower">小文字</span><input type="range" id="scat-lower" min="0" max="6" value="3" step="1" oninput="onScatterType()"><span class="scat-val" id="scat-lower-v">3</span></div>
       </div>
       <div class="row-toggle">
         <span class="lbl">倍率をクラウドにも保存 <small>（端末間で共有）</small></span>
@@ -1008,6 +1017,7 @@ function applyColors(){
     css+='.rec-detail .c-'+t+'{color:'+(on?col:'#1a1a1a')+'}\n';
     /* 「次の文字から始める／終わる」の指定ラベル【1】【#】【A】【a】：常に指定色で表示 */
     css+='.startend-block .c-'+t+'{color:'+col+'}\n';
+    css+='.scat-lbl.c-'+t+'{color:'+col+'}\n';
     var dot=gv('leg-'+t+'-dot'),leg=gv('leg-'+t);
     if(dot) dot.style.background=on?col:'#ccc';
     if(leg) leg.style.opacity=on?'1':'0.35';
@@ -1271,7 +1281,7 @@ function buildOne(){
   var excludeAmbig=gv('exclude-ambig').checked;
   var sSpec=startSpec(), eSpec=endSpec();   /* {mode, custom} */
   var noRepeat=gv('no-repeat').checked;
-  var scatter=parseInt(gv('scatter').value,10); if(isNaN(scatter)) scatter=60;
+  var scatLv={num:scatVal('scat-num'),sym:scatVal('scat-sym'),upper:scatVal('scat-upper'),lower:scatVal('scat-lower')};
 
   var lower='abcdefghijklmnopqrstuvwxyz',upper='ABCDEFGHIJKLMNOPQRSTUVWXYZ',nums='0123456789';
   if(excludeAmbig){lower=lower.replace(/[ol]/g,'');upper=upper.replace(/[OI]/g,'');nums=nums.replace(/[01]/g,'');}
@@ -1416,20 +1426,7 @@ function buildOne(){
   for(var i=0;i<cntL;i++) pool.push({c:pick(lArr),t:'lower'});
 
   shuffleInPlace(pool);
-  /* 散らばり度：隣接の「同じ文字(強)・同じ種類(弱)」が増えない入れ替えだけ採用する軽い局所探索（傾向） */
-  if(scatter>0 && pool.length>2){
-    var _n=pool.length;
-    var _pp=function(a,b){ if(!a||!b) return 0; if(a.c===b.c) return 4; if(a.t===b.t) return 1; return 0; };
-    var _lp=function(ix){ var p=0; if(ix>0)p+=_pp(pool[ix-1],pool[ix]); if(ix<_n-1)p+=_pp(pool[ix],pool[ix+1]); return p; };
-    var _iters=Math.round(_n*(scatter/100)*6);
-    for(var _t=0;_t<_iters;_t++){
-      var _i=randInt(_n), _j=randInt(_n);
-      if(_i===_j) continue;
-      var _before=_lp(_i)+_lp(_j);
-      var _tmp=pool[_i]; pool[_i]=pool[_j]; pool[_j]=_tmp;
-      if(_lp(_i)+_lp(_j) > _before){ var _t2=pool[_i]; pool[_i]=pool[_j]; pool[_j]=_t2; }  /* 悪化したら戻す */
-    }
-  }
+  scatterReorder(pool, scatLv);   /* 文字種ごとの散らばり度（0〜6）で配置を散らす */
   if(noRepeat){for(var i=1;i<pool.length;i++){if(pool[i].c===pool[i-1].c){for(var k=i+1;k<pool.length;k++){if(pool[k].c!==pool[i-1].c){var tmp=pool[i];pool[i]=pool[k];pool[k]=tmp;break;}}}}}
 
   /* 文字種指定のヘルパー（alpha＝大文字小文字問わずアルファベット に対応） */
@@ -1670,6 +1667,77 @@ function condToHtml(c){
 function renderCondSummary(){
   var el = gv('cond-summary'); if(!el) return;
   el.innerHTML = condToHtml(getCondObj());
+}
+
+/* ===== 散らばり度（文字種ごと 0〜6） ===== */
+function scatVal(id){ var e=gv(id); var v=e?parseInt(e.value,10):0; return isNaN(v)?0:Math.max(0,Math.min(6,v)); }
+function _scatLevelFrom(v){ v=parseInt(v,10); if(isNaN(v)) return 3; if(v>6) return Math.round(v/100*6); return Math.max(0,Math.min(6,v)); }
+function _syncScatterMaster(){
+  var v=[scatVal('scat-num'),scatVal('scat-sym'),scatVal('scat-upper'),scatVal('scat-lower')];
+  var allEq=v.every(function(x){return x===v[0];});
+  var sl=gv('scat-all'), nm=gv('scat-all-num');
+  if(sl) sl.value=Math.max.apply(null,v);
+  if(nm) nm.value=allEq ? String(v[0]) : '–';
+}
+function refreshScatterUI(){
+  ['num','sym','upper','lower'].forEach(function(t){
+    var sl=gv('scat-'+t), vv=gv('scat-'+t+'-v'); if(sl&&vv) vv.textContent=scatVal('scat-'+t);
+  });
+  _syncScatterMaster();
+}
+function setScatterValues(src){
+  var obj;
+  if(src && typeof src==='object'){ obj={num:_scatLevelFrom(src.num),sym:_scatLevelFrom(src.sym),upper:_scatLevelFrom(src.upper),lower:_scatLevelFrom(src.lower)}; }
+  else if(typeof src!=='undefined' && src!==null){ var L=_scatLevelFrom(src); obj={num:L,sym:L,upper:L,lower:L}; }
+  else { obj={num:3,sym:3,upper:3,lower:3}; }
+  ['num','sym','upper','lower'].forEach(function(t){ var sl=gv('scat-'+t); if(sl) sl.value=obj[t]; });
+  refreshScatterUI();
+}
+function getScatterObj(){ return {num:scatVal('scat-num'),sym:scatVal('scat-sym'),upper:scatVal('scat-upper'),lower:scatVal('scat-lower')}; }
+function onScatterAll(){
+  var v=scatVal('scat-all');
+  ['num','sym','upper','lower'].forEach(function(t){ var sl=gv('scat-'+t); if(sl) sl.value=v; });
+  refreshScatterUI();
+  generate(); saveSettings();
+}
+function stepScatterAll(d){
+  var sl=gv('scat-all'); var v=Math.max(0,Math.min(6,(parseInt(sl.value,10)||0)+d)); sl.value=v; onScatterAll();
+}
+function onScatterType(){
+  refreshScatterUI();
+  generate(); saveSettings();
+}
+/* 配置を散らす：best-of-K シャッフル＋局所探索。文字種ごとのレベルで重み付け（レベル0はその種を散らさない） */
+function scatterReorder(pool, lvl){
+  var n=pool.length; if(n<3) return;
+  var maxL=Math.max(lvl.num||0, lvl.sym||0, lvl.upper||0, lvl.lower||0);
+  if(maxL<=0) return;
+  function w(t){ return lvl[t]||0; }
+  function penalty(arr){
+    var p=0,i;
+    for(i=1;i<n;i++){ var a=arr[i-1], b=arr[i];
+      if(a.c===b.c) p+=3*w(a.t);
+      else if(a.t===b.t) p+=w(a.t);
+    }
+    for(i=2;i<n;i++){ if(arr[i].c===arr[i-2].c) p+=w(arr[i].t); }
+    return p;
+  }
+  var candTbl=[0,3,6,10,16,26,40], iterTbl=[0,2,4,7,11,16,24];
+  var cand=candTbl[maxL], itf=iterTbl[maxL];
+  /* best-of-K：複数シャッフルから最良を採用（poolは呼び出し前に1回シャッフル済み） */
+  var best=pool.slice(), bestP=penalty(best);
+  for(var k=1;k<cand;k++){ var c=pool.slice(); shuffleInPlace(c); var pp=penalty(c); if(pp<bestP){best=c;bestP=pp;} }
+  for(var i=0;i<n;i++) pool[i]=best[i];
+  /* 局所探索：隣接ペナルティが悪化しない入れ替えだけ採用 */
+  var _pp=function(a,b){ if(!a||!b)return 0; if(a.c===b.c)return 3*w(a.t); if(a.t===b.t)return w(a.t); return 0; };
+  var _lp=function(ix){ var s=0; if(ix>0)s+=_pp(pool[ix-1],pool[ix]); if(ix<n-1)s+=_pp(pool[ix],pool[ix+1]); return s; };
+  var iters=n*itf;
+  for(var t=0;t<iters;t++){
+    var ii=randInt(n), jj=randInt(n); if(ii===jj) continue;
+    var before=_lp(ii)+_lp(jj);
+    var tmp=pool[ii]; pool[ii]=pool[jj]; pool[jj]=tmp;
+    if(_lp(ii)+_lp(jj) > before){ var t2=pool[ii]; pool[ii]=pool[jj]; pool[jj]=t2; }
+  }
 }
 
 var currentResults = [];   /* 直近に生成（または同期受信）したパスワード一覧 */
@@ -2567,7 +2635,7 @@ var myWriteSeq = 0;                 /* 自分の保存に付ける連番 */
 var lastSeenWriter = '';            /* 最後に受信した書き込み元の印 */
 
 /* 同期から除外するinput id（ファイル選択、記号テキストは別管理） */
-var SYNC_EXCLUDE_IDS = { 'config-file':1, 'sym-text-input':1 };
+var SYNC_EXCLUDE_IDS = { 'config-file':1, 'sym-text-input':1, 'scat-all':1, 'scat-all-num':1 };
 
 /* 画面上の全input要素を id をキーに機械的に集める（取りこぼし防止の要） */
 function collectAllInputs(){
@@ -2798,6 +2866,7 @@ function applyCloudData(data){
   try{
     /* 1) 全inputを一括で戻す */
     if(data.inputs){ applyAllInputs(data.inputs); }
+    if(typeof refreshScatterUI==='function') refreshScatterUI();   /* 文字種別スライダーの値表示・マスターを更新 */
     /* 1.5) 表示倍率：受信した共有値を記憶し、共有トグルONのときだけ適用 */
     if(typeof data.uiScale==='number'){
       lastCloudUiScale = data.uiScale;
@@ -2893,7 +2962,7 @@ function saveSettings(){
     maskPattern:(function(){var p=gv('mask-pattern');return p?p.value:'';})(),
     excludeAmbig:gv('exclude-ambig').checked,
     noRepeat:gv('no-repeat').checked,
-    scatter:gv('scatter').value,activeSyms:Array.from(activeSyms),
+    scatter:getScatterObj(),activeSyms:Array.from(activeSyms),
     colorUpperOn:gv('color-upper-on').checked,colorNumOn:gv('color-num-on').checked,colorSymOn:gv('color-sym-on').checked,colorLowerOn:gv('color-lower-on').checked,
     colorUpper:currentColors.upper,colorNum:currentColors.num,colorSym:currentColors.sym,colorLower:currentColors.lower,
     sortOrder:sortOrder,
@@ -2932,7 +3001,7 @@ function loadSettings(){
   function sc(id,val){var el=gv(id);if(el)el.checked=!!val;}
   sr('len',4,128,s.len);
   sr('pct-num',0,100,s.pctNum);sr('pct-sym',0,100,s.pctSym);sr('pct-upper',0,100,s.pctUpper);
-  sr('scatter',0,100,(s.scatter!==undefined?s.scatter:60));
+  setScatterValues(s.scatter);
   if(s.pwCount){var pc=gv('pw-count');if(pc)pc.value=Math.max(1,Math.min(50,parseInt(s.pwCount,10)||10));}
   applyStartEndSpec('start', s.startMode, s.startCustom);
   applyStartEndSpec('end', s.endMode, s.endCustom);
@@ -3077,7 +3146,7 @@ function getCurrentSettingsObj(){
     maskPattern:  (function(){var p=gv('mask-pattern');return p?p.value:'';})(),
     excludeAmbig: gv('exclude-ambig').checked,
     noRepeat:     gv('no-repeat').checked,
-    scatter:      +gv('scatter').value,
+    scatter:      getScatterObj(),
     activeSyms:   Array.from(activeSyms),
     colorUpperOn: gv('color-upper-on').checked,
     colorUpper:   currentColors.upper,
@@ -3513,7 +3582,7 @@ function applyRemoteConfig(s){
   if(s.pctNum!==undefined)   sr('pct-num',   'pct-num-num',   s.pctNum,   0,   100);
   if(s.pctSym!==undefined)   sr('pct-sym',   'pct-sym-num',   s.pctSym,   0,   100);
   if(s.pctUpper!==undefined) sr('pct-upper', 'pct-upper-num', s.pctUpper, 0,   100);
-  if(s.scatter!==undefined)  sr('scatter',   'scatter-num',   s.scatter,  0,   100);
+  if(s.scatter!==undefined)  setScatterValues(s.scatter);
   if(typeof s.startMode!=='undefined') applyStartEndSpec('start', s.startMode, s.startCustom);
   if(typeof s.endMode!=='undefined')   applyStartEndSpec('end', s.endMode, s.endCustom);
   if(typeof s.maskPattern!=='undefined' || typeof s.maskOn!=='undefined'){
