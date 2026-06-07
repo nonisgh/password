@@ -720,6 +720,10 @@ input { -webkit-tap-highlight-color: transparent; font-family: inherit; }
         </div>
         <input type="range" class="stepper-slider" id="scatter" min="0" max="100" value="60" step="1" oninput="onSliderInput('scatter');generate()" onchange="onSliderDone('scatter')">
       </div>
+      <div class="row-toggle">
+        <span class="lbl">倍率をクラウドにも保存 <small>（端末間で共有）</small></span>
+        <label class="toggle"><input type="checkbox" id="sync-scale" onchange="onSyncScaleToggle()"><span class="slider-tog"></span></label>
+      </div>
     </div>
   </div>
 
@@ -2609,6 +2613,10 @@ function collectAllData(){
   /* プロファイル一覧（適用はしない。一覧の共有のみ） */
   obj.profiles = profiles;
   obj.defaultProfile = currentProfileId;
+  /* 表示倍率：共有ONの端末だけ自分の倍率を発行。OFFの端末は既知の共有値を温存（消さない） */
+  var _ssc = gv('sync-scale');
+  if(_ssc && _ssc.checked) obj.uiScale = uiScale;
+  else if(typeof lastCloudUiScale === 'number') obj.uiScale = lastCloudUiScale;
   return obj;
 }
 
@@ -2790,6 +2798,12 @@ function applyCloudData(data){
   try{
     /* 1) 全inputを一括で戻す */
     if(data.inputs){ applyAllInputs(data.inputs); }
+    /* 1.5) 表示倍率：受信した共有値を記憶し、共有トグルONのときだけ適用 */
+    if(typeof data.uiScale==='number'){
+      lastCloudUiScale = data.uiScale;
+      var _ss=gv('sync-scale');
+      if(_ss && _ss.checked && typeof applyUiScale==='function') applyUiScale(data.uiScale, {silent:true});
+    }
     /* 2) 色（currentColors）と各色UI（swatch/hex）を反映 */
     if(data.colors){
       ['upper','num','sym','lower'].forEach(function(t){
@@ -2886,7 +2900,8 @@ function saveSettings(){
     ratioLock:gv('ratio-lock').checked,
     snap5:gv('ratio-snap5').checked,
     ignorePwCount:(function(){var c=gv('ignore-pwcount');return c&&c.checked;})(),
-    applyProfileColors:(function(){var c=gv('apply-profile-colors');return c&&c.checked;})()
+    applyProfileColors:(function(){var c=gv('apply-profile-colors');return c&&c.checked;})(),
+    syncScale:(function(){var c=gv('sync-scale');return !!(c&&c.checked);})()
   };
   try{localStorage.setItem(STORAGE_KEY,JSON.stringify(s));}catch(e){}
   /* プロファイルも保存 */
@@ -2925,6 +2940,7 @@ function loadSettings(){
   if(gv('mask-on')) gv('mask-on').checked = !!(s.maskOn && s.maskPattern);
   sc('exclude-ambig',s.excludeAmbig);
   sc('no-repeat',s.noRepeat);
+  sc('sync-scale', s.syncScale);
   if(Array.isArray(s.activeSyms))activeSyms=new Set(s.activeSyms);
   if(s.colorUpperOn!==undefined)sc('color-upper-on',s.colorUpperOn);
   if(s.colorNumOn!==undefined)sc('color-num-on',s.colorNumOn);
@@ -3177,6 +3193,7 @@ function showProfileToast(label){ showCenterToast(label); }
 /* ===== UIサイズ（更新ボタン＆ジャンプチップを一括スケール）。3秒長押し→上下ドラッグで無段階調整 ===== */
 var UI_SCALE_MIN = 0.6, UI_SCALE_MAX = 2.4;
 var uiScale = 1.0;
+var lastCloudUiScale = null;   /* クラウドに保存されている共有倍率（温存・適用判定用） */
 function applyUiScale(factor, opts){
   opts = opts || {};
   factor = Math.max(UI_SCALE_MIN, Math.min(UI_SCALE_MAX, factor || 1));
@@ -3193,6 +3210,12 @@ function applyUiScale(factor, opts){
   if(typeof positionJumpMenu === 'function') positionJumpMenu();
   if(!opts.noSave){ try{ localStorage.setItem('pwgen_uiscale', String(factor)); }catch(e){} }
   if(!opts.silent) showCenterToast('サイズ ' + Math.round(factor*100) + '%');
+}
+function onSyncScaleToggle(){
+  if(typeof saveSettings==='function') saveSettings();           /* この端末の好みを記憶 */
+  if(typeof scheduleCloudSave==='function') scheduleCloudSave(); /* フラグと現在倍率をクラウドへ */
+  var on = (function(){var c=gv('sync-scale');return !!(c&&c.checked);})();
+  if(typeof showCenterToast==='function') showCenterToast(on ? '倍率をクラウド共有：ON' : '倍率はこの端末のみ');
 }
 function loadUiScale(){
   var f = 1.0, raw = null;
@@ -4578,6 +4601,7 @@ function floatGestureAttach(el, onTap){
     } else if(mode==='scale'){
       fab.classList.remove('resizing');
       try{ localStorage.setItem('pwgen_uiscale', String(uiScale)); }catch(_){}
+      (function(){ var c=gv('sync-scale'); if(c&&c.checked&&typeof scheduleCloudSave==='function') scheduleCloudSave(); })();
       var dk=_fgLoadDock();
       if(dk){ if(!dk.corner) dk.top=fab.getBoundingClientRect().top; try{ localStorage.setItem('pwgen_fabdock', JSON.stringify(dk)); }catch(_){}; _fgApplyDock(dk); }
       else { _fgSavePos(); }
