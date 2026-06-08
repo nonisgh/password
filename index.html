@@ -214,7 +214,12 @@ input { -webkit-tap-highlight-color: transparent; font-family: inherit; }
 #ratio-section.ratio-locked .section-body button {
   pointer-events: none; opacity: 0.35;
 }
-/* 散らばり度：文字種ごとのミニ行 */
+/* テンプレ記号の挿入ボタン */
+.tpl-ins { display:flex; gap:5px; flex-wrap:wrap; align-items:center; margin:7px 2px 0; }
+.tpl-ins-cap { font-size:11px; color:#888; }
+.tpl-ins-btn { font-family:monospace; font-size:15px; line-height:1; min-width:30px; padding:6px 9px; border:1px solid #ccc; border-radius:7px; background:#f7f7f5; color:#333; cursor:pointer; }
+.tpl-ins-btn:active { background:#e9e9e4; }
+.tpl-ins-note { font-size:10px; color:#ccc; }
 .scatter-types { display:flex; flex-direction:column; gap:3px; margin-top:2px; padding-left:2px; }
 .scat-row { display:flex; align-items:center; gap:8px; }
 .scat-lbl { width:42px; font-size:11px; font-weight:700; flex-shrink:0; }
@@ -577,6 +582,16 @@ input { -webkit-tap-highlight-color: transparent; font-family: inherit; }
           <label class="se-opt"><input type="checkbox" id="mask-on" onchange="onMaskToggle()">使う</label>
           <input type="text" id="mask-pattern" placeholder="例: ＊Brr23＊ / Aa＊【#】99 / 【〜A＋1〜】＊" oninput="onMaskInput()" style="flex:1;min-width:150px;padding:3px 6px;font-size:13px;border:1px solid #ddd;border-radius:6px;">
         </div>
+        <div class="tpl-ins">
+          <span class="tpl-ins-cap">記号を挿入</span>
+          <button type="button" class="tpl-ins-btn" onmousedown="event.preventDefault()" onclick="tplInsert('【')">【</button>
+          <button type="button" class="tpl-ins-btn" onmousedown="event.preventDefault()" onclick="tplInsert('】')">】</button>
+          <button type="button" class="tpl-ins-btn" onmousedown="event.preventDefault()" onclick="tplInsert('〜')">〜</button>
+          <button type="button" class="tpl-ins-btn" onmousedown="event.preventDefault()" onclick="tplInsert('＋')">＋</button>
+          <button type="button" class="tpl-ins-btn" onmousedown="event.preventDefault()" onclick="tplInsert('（')">（</button>
+          <button type="button" class="tpl-ins-btn" onmousedown="event.preventDefault()" onclick="tplInsert('）')">）</button>
+          <span class="tpl-ins-note">直前に触れた入力欄へ</span>
+        </div>
         <div style="font-size:11px;color:#999;line-height:1.7;margin:7px 2px 0;">
           パスワード全体の並びを1行で指定します。記号の意味：
           <div style="margin:4px 0 0 2px;">
@@ -585,6 +600,7 @@ input { -webkit-tap-highlight-color: transparent; font-family: inherit; }
             <div><b style="color:#bbb;">【 】</b>＝ 中は種類トークン → その種類のランダム1文字（<span class="c-num" style="font-weight:700;">数字</span>→数字 / <span class="c-upper" style="font-weight:700;">A</span>→大文字 / <span class="c-lower" style="font-weight:700;">a</span>→小文字 / <span class="c-sym" style="font-weight:700;">記号</span>→記号）。</div>
             <div><b style="color:#a86fc0;">〜</b>（全角・【】内）＝ ペアで囲んだ範囲の<b>並びをシャッフル</b>（囲みの外は位置そのまま。1個だけなら末尾までシャッフル）。</div>
             <div><b style="color:#666;">＋</b>（全角・【】内）＝ つないだ種類の<b>どちらか</b>を1文字（例 <span style="font-family:monospace;">【A＋1】</span>＝大文字か数字）。</div>
+            <div><b style="color:#bbb;">（ ）</b>（全角の丸かっこ）＝ <b>【 】と同じ</b>。〜 や ＋ も中で使えます（例 <span style="font-family:monospace;">（A＋#）</span>＝大文字か記号 / <span style="font-family:monospace;">（〜1A〜）</span>＝1とAをシャッフル）。【】が打ちにくいときの代わりにどうぞ。</div>
           </div>
           <div style="margin:5px 0 0 2px;color:#aaa;">
             例：<span style="font-family:monospace;">＊Brr23＊</span>＝前後ランダム＋中央 Brr23／<span style="font-family:monospace;">Aa＊【〜1A〜#】</span>＝先頭Aa＋ランダム＋（数字と大文字をシャッフル）＋末尾記号。<br>
@@ -1232,6 +1248,7 @@ function applyStartEndSpec(prefix, mode, custom){
    その記号を使用記号へ自動追加してボタンをオンにする */
 function autoEnableSymsFromText(str){
   if(!str) return false;
+  str = str.replace(/（/g,'【').replace(/）/g,'】');   /* 全角丸かっこは【】と同じ扱い */
   var changed=false, inBr=false;
   for(var i=0;i<str.length;i++){
     var ch=str[i];
@@ -1268,6 +1285,32 @@ function onEndCustomInput(){
   if(!v){ if(on) on.checked=false; }
   else { setExclusive('end','custom'); if(on) on.checked=true; autoEnableSymsFromText(v); }
   saveSettings(); generate();
+}
+/* ===== テンプレ記号の挿入（直前に触れた入力欄のカーソル位置へ） ===== */
+var TPL_FIELDS = ['start-custom','end-custom','mask-pattern'];
+var _tplActive = 'mask-pattern', _tplSel = null;
+function _initTplInsert(){
+  TPL_FIELDS.forEach(function(id){
+    var e=gv(id); if(!e) return;
+    var rec=function(){ _tplActive=id; if(typeof e.selectionStart==='number') _tplSel={id:id,start:e.selectionStart,end:e.selectionEnd}; };
+    e.addEventListener('focus', function(){ _tplActive=id; });
+    e.addEventListener('keyup', rec);
+    e.addEventListener('click', rec);
+    e.addEventListener('blur', rec);
+  });
+}
+function tplInsert(s){
+  var el = gv(_tplActive) || gv('mask-pattern'); if(!el) return;
+  var st, en;
+  if(document.activeElement===el && typeof el.selectionStart==='number'){ st=el.selectionStart; en=el.selectionEnd; }
+  else if(_tplSel && _tplSel.id===_tplActive){ st=_tplSel.start; en=_tplSel.end; }
+  if(typeof st!=='number'){ st=en=el.value.length; }
+  el.value = el.value.slice(0,st) + s + el.value.slice(en);
+  var pos = st + s.length;
+  el.focus();
+  try{ el.setSelectionRange(pos,pos); }catch(e){}
+  _tplActive = el.id; _tplSel = {id:el.id, start:pos, end:pos};
+  el.dispatchEvent(new Event('input', {bubbles:true}));   /* oninput（再生成・記号反映）を発火 */
 }
 
 /* ===== 全体パターン（マスク）：＊(全角)＝ランダム埋め / 【】＝種類ランダム / 他＝リテラル ===== */
@@ -1355,6 +1398,7 @@ function buildOne(){
   }
   function expandSpec(str){
     if(!str) return '';
+    str = str.replace(/（/g,'【').replace(/）/g,'】');   /* 全角丸かっこ＝【】 */
     var out='', i=0;
     while(i<str.length){
       var ch=str[i];
@@ -1379,7 +1423,7 @@ function buildOne(){
   /* template: {kind:'fixed',c,t} または {kind:'fill'} の配列 */
   var template=[];
   if(mSpec.on){
-    var p=mSpec.pattern, i=0;
+    var p=String(mSpec.pattern).replace(/（/g,'【').replace(/）/g,'】'), i=0;   /* 全角丸かっこ＝【】 */
     while(i<p.length){
       var ch=p[i];
       if(ch==='【'){
@@ -1733,32 +1777,39 @@ function onScatterType(){
   refreshScatterUI();
   generate(); saveSettings();
 }
-/* 配置の最適化：cost を最小化（+で散らす＝隣接を加点して避ける／−で固める＝隣接を減点して寄せる）。
-   レベルの大きさに比例した「採用する改善手の本数（予算）」で“少しずつ”効かせる。距離2も見て階調を出す。 */
+/* 配置：0＝完全ランダム。±とも端へ行くほど“作為的”に。
+   方式＝いったん完全整列させ、レベルに応じて整列をどれだけ残すか（残りはランダムに崩す＝割合ブレンド）。 */
 function scatterReorder(pool, lvl){
   var n=pool.length; if(n<3) return;
   var SCALE_MAX=3;
   var maxA=Math.max(Math.abs(lvl.num||0),Math.abs(lvl.sym||0),Math.abs(lvl.upper||0),Math.abs(lvl.lower||0));
-  if(maxA<=0) return;                  /* 全部0＝ランダムのまま */
-  function sw(t){ return lvl[t]||0; }  /* 符号付き重み */
+  if(maxA<=0) return;                  /* 0＝完全ランダム（生成直後のシャッフルのまま手を加えない） */
+  function sw(t){ return lvl[t]||0; }  /* 符号付き：+で散らす / −で固める */
   var _c1=function(a,b){ if(!a||!b)return 0; if(a.c===b.c)return 3*sw(a.t); if(a.t===b.t)return sw(a.t); return 0; };
   var _c2=function(a,b){ if(!a||!b)return 0; if(a.c===b.c)return 1*sw(a.t); if(a.t===b.t)return 0.4*sw(a.t); return 0; };
-  var _lc=function(ix){ var s=0;
-    if(ix>0)s+=_c1(pool[ix-1],pool[ix]); if(ix<n-1)s+=_c1(pool[ix],pool[ix+1]);
-    if(ix>1)s+=_c2(pool[ix-2],pool[ix]); if(ix<n-2)s+=_c2(pool[ix],pool[ix+2]);
+  /* 1) いったん“完全に整列”した配置 S を作る（cost最小化を強めに回す） */
+  var S=pool.slice(); shuffleInPlace(S);
+  var _lc=function(arr,ix){ var s=0;
+    if(ix>0)s+=_c1(arr[ix-1],arr[ix]); if(ix<n-1)s+=_c1(arr[ix],arr[ix+1]);
+    if(ix>1)s+=_c2(arr[ix-2],arr[ix]); if(ix<n-2)s+=_c2(arr[ix],arr[ix+2]);
     return s; };
-  var anyNeg=(lvl.num<0||lvl.sym<0||lvl.upper<0||lvl.lower<0);
-  var K = anyNeg ? 2.0 : 1.3;          /* 固める側は到達点が遠いので予算多め */
-  var budget=Math.round((n/16) * maxA * K);
-  var capIter=n*60, done=0;
-  for(var t=0;t<capIter && done<budget;t++){
+  var iters=n*40;
+  for(var t=0;t<iters;t++){
     var ii=randInt(n), jj=randInt(n); if(ii===jj) continue;
-    if(sw(pool[ii].t)===0 && sw(pool[jj].t)===0) continue;   /* レベル0の種だけの入れ替えは無視 */
-    var before=_lc(ii)+_lc(jj);
-    var tmp=pool[ii]; pool[ii]=pool[jj]; pool[jj]=tmp;
-    if((_lc(ii)+_lc(jj))-before < 0){ done++; }              /* 改善（コスト減）：採用して予算消費 */
-    else { var t2=pool[ii]; pool[ii]=pool[jj]; pool[jj]=t2; }/* それ以外：戻す */
+    var before=_lc(S,ii)+_lc(S,jj);
+    var tmp=S[ii]; S[ii]=S[jj]; S[jj]=tmp;
+    if((_lc(S,ii)+_lc(S,jj))-before > 0){ var t2=S[ii]; S[ii]=S[jj]; S[jj]=t2; }   /* 悪化なら戻す */
   }
+  /* 2) 割合ブレンド：frac だけ整列を残し、残りの位置はランダムに入れ替えて崩す */
+  var frac=Math.min(1, maxA/SCALE_MAX);            /* 1=完全整列 / 小さいほどランダム寄り */
+  var scramble=Math.round((1-frac)*n);
+  if(scramble>=2){
+    var idx=[]; for(var i=0;i<n;i++) idx.push(i); shuffleInPlace(idx);
+    var chosen=idx.slice(0,scramble);
+    var vals=chosen.map(function(i){return S[i];}); shuffleInPlace(vals);
+    for(var k=0;k<chosen.length;k++) S[chosen[k]]=vals[k];
+  }
+  for(var i=0;i<n;i++) pool[i]=S[i];
 }
 
 var currentResults = [];   /* 直近に生成（または同期受信）したパスワード一覧 */
@@ -4790,6 +4841,7 @@ loadJumpShortcuts();
 positionJumpMenu();
 loadUiScale();
 loadPageZoom();
+_initTplInsert();
 
 var _gen=generate;
 generate=function(){
