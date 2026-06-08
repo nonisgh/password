@@ -441,6 +441,11 @@ input { -webkit-tap-highlight-color: transparent; font-family: inherit; }
 
   .profile-btn.btn { font-size: 15px !important; padding: 0 16px !important; height: 40px !important; }
   #profile-btns { gap: 8px !important; }
+
+  /* ストック・履歴：スマホでは文字を大きく */
+  .memo-text { font-size: 16px; line-height: 1.4; }
+  .rec-detail { font-size: 13.5px; line-height: 1.7; }
+  .memo-del { font-size: 22px; padding: 4px 8px; }
 }
 @media (max-width: 375px) {
   .pw-text { font-size: 13px; }
@@ -758,7 +763,7 @@ input { -webkit-tap-highlight-color: transparent; font-family: inherit; }
         <div class="scat-row"><span class="scat-lbl c-lower">小文字</span><input type="range" id="scat-lower" min="-3" max="3" value="0" step="1" list="scat-ticks" oninput="onScatterType()"><span class="scat-val" id="scat-lower-v">0</span></div>
       </div>
       <div class="stepper-row">
-        <span class="s-label">ページ表示倍率<br><small style="color:#bbb;font-weight:400;">画面全体の拡大（端末ごと/共有可）</small></span>
+        <span class="s-label">ページ表示倍率<br><small style="color:#bbb;font-weight:400;">画面全体の拡大（スマホ/PC別に保存）</small></span>
         <div class="stepper-group">
           <button onclick="stepPageZoom(-1)">−</button>
           <input type="text" class="stepper-num" id="page-zoom-val" value="100%" readonly style="width:48px;">
@@ -767,7 +772,7 @@ input { -webkit-tap-highlight-color: transparent; font-family: inherit; }
         <button class="btn" onclick="resetPageZoom()" style="white-space:nowrap;padding:4px 10px;font-size:12px;">100%</button>
       </div>
       <div class="row-toggle">
-        <span class="lbl">倍率をクラウドにも保存 <small>（端末間で共有）</small></span>
+        <span class="lbl">倍率をクラウドにも保存 <small>（スマホ/PC別に共有）</small></span>
         <label class="toggle"><input type="checkbox" id="sync-scale" onchange="onSyncScaleToggle()"><span class="slider-tog"></span></label>
       </div>
     </div>
@@ -2770,10 +2775,11 @@ function collectAllData(){
   /* プロファイル一覧（適用はしない。一覧の共有のみ） */
   obj.profiles = profiles;
   obj.defaultProfile = currentProfileId;
-  /* ページ表示倍率：共有ONの端末だけ自分の倍率を発行。OFFの端末は既知の共有値を温存（消さない） */
+  /* ページ表示倍率：スマホ/PC別に保持。共有ONの端末は自分のタイプだけ更新、他タイプは温存 */
   var _ssc = gv('sync-scale');
-  if(_ssc && _ssc.checked) obj.pageZoom = pageZoom;
-  else if(typeof lastCloudPageZoom === 'number') obj.pageZoom = lastCloudPageZoom;
+  var _pz = { mobile: cloudPageZoom.mobile, pc: cloudPageZoom.pc };
+  if(_ssc && _ssc.checked) _pz[pzKey()] = pageZoom;
+  if(_pz.mobile!=null || _pz.pc!=null) obj.pageZoomByDevice = _pz;
   return obj;
 }
 
@@ -2956,14 +2962,22 @@ function applyCloudData(data){
     /* 1) 全inputを一括で戻す */
     if(data.inputs){ applyAllInputs(data.inputs); }
     if(typeof refreshScatterUI==='function') refreshScatterUI();   /* 文字種別スライダーの値表示・マスターを更新 */
-    /* 1.5) ページ表示倍率：受信した共有値を記憶し、共有トグルONのときだけ適用（変化時はトーストで可視化） */
-    if(typeof data.pageZoom==='number'){
-      lastCloudPageZoom = data.pageZoom;
-      var _ss=gv('sync-scale');
-      if(_ss && _ss.checked && typeof applyPageZoom==='function'){
-        var _changed = (data.pageZoom !== pageZoom);
-        applyPageZoom(data.pageZoom);
-        if(_changed && typeof showCenterToast==='function') showCenterToast('倍率をクラウドから適用 '+data.pageZoom+'%');
+    /* 1.5) ページ表示倍率：スマホ/PC別。受信値を記憶し、共有ONなら自分のタイプの値だけ適用 */
+    var _pzd = data.pageZoomByDevice;
+    if(_pzd && typeof _pzd==='object'){
+      if(typeof _pzd.mobile==='number') cloudPageZoom.mobile=_pzd.mobile;
+      if(typeof _pzd.pc==='number')     cloudPageZoom.pc=_pzd.pc;
+    } else if(typeof data.pageZoom==='number'){   /* 旧形式（端末共通）→両タイプの既知値として扱う */
+      if(cloudPageZoom.mobile==null) cloudPageZoom.mobile=data.pageZoom;
+      if(cloudPageZoom.pc==null)     cloudPageZoom.pc=data.pageZoom;
+    }
+    var _ss=gv('sync-scale');
+    if(_ss && _ss.checked && typeof applyPageZoom==='function'){
+      var _mine=cloudPageZoom[pzKey()];
+      if(typeof _mine==='number'){
+        var _changed=(_mine!==pageZoom);
+        applyPageZoom(_mine);
+        if(_changed && typeof showCenterToast==='function') showCenterToast('倍率をクラウドから適用 '+_mine+'%');
       }
     }
     /* 2) 色（currentColors）と各色UI（swatch/hex）を反映 */
@@ -3355,10 +3369,12 @@ function showProfileToast(label){ showCenterToast(label); }
 /* ===== UIサイズ（更新ボタン＆ジャンプチップを一括スケール）。3秒長押し→上下ドラッグで無段階調整 ===== */
 var UI_SCALE_MIN = 0.6, UI_SCALE_MAX = 2.4;
 var uiScale = 1.0;
-/* ===== 自前のページ表示倍率（CSS zoom）。ブラウザ倍率の代わりに .container を拡大 ===== */
+/* ===== 自前のページ表示倍率（CSS zoom）。ブラウザ倍率の代わりに .container を拡大。
+   スマホ/PCで別々に保存（端末タイプは画面幅540pxで判定） ===== */
 var PAGE_ZOOM_STEPS = [50,67,75,80,90,100,110,125,150,175,200];
 var pageZoom = 100;
-var lastCloudPageZoom = null;   /* クラウドに保存されている共有倍率（温存・適用判定用） */
+var cloudPageZoom = { mobile:null, pc:null };   /* クラウドに保存されている端末タイプ別の倍率 */
+function pzKey(){ return (window.matchMedia && window.matchMedia('(max-width:540px)').matches) ? 'mobile' : 'pc'; }
 function applyPageZoom(pct, opts){
   opts=opts||{};
   pct=parseInt(pct,10); if(isNaN(pct)) pct=100;
@@ -3367,7 +3383,7 @@ function applyPageZoom(pct, opts){
   var box=document.querySelector('.container');
   if(box) box.style.zoom = (pct/100);
   var lbl=gv('page-zoom-val'); if(lbl) lbl.value=pct+'%';
-  if(!opts.noSave){ try{ localStorage.setItem('pwgen_pagezoom', String(pct)); }catch(e){} }
+  if(!opts.noSave){ try{ localStorage.setItem('pwgen_pagezoom_'+pzKey(), String(pct)); }catch(e){} }
 }
 function _nearestZoomIdx(pct){
   var bi=0, bd=Infinity;
@@ -3378,15 +3394,18 @@ function stepPageZoom(dir){
   var idx=_nearestZoomIdx(pageZoom);
   idx=Math.max(0, Math.min(PAGE_ZOOM_STEPS.length-1, idx+dir));
   applyPageZoom(PAGE_ZOOM_STEPS[idx]);
+  cloudPageZoom[pzKey()]=pageZoom;
   var c=gv('sync-scale'); if(c&&c.checked&&typeof scheduleCloudSave==='function') scheduleCloudSave();
 }
 function resetPageZoom(){
-  applyPageZoom(100);
+  applyPageZoom(100); cloudPageZoom[pzKey()]=100;
   var c=gv('sync-scale'); if(c&&c.checked&&typeof scheduleCloudSave==='function') scheduleCloudSave();
 }
 function loadPageZoom(){
-  var v=null; try{ v=parseInt(localStorage.getItem('pwgen_pagezoom'),10); }catch(e){}
-  applyPageZoom(isNaN(v)?100:v, {noSave:true});
+  var v=null;
+  try{ v=parseInt(localStorage.getItem('pwgen_pagezoom_'+pzKey()),10); }catch(e){}
+  if(isNaN(v)){ try{ v=parseInt(localStorage.getItem('pwgen_pagezoom'),10); }catch(e){} }   /* 旧キーから移行 */
+  applyPageZoom(isNaN(v)?100:v);
 }
 function applyUiScale(factor, opts){
   opts = opts || {};
