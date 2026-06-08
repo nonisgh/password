@@ -740,6 +740,15 @@ input { -webkit-tap-highlight-color: transparent; font-family: inherit; }
         <div class="scat-row"><span class="scat-lbl c-upper">大文字</span><input type="range" id="scat-upper" min="-3" max="3" value="0" step="1" list="scat-ticks" oninput="onScatterType()"><span class="scat-val" id="scat-upper-v">0</span></div>
         <div class="scat-row"><span class="scat-lbl c-lower">小文字</span><input type="range" id="scat-lower" min="-3" max="3" value="0" step="1" list="scat-ticks" oninput="onScatterType()"><span class="scat-val" id="scat-lower-v">0</span></div>
       </div>
+      <div class="stepper-row">
+        <span class="s-label">ページ表示倍率<br><small style="color:#bbb;font-weight:400;">画面全体の拡大（端末ごと/共有可）</small></span>
+        <div class="stepper-group">
+          <button onclick="stepPageZoom(-1)">−</button>
+          <input type="text" class="stepper-num" id="page-zoom-val" value="100%" readonly style="width:48px;">
+          <button onclick="stepPageZoom(1)">+</button>
+        </div>
+        <button class="btn" onclick="resetPageZoom()" style="white-space:nowrap;padding:4px 10px;font-size:12px;">100%</button>
+      </div>
       <div class="row-toggle">
         <span class="lbl">倍率をクラウドにも保存 <small>（端末間で共有）</small></span>
         <label class="toggle"><input type="checkbox" id="sync-scale" onchange="onSyncScaleToggle()"><span class="slider-tog"></span></label>
@@ -2693,10 +2702,10 @@ function collectAllData(){
   /* プロファイル一覧（適用はしない。一覧の共有のみ） */
   obj.profiles = profiles;
   obj.defaultProfile = currentProfileId;
-  /* 表示倍率：共有ONの端末だけ自分の倍率を発行。OFFの端末は既知の共有値を温存（消さない） */
+  /* ページ表示倍率：共有ONの端末だけ自分の倍率を発行。OFFの端末は既知の共有値を温存（消さない） */
   var _ssc = gv('sync-scale');
-  if(_ssc && _ssc.checked) obj.uiScale = uiScale;
-  else if(typeof lastCloudUiScale === 'number') obj.uiScale = lastCloudUiScale;
+  if(_ssc && _ssc.checked) obj.pageZoom = pageZoom;
+  else if(typeof lastCloudPageZoom === 'number') obj.pageZoom = lastCloudPageZoom;
   return obj;
 }
 
@@ -2879,14 +2888,14 @@ function applyCloudData(data){
     /* 1) 全inputを一括で戻す */
     if(data.inputs){ applyAllInputs(data.inputs); }
     if(typeof refreshScatterUI==='function') refreshScatterUI();   /* 文字種別スライダーの値表示・マスターを更新 */
-    /* 1.5) 表示倍率：受信した共有値を記憶し、共有トグルONのときだけ適用（変化時はトーストで可視化） */
-    if(typeof data.uiScale==='number'){
-      lastCloudUiScale = data.uiScale;
+    /* 1.5) ページ表示倍率：受信した共有値を記憶し、共有トグルONのときだけ適用（変化時はトーストで可視化） */
+    if(typeof data.pageZoom==='number'){
+      lastCloudPageZoom = data.pageZoom;
       var _ss=gv('sync-scale');
-      if(_ss && _ss.checked && typeof applyUiScale==='function'){
-        var _changed = Math.abs(data.uiScale - uiScale) > 0.001;
-        applyUiScale(data.uiScale, {silent:true});
-        if(_changed && typeof showCenterToast==='function') showCenterToast('倍率をクラウドから適用 '+Math.round(data.uiScale*100)+'%');
+      if(_ss && _ss.checked && typeof applyPageZoom==='function'){
+        var _changed = (data.pageZoom !== pageZoom);
+        applyPageZoom(data.pageZoom);
+        if(_changed && typeof showCenterToast==='function') showCenterToast('倍率をクラウドから適用 '+data.pageZoom+'%');
       }
     }
     /* 2) 色（currentColors）と各色UI（swatch/hex）を反映 */
@@ -3278,7 +3287,39 @@ function showProfileToast(label){ showCenterToast(label); }
 /* ===== UIサイズ（更新ボタン＆ジャンプチップを一括スケール）。3秒長押し→上下ドラッグで無段階調整 ===== */
 var UI_SCALE_MIN = 0.6, UI_SCALE_MAX = 2.4;
 var uiScale = 1.0;
-var lastCloudUiScale = null;   /* クラウドに保存されている共有倍率（温存・適用判定用） */
+/* ===== 自前のページ表示倍率（CSS zoom）。ブラウザ倍率の代わりに .container を拡大 ===== */
+var PAGE_ZOOM_STEPS = [50,67,75,80,90,100,110,125,150,175,200];
+var pageZoom = 100;
+var lastCloudPageZoom = null;   /* クラウドに保存されている共有倍率（温存・適用判定用） */
+function applyPageZoom(pct, opts){
+  opts=opts||{};
+  pct=parseInt(pct,10); if(isNaN(pct)) pct=100;
+  pct=Math.max(50, Math.min(200, pct));
+  pageZoom=pct;
+  var box=document.querySelector('.container');
+  if(box) box.style.zoom = (pct/100);
+  var lbl=gv('page-zoom-val'); if(lbl) lbl.value=pct+'%';
+  if(!opts.noSave){ try{ localStorage.setItem('pwgen_pagezoom', String(pct)); }catch(e){} }
+}
+function _nearestZoomIdx(pct){
+  var bi=0, bd=Infinity;
+  for(var i=0;i<PAGE_ZOOM_STEPS.length;i++){ var d=Math.abs(PAGE_ZOOM_STEPS[i]-pct); if(d<bd){bd=d;bi=i;} }
+  return bi;
+}
+function stepPageZoom(dir){
+  var idx=_nearestZoomIdx(pageZoom);
+  idx=Math.max(0, Math.min(PAGE_ZOOM_STEPS.length-1, idx+dir));
+  applyPageZoom(PAGE_ZOOM_STEPS[idx]);
+  var c=gv('sync-scale'); if(c&&c.checked&&typeof scheduleCloudSave==='function') scheduleCloudSave();
+}
+function resetPageZoom(){
+  applyPageZoom(100);
+  var c=gv('sync-scale'); if(c&&c.checked&&typeof scheduleCloudSave==='function') scheduleCloudSave();
+}
+function loadPageZoom(){
+  var v=null; try{ v=parseInt(localStorage.getItem('pwgen_pagezoom'),10); }catch(e){}
+  applyPageZoom(isNaN(v)?100:v, {noSave:true});
+}
 function applyUiScale(factor, opts){
   opts = opts || {};
   factor = Math.max(UI_SCALE_MIN, Math.min(UI_SCALE_MAX, factor || 1));
@@ -4686,7 +4727,6 @@ function floatGestureAttach(el, onTap){
     } else if(mode==='scale'){
       fab.classList.remove('resizing');
       try{ localStorage.setItem('pwgen_uiscale', String(uiScale)); }catch(_){}
-      (function(){ var c=gv('sync-scale'); if(c&&c.checked&&typeof scheduleCloudSave==='function') scheduleCloudSave(); })();
       var dk=_fgLoadDock();
       if(dk){ if(!dk.corner) dk.top=fab.getBoundingClientRect().top; try{ localStorage.setItem('pwgen_fabdock', JSON.stringify(dk)); }catch(_){}; _fgApplyDock(dk); }
       else { _fgSavePos(); }
@@ -4749,6 +4789,7 @@ loadJumpAlign();
 loadJumpShortcuts();
 positionJumpMenu();
 loadUiScale();
+loadPageZoom();
 
 var _gen=generate;
 generate=function(){
