@@ -590,6 +590,7 @@ input { -webkit-tap-highlight-color: transparent; font-family: inherit; }
           <button type="button" class="tpl-ins-btn" onmousedown="event.preventDefault()" onclick="tplInsert('＋')">＋</button>
           <button type="button" class="tpl-ins-btn" onmousedown="event.preventDefault()" onclick="tplInsert('（')">（</button>
           <button type="button" class="tpl-ins-btn" onmousedown="event.preventDefault()" onclick="tplInsert('）')">）</button>
+          <button type="button" class="tpl-ins-btn" onmousedown="event.preventDefault()" onclick="tplInsert('＊')">＊</button>
           <span class="tpl-ins-note">直前に触れた入力欄へ</span>
         </div>
         <div style="font-size:11px;color:#999;line-height:1.7;margin:7px 2px 0;">
@@ -598,7 +599,7 @@ input { -webkit-tap-highlight-color: transparent; font-family: inherit; }
             <div><b style="color:#666;">＊</b>（全角）＝ <b>ランダム埋め</b>。桁数に合わせて長さを自動調整し、<b>完成形が%比率に合うよう</b>中身を配分。複数あれば残り桁を均等割り、無ければ末尾に自動で追加。</div>
             <div><b>そのままの文字</b>＝ リテラル（固定。例 <span style="font-family:monospace;">Brr23</span> はそのまま）。</div>
             <div><b style="color:#bbb;">【 】</b>＝ 中は種類トークン → その種類のランダム1文字（<span class="c-num" style="font-weight:700;">数字</span>→数字 / <span class="c-upper" style="font-weight:700;">A</span>→大文字 / <span class="c-lower" style="font-weight:700;">a</span>→小文字 / <span class="c-sym" style="font-weight:700;">記号</span>→記号）。</div>
-            <div><b style="color:#a86fc0;">〜</b>（全角・【】内）＝ ペアで囲んだ範囲の<b>並びをシャッフル</b>（囲みの外は位置そのまま。1個だけなら末尾までシャッフル）。</div>
+            <div><b style="color:#a86fc0;">〜</b>（全角）＝ ペアで囲んだ範囲の<b>並びをシャッフル</b>。<b>【】の外でも使えます</b>：外なら囲んだ<b>文字（リテラル）の順番</b>を入れ替え（例 <span style="font-family:monospace;">〜A1〜</span>→<span style="font-family:monospace;">A1</span>か<span style="font-family:monospace;">1A</span>）。【】の中なら<b>生成した文字</b>の順番を入れ替え。1個だけなら末尾までシャッフル。</div>
             <div><b style="color:#666;">＋</b>（全角・【】内）＝ つないだ種類の<b>どちらか</b>を1文字（例 <span style="font-family:monospace;">【A＋1】</span>＝大文字か数字）。</div>
             <div><b style="color:#bbb;">（ ）</b>（全角の丸かっこ）＝ <b>【 】と同じ</b>。〜 や ＋ も中で使えます（例 <span style="font-family:monospace;">（A＋#）</span>＝大文字か記号 / <span style="font-family:monospace;">（〜1A〜）</span>＝1とAをシャッフル）。【】が打ちにくいときの代わりにどうぞ。</div>
           </div>
@@ -1407,6 +1408,14 @@ function buildOne(){
         while(j<str.length && str[j]!=='】'){ content+=str[j]; j++; }
         out += expandBracketChars(content).join('');   /* 【】内＝種類トークン（必要ならシャッフル） */
         i = (j<str.length) ? j+1 : j;                  /* 】をスキップ */
+      } else if(isShufMark(ch)){
+        /* 【】の外の 〜…〜 ＝ 囲んだ中身（リテラルや【】展開後）の並びをシャッフル */
+        var j2=i+1, inner='';
+        while(j2<str.length && !isShufMark(str[j2])){ inner+=str[j2]; j2++; }
+        var ex=expandSpec(inner).split('');            /* 中身を展開（【】も効く） */
+        if(ex.length>1) shuffleInPlace(ex);
+        out += ex.join('');
+        i = (j2<str.length) ? j2+1 : j2;               /* 閉じ〜をスキップ（無ければ末尾まで） */
       } else {
         out += ch; i++;                                /* 外＝リテラル */
       }
@@ -1432,6 +1441,14 @@ function buildOne(){
         var bc=expandBracketChars(content);            /* 【】内（必要ならシャッフル） */
         for(var b=0;b<bc.length;b++){ template.push({kind:'fixed',c:bc[b],t:charType(bc[b])}); }
         i = (j<p.length) ? j+1 : j;
+      } else if(isShufMark(ch)){
+        /* 【】の外の 〜…〜 ＝ 中身を展開して並びをシャッフルし、固定文字として並べる */
+        var j3=i+1, inner='';
+        while(j3<p.length && !isShufMark(p[j3])){ inner+=p[j3]; j3++; }
+        var sc=expandSpec(inner).split('');            /* 中身展開（【】も効く / ＊はここでは無効） */
+        if(sc.length>1) shuffleInPlace(sc);
+        for(var b2=0;b2<sc.length;b2++){ template.push({kind:'fixed',c:sc[b2],t:charType(sc[b2])}); }
+        i = (j3<p.length) ? j3+1 : j3;
       } else if(ch==='＊'){
         template.push({kind:'fill'}); i++;
       } else {
