@@ -734,6 +734,10 @@ input { -webkit-tap-highlight-color: transparent; font-family: inherit; }
         <span class="lbl">各種文字を最低1文字含める</span>
         <label class="toggle"><input type="checkbox" id="min-one" checked onchange="generate()"><span class="slider-tog"></span></label>
       </div>
+      <div class="row-toggle">
+        <span class="lbl">均等に散らす（美しく配置）<br><small style="color:#888;font-weight:normal;">同じ種類が固まらず等間隔に散る（このときは「最大連続同種文字数」より優先）</small></span>
+        <label class="toggle"><input type="checkbox" id="scatter-mode" onchange="generate()"><span class="slider-tog"></span></label>
+      </div>
       <div class="stepper-row">
         <span class="s-label">最大連続同種文字数</span>
         <div class="stepper-group">
@@ -949,6 +953,29 @@ function randInt(n){
 function pick(arr){ return arr[randInt(arr.length)]; }
 /* Fisher-Yates シャッフル（CSPRNG・偏りなし） */
 function shuffleInPlace(a){ for(var i=a.length-1;i>0;i--){ var j=randInt(i+1); var t=a[i]; a[i]=a[j]; a[j]=t; } return a; }
+/* 均等散らし（美しく配置）：各文字種を全長へ等間隔で配置し、同じ種類が固まらないように散らす。
+   ・各種は間隔 1/件数 の等間隔グリッドに乗せる＝種類が偏らない／寄らない
+   ・種類ごとに毎回ランダムな「位相(phase)」でグリッドを回す＝再生成のたびに並びが変わる（CSPRNG）
+   ・半間隔未満の微ゆらぎ(jitter)で重なりを避けつつ機械的すぎない自然な散らばりにする
+   どの文字がどの位置に来るかは依然ランダム。連続を禁じるのではなく「等間隔に置く」ので美しく散る。 */
+function scatterEvenly(pool){
+  if(pool.length<=2){ shuffleInPlace(pool); return pool; }
+  var byType={};
+  for(var i=0;i<pool.length;i++){ var t=pool[i].t; (byType[t]||(byType[t]=[])).push(pool[i]); }
+  var slots=[];
+  Object.keys(byType).forEach(function(t){
+    var arr=byType[t]; shuffleInPlace(arr);                 /* どの文字がどこに来るかはランダム */
+    var c=arr.length, phase=randInt(100000)/100000;         /* 種類ごとの位相（毎回変化） */
+    for(var i=0;i<c;i++){
+      var pos=((i+phase)/c)%1;                              /* 等間隔（間隔1/c）＋位相回転 */
+      var jitter=(randInt(100000)/100000-0.5)/c*0.4;        /* 半間隔未満の微ゆらぎ＝重なり回避＆自然さ */
+      slots.push({k:pos+jitter, it:arr[i]});
+    }
+  });
+  slots.sort(function(a,b){ return a.k-b.k; });
+  var out=[]; for(var i=0;i<slots.length;i++) out.push(slots[i].it);
+  return out;
+}
 
 /* ===== STEPPER — key fix =====
    Use type="text" inputmode="numeric" so browser never blocks deletion.
@@ -1333,6 +1360,7 @@ function buildOne(){
   var excludeAmbig=gv('exclude-ambig').checked;
   var sSpec=startSpec(), eSpec=endSpec();   /* {mode, custom} */
   var noRepeat=gv('no-repeat').checked,minOne=gv('min-one').checked,maxSeq=parseInt(gv('max-seq').value,10)||5;
+  var scatterMode=(function(){var c=gv('scatter-mode');return !!(c&&c.checked);})();
 
   var lower='abcdefghijklmnopqrstuvwxyz',upper='ABCDEFGHIJKLMNOPQRSTUVWXYZ',nums='0123456789';
   if(excludeAmbig){lower=lower.replace(/[ol]/g,'');upper=upper.replace(/[OI]/g,'');nums=nums.replace(/[01]/g,'');}
@@ -1500,9 +1528,10 @@ function buildOne(){
   for(var i=0;i<cntU;i++) pool.push({c:pick(uArr),t:'upper'});
   for(var i=0;i<cntL;i++) pool.push({c:pick(lArr),t:'lower'});
 
-  shuffleInPlace(pool);
+  if(scatterMode){ pool=scatterEvenly(pool); }   /* 均等散らし：各種を等間隔に配置（種類の固まりを解消） */
+  else { shuffleInPlace(pool); }
   if(noRepeat){for(var i=1;i<pool.length;i++){if(pool[i].c===pool[i-1].c){for(var k=i+1;k<pool.length;k++){if(pool[k].c!==pool[i-1].c){var tmp=pool[i];pool[i]=pool[k];pool[k]=tmp;break;}}}}}
-  if(maxSeq<10){for(var att=0;att<80;att++){var bad=false;for(var i=0;i+maxSeq<pool.length;i++){var t0=pool[i].t,run=true;for(var k=i+1;k<=i+maxSeq;k++){if(pool[k].t!==t0){run=false;break;}}if(run){bad=true;break;}}if(!bad)break;shuffleInPlace(pool);}}
+  if(!scatterMode && maxSeq<10){for(var att=0;att<80;att++){var bad=false;for(var i=0;i+maxSeq<pool.length;i++){var t0=pool[i].t,run=true;for(var k=i+1;k<=i+maxSeq;k++){if(pool[k].t!==t0){run=false;break;}}if(run){bad=true;break;}}if(!bad)break;shuffleInPlace(pool);}}
 
   /* 文字種指定のヘルパー（alpha＝大文字小文字問わずアルファベット に対応） */
   function matchMode(t, mode){ return (mode==='alpha') ? (t==='upper'||t==='lower') : (t===mode); }
@@ -2978,7 +3007,7 @@ function saveSettings(){
     maskPattern:(function(){var p=gv('mask-pattern');return p?p.value:'';})(),
     excludeAmbig:gv('exclude-ambig').checked,
     noRepeat:gv('no-repeat').checked,
-    minOne:gv('min-one').checked,maxSeq:gv('max-seq').value,activeSyms:Array.from(activeSyms),
+    minOne:gv('min-one').checked,maxSeq:gv('max-seq').value,scatterMode:(function(){var c=gv('scatter-mode');return !!(c&&c.checked);})(),activeSyms:Array.from(activeSyms),
     colorUpperOn:gv('color-upper-on').checked,colorNumOn:gv('color-num-on').checked,colorSymOn:gv('color-sym-on').checked,colorLowerOn:gv('color-lower-on').checked,
     colorUpper:currentColors.upper,colorNum:currentColors.num,colorSym:currentColors.sym,colorLower:currentColors.lower,
     sortOrder:sortOrder,
@@ -3026,6 +3055,7 @@ function loadSettings(){
   sc('exclude-ambig',s.excludeAmbig);
   sc('no-repeat',s.noRepeat);
   sc('min-one',s.minOne);
+  sc('scatter-mode',s.scatterMode);
   sc('sync-scale', s.syncScale);
   if(Array.isArray(s.activeSyms))activeSyms=new Set(s.activeSyms);
   if(s.colorUpperOn!==undefined)sc('color-upper-on',s.colorUpperOn);
@@ -3165,6 +3195,7 @@ function getCurrentSettingsObj(){
     noRepeat:     gv('no-repeat').checked,
     minOne:       gv('min-one').checked,
     maxSeq:       +gv('max-seq').value,
+    scatterMode:  (function(){var c=gv('scatter-mode');return !!(c&&c.checked);})(),
     activeSyms:   Array.from(activeSyms),
     colorUpperOn: gv('color-upper-on').checked,
     colorUpper:   currentColors.upper,
@@ -3639,6 +3670,7 @@ function applyRemoteConfig(s){
   if(s.pctUpper!==undefined) sr('pct-upper', 'pct-upper-num', s.pctUpper, 0,   100);
   if(s.maxSeq!==undefined)   sr('max-seq',   'max-seq-num',   s.maxSeq,   1,   10);
   sc('min-one',       s.minOne);
+  sc('scatter-mode',  s.scatterMode);
   if(typeof s.startMode!=='undefined') applyStartEndSpec('start', s.startMode, s.startCustom);
   if(typeof s.endMode!=='undefined')   applyStartEndSpec('end', s.endMode, s.endCustom);
   if(typeof s.maskPattern!=='undefined' || typeof s.maskOn!=='undefined'){
