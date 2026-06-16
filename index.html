@@ -2,6 +2,27 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
+<!-- ===== 最新版を必ず表示（ブラウザ/CDNキャッシュ対策） ===== -->
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+<script>
+/* GitHub Pages はHTMLを最大10分ブラウザにキャッシュするため、更新が即反映されないことがある。
+   そこで初回表示時だけ一意なクエリ(_cb)を付けて取り直し、必ず最新HTMLを取得する。
+   ・_cb付きURLはキャッシュに無い＝必ずネットワークから最新を取得
+   ・取得後はURLバーを元の綺麗な形(?_cbなし)に戻す（再取得は起きない）
+   ・クエリ有無で分岐するのでリダイレクトループにはならない */
+(function(){
+  try{
+    if(location.search.indexOf('_cb=')===-1){
+      var sep = location.search ? '&' : '?';
+      location.replace(location.pathname + location.search + sep + '_cb=' + Date.now() + location.hash);
+    } else if(window.history && history.replaceState){
+      history.replaceState(null, '', location.pathname + location.hash);
+    }
+  }catch(e){}
+})();
+</script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>PASSWORD GENERATOR</title>
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA2NCA2NCIgd2lkdGg9IjI1NiIgaGVpZ2h0PSIyNTYiPjxyZWN0IHdpZHRoPSI2NCIgaGVpZ2h0PSI2NCIgcng9IjE0IiBmaWxsPSIjMTg1RkE1Ii8+PGcgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjZmZmZmZmIiBzdHJva2Utd2lkdGg9IjUuNSIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIj48IS0tIGtleSBib3cgKHJpbmcpIC0tPjxjaXJjbGUgY3g9IjI0IiBjeT0iMjQiIHI9IjExIi8+PCEtLSBrZXkgc2hhZnQgLS0+PGxpbmUgeDE9IjMxLjgiIHkxPSIzMS44IiB4Mj0iNDYiIHkyPSI0NiIvPjwhLS0ga2V5IHRlZXRoIC0tPjxsaW5lIHgxPSI0MCIgeTE9IjQwLjIiIHgyPSIzNSIgeTI9IjQ1LjIiLz48bGluZSB4MT0iNDYiIHkxPSI0NiIgeDI9IjQxIiB5Mj0iNTEiLz48L2c+PCEtLSBob2xlIGluIHRoZSBib3cgLS0+PGNpcmNsZSBjeD0iMjQiIGN5PSIyNCIgcj0iMy42IiBmaWxsPSIjMTg1RkE1Ii8+PC9zdmc+">
