@@ -7,21 +7,9 @@
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
 <script>
-/* GitHub Pages はHTMLを最大10分ブラウザにキャッシュするため、更新が即反映されないことがある。
-   そこで初回表示時だけ一意なクエリ(_cb)を付けて取り直し、必ず最新HTMLを取得する。
-   ・_cb付きURLはキャッシュに無い＝必ずネットワークから最新を取得
-   ・取得後はURLバーを元の綺麗な形(?_cbなし)に戻す（再取得は起きない）
-   ・クエリ有無で分岐するのでリダイレクトループにはならない */
-(function(){
-  try{
-    if(location.search.indexOf('_cb=')===-1){
-      var sep = location.search ? '&' : '?';
-      location.replace(location.pathname + location.search + sep + '_cb=' + Date.now() + location.hash);
-    } else if(window.history && history.replaceState){
-      history.replaceState(null, '', location.pathname + location.hash);
-    }
-  }catch(e){}
-})();
+/* The app now lives on Firebase Hosting; the GitHub Pages copy forwards there (Google login only works there).
+   Firebase Hosting serves the HTML with no-cache, so the old "?_cb=" cache-busting reload is no longer needed. */
+if (location.hostname === 'nonisgh.github.io') location.replace('https://password-nonis.web.app/' + location.search.replace(/[?&]_cb=\d+/, '').replace(/^&/, '?') + location.hash);
 </script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>PASSWORD GENERATOR</title>
@@ -460,6 +448,10 @@ input { -webkit-tap-highlight-color: transparent; font-family: inherit; }
 @media (max-width: 375px) {
   .pw-text { font-size: 13px; }
 }
+/* Googleログイン表示・引っこし確認 */
+.account-bar { display:flex; flex-wrap:wrap; align-items:center; justify-content:center; gap:8px; font-size:13px; color:#888; margin:-4px 0 12px; }
+.account-bar .account-err { flex-basis:100%; text-align:center; color:#993C1D; }
+.move-panel { font-size:14px; color:#444; background:#fffbea; border:1px solid #e8dca0; border-radius:10px; padding:12px; margin:0 0 14px; line-height:1.6; }
 </style>
 </head>
 <body
@@ -469,6 +461,8 @@ input { -webkit-tap-highlight-color: transparent; font-family: inherit; }
 <div class="container">
 
   <div class="app-title">PASSWORD GENERATOR</div>
+  <div id="account-bar" class="account-bar"></div>
+  <div id="move-panel" class="move-panel" style="display:none;"></div>
 
   <div id="sections-container">
 
@@ -908,7 +902,9 @@ input { -webkit-tap-highlight-color: transparent; font-family: inherit; }
 <button class="fab-regen" id="fab-regen" title="再生成 (Space / R)・ドラッグで移動（フィールド左右端でドロップすると吸着）・長押しでサイズ調整">↺</button>
 <div id="jump-menu"></div>
 <div id="sc-orphan" aria-hidden="true"></div>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://www.gstatic.com/firebasejs/13.2.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/13.2.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/13.2.0/firebase-firestore-compat.js"></script>
 <script>
 /* ===== Prevent double-tap zoom ===== */
 var lastTap=0;
@@ -2683,16 +2679,32 @@ function renderHistory(){
   ensureRelTimeTimer();
 }
 
-/* ===== SUPABASE クラウド同期 ===== */
-var SUPABASE_URL = 'https://jkpiaqrxuygqtonfikkc.supabase.co';
-var SUPABASE_KEY = 'sb_publishable_IjpsktD0soa2FptBa91wPw_aYRdvMT4';
-var SUPABASE_TABLE = 'password_config';
-var CLOUD_ROW_ID = 1;              /* 使う行のid（int8）。後で複数人対応する場合はここを分ける */
-var cloudReady = false;            /* 初回ロード完了まで自動保存を抑止 */
+/* ===== クラウド同期（Firebase / Firestore） =====
+   Firebase project "nonis-apps"（ab-editor・card-summary と共用）。この値は公開して問題ない。
+   読み書きは firestore.rules で apps/{appId}/users/{uid}/** をログイン本人だけに制限している。
+   保存先: apps/password/users/{uid}/settings/main = { json, writer, updated_at }
+   ログインしていないときは、これまでどおりこのブラウザの localStorage だけに保存する。 */
+var FB_CONFIG = {
+  apiKey: 'AIzaSyDEH-m5Wx31Azw3aHAO3-IEK6NyAGpP9_k',
+  authDomain: 'nonis-apps.firebaseapp.com',
+  projectId: 'nonis-apps',
+  storageBucket: 'nonis-apps.firebasestorage.app',
+  messagingSenderId: '331956814281',
+  appId: '1:331956814281:web:a6e091e3a95098c492a818'
+};
+var FB_APP_ID = 'password';
+/* 旧保存先（Supabase）。引っこし用に読むだけ。データは消さない。 */
+var OLD_SB_URL = 'https://jkpiaqrxuygqtonfikkc.supabase.co';
+var OLD_SB_KEY = 'sb_publishable_IjpsktD0soa2FptBa91wPw_aYRdvMT4';
+var OLD_SB_TABLE = 'password_config';
+var OLD_SB_ROW_ID = 1;
+var fbAuth = null, fbDb = null, fbUser = null;
+var fbUnsub = null;                /* onSnapshot の購読解除関数 */
+var fbFirstSnap = true;            /* ログイン後の最初のスナップショットかどうか */
+var cloudReady = false;            /* ログイン＆初回ロード完了まで自動保存を抑止 */
 var cloudSaveTimer = null;
 var cloudSuppress = false;         /* クラウド/JSON適用中の自動保存抑止 */
-var sbClient = null;               /* supabase-js クライアント */
-var sbChannel = null;              /* Realtime購読チャンネル */
+var cloudMoving = false;           /* Supabaseからの引っこし確認中 */
 var lastSavedJson = null;          /* 最後に自分が保存したsettingsのJSON（ループ防止） */
 var CLIENT_ID = 'c' + Date.now().toString(36) + Math.random().toString(36).slice(2,8);  /* この端末/タブ固有のID */
 var myWriteSeq = 0;                 /* 自分の保存に付ける連番 */
@@ -2841,87 +2853,190 @@ function doCloudSave(){
   if(cmpNow === lastSavedJson){ myWriteSeq--; return; }
   lastSavedJson = cmpNow;
   lastSeenWriter = settingsObj._writer;
-  var body = [{ id: CLOUD_ROW_ID, settings: settingsObj }];
   setCloudStatus('保存中…', '#888', 'up');
-  fetch(SUPABASE_URL + '/rest/v1/' + SUPABASE_TABLE + '?on_conflict=id', {
-    method: 'POST',
-    headers: {
-      'apikey': SUPABASE_KEY,
-      'Authorization': 'Bearer ' + SUPABASE_KEY,
-      'Content-Type': 'application/json',
-      'Prefer': 'resolution=merge-duplicates'
-    },
-    body: JSON.stringify(body)
-  }).then(function(r){
-    if(r.ok){ setCloudStatus('保存済', '#3B6D11', 'up'); setTimeout(function(){ setCloudStatus('', '#888'); }, 2000); }
-    else { r.text().then(function(t){ setCloudStatus('保存失敗: ' + r.status, '#993C1D', 'up'); console.error('cloud save', r.status, t); }); }
-  }).catch(function(e){ setCloudStatus('保存失敗（通信エラー）', '#993C1D', 'up'); console.error(e); });
+  fbDocRef().set({ json: jsonNow, writer: settingsObj._writer, updated_at: new Date().toISOString() })
+    .then(function(){ setCloudStatus('保存済', '#3B6D11', 'up'); setTimeout(function(){ setCloudStatus('', '#888'); }, 2000); })
+    .catch(function(e){
+      lastSavedJson = null;   /* 次の変更で再送できるように */
+      setCloudStatus('保存失敗: ' + (e && e.code || e), '#993C1D', 'up');
+      console.error('cloud save', e);
+    });
 }
 
-/* クラウドから読み込み。成功したら applyCloudData に渡す */
-function loadFromCloud(){
+/* Firestore 上の保存場所：apps/password/users/{uid}/settings/main */
+function fbDocRef(){
+  return fbDb.collection('apps').doc(FB_APP_ID).collection('users').doc(fbUser.uid).collection('settings').doc('main');
+}
+
+/* リモート（クラウド/引っこし元）の設定を画面へ反映。反映で発火する保存はクールダウンで抑止 */
+function applyRemoteSettings(settings, msg, color){
+  lastSeenWriter = settings._writer || '';
+  lastSavedJson = JSON.stringify(settings).replace(/"_writer":"[^"]*",?/, '');
+  lastAppliedAt = Date.now();
+  applyCloudData(settings);
+  lastAppliedAt = Date.now();
+  if(msg){ setCloudStatus(msg, color || '#3B6D11', 'down'); setTimeout(function(){ setCloudStatus('', '#888'); }, 2000); }
+}
+
+/* ログイン後：onSnapshot で購読。最初の1回が初回読み込み、以降は他端末/他タブの変更 */
+function startCloudSync(){
+  stopCloudSync();
+  fbFirstSnap = true;
   setCloudStatus('読込中…', '#888', 'down');
-  return fetch(SUPABASE_URL + '/rest/v1/' + SUPABASE_TABLE + '?id=eq.' + encodeURIComponent(CLOUD_ROW_ID) + '&select=settings', {
-    method: 'GET',
-    headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
+  var uid = fbUser.uid;
+  fbUnsub = fbDocRef().onSnapshot(function(snap){
+    if(!fbUser || fbUser.uid !== uid) return;
+    if(snap.metadata.hasPendingWrites) return;   /* 自分の書き込みのローカル反映 */
+    var first = fbFirstSnap;
+    fbFirstSnap = false;
+    if(!snap.exists){
+      if(first){ setCloudStatus('', '#888'); onCloudEmpty(); }
+      return;
+    }
+    var d = snap.data() || {};
+    var settings;
+    try{ settings = JSON.parse(d.json); }catch(e){ console.error('cloud data', e); return; }
+    if(!settings || typeof settings !== 'object') return;
+    if(!first){
+      var writer = d.writer || settings._writer || '';
+      if(writer && writer.indexOf(CLIENT_ID + ':') === 0) return;   /* 自分の保存が返ってきた */
+      if(writer && writer === lastSeenWriter) return;               /* 同じ書き込みの二重受信 */
+    }
+    applyRemoteSettings(settings, first ? 'クラウドから復元' : '他の端末の変更を反映', first ? '#3B6D11' : '#185FA5');
+    if(first) cloudReady = true;
+  }, function(err){
+    setCloudStatus('読込失敗（ローカル設定を使用）', '#993C1D', 'down');
+    console.error('cloud load', err);
+  });
+}
+function stopCloudSync(){
+  if(fbUnsub){ try{ fbUnsub(); }catch(e){} fbUnsub = null; }
+  if(cloudSaveTimer){ clearTimeout(cloudSaveTimer); cloudSaveTimer = null; }
+  cloudReady = false;
+  cloudMoving = false;
+  lastSavedJson = null;
+  lastSeenWriter = '';
+  renderMovePanel(null);
+}
+
+/* ===== 一度だけの引っこし：Firestore が空なら、前の保存先（Supabase）の行を読んでコピーするか聞く ===== */
+function fetchOldSupabase(){
+  return fetch(OLD_SB_URL + '/rest/v1/' + OLD_SB_TABLE + '?id=eq.' + OLD_SB_ROW_ID + '&select=settings', {
+    headers: { 'apikey': OLD_SB_KEY, 'Authorization': 'Bearer ' + OLD_SB_KEY }
   }).then(function(r){
     if(!r.ok) throw new Error('HTTP ' + r.status);
     return r.json();
   }).then(function(rows){
-    if(Array.isArray(rows) && rows.length > 0 && rows[0].settings && Object.keys(rows[0].settings).length > 0){
-      var s0 = rows[0].settings;
-      lastSeenWriter = s0._writer || '';
-      lastSavedJson = JSON.stringify(s0).replace(/"_writer":"[^"]*",?/, '');
-      lastAppliedAt = Date.now();
-      applyCloudData(s0);
-      lastAppliedAt = Date.now();
-      setCloudStatus('クラウドから復元', '#3B6D11', 'down');
-      setTimeout(function(){ setCloudStatus('', '#888'); }, 2000);
-      return true;
-    }
-    setCloudStatus('クラウドにデータなし（新規）', '#888', 'down');
-    return false;
-  }).catch(function(e){
-    setCloudStatus('読込失敗（ローカル設定を使用）', '#993C1D', 'down');
-    console.error('cloud load', e);
-    return false;
+    var s = rows && rows[0] && rows[0].settings;
+    return (s && typeof s === 'object' && Object.keys(s).length) ? s : null;
   });
 }
+function onCloudEmpty(){
+  cloudMoving = true;
+  var uid = fbUser.uid;
+  fetchOldSupabase().then(function(old){
+    if(!fbUser || fbUser.uid !== uid) return;
+    if(!old){ finishCloudMove(null); return; }
+    var n = function(a){ return Array.isArray(a) ? a.length : 0; };
+    renderMovePanel({
+      text: '前の保存先（Supabase）にデータがあります：パスワード ' + n(old.passwords) + '件・履歴 ' + n(old.history) +
+            '件・ストック ' + n(old.memos) + '件・プロファイル ' + n(old.profiles) + '件。Firebaseにコピーしますか？' +
+            '（この画面の今の設定は置きかわります。Supabaseのデータは消えません）',
+      onYes: function(){ finishCloudMove(old); },
+      onNo: function(){ finishCloudMove(null); }
+    });
+  }).catch(function(e){
+    console.warn('old supabase read', e);
+    if(fbUser && fbUser.uid === uid) finishCloudMove(null);
+  });
+}
+/* data があればそれを反映してから、なければ今の画面のまま、Firestore へ最初の保存をする */
+function finishCloudMove(data){
+  renderMovePanel(null);
+  cloudMoving = false;
+  if(!fbUser) return;
+  if(data) applyRemoteSettings(data, null);
+  cloudReady = true;
+  lastSavedJson = null;
+  lastAppliedAt = 0;
+  doCloudSave();
+  if(data){ setCloudStatus('引っこし完了：Firebaseに保存しました', '#3B6D11', 'up'); setTimeout(function(){ setCloudStatus('', '#888'); }, 3000); }
+}
+/* ページ内の はい/いいえ（confirm() は埋めこみブラウザで自動キャンセルされることがあるので使わない） */
+function renderMovePanel(q){
+  var box = gv('move-panel'); if(!box) return;
+  if(!q){ box.innerHTML = ''; box.style.display = 'none'; return; }
+  box.style.display = 'block';
+  box.innerHTML = '';
+  var p = document.createElement('div'); p.textContent = q.text; p.style.marginBottom = '8px';
+  var y = document.createElement('button'); y.className = 'btn btn-primary'; y.textContent = 'コピーする';
+  var no = document.createElement('button'); no.className = 'btn'; no.textContent = 'コピーしないで今の画面ではじめる'; no.style.marginLeft = '8px';
+  y.onclick = function(){ y.disabled = no.disabled = true; q.onYes(); };
+  no.onclick = function(){ y.disabled = no.disabled = true; q.onNo(); };
+  box.appendChild(p); box.appendChild(y); box.appendChild(no);
+}
 
-/* Realtime購読：他端末がid=1の行を更新したら自動で画面へ反映 */
-function startRealtimeSync(){
-  if(!(window.supabase && window.supabase.createClient)){
-    console.warn('supabase-js 未読込のためRealtime無効');
-    return;
+/* ===== Googleログイン（アカウント表示） ===== */
+function renderAccount(errMsg){
+  var box = gv('account-bar'); if(!box) return;
+  box.innerHTML = '';
+  var info = document.createElement('span');
+  if(!fbAuth){
+    info.textContent = 'オフライン（このブラウザだけに保存）';
+    box.appendChild(info); return;
   }
+  var btn = document.createElement('button'); btn.className = 'btn';
+  if(fbUser){
+    info.textContent = '☁ ' + (fbUser.email || fbUser.displayName || 'ログイン中') + ' で同期中';
+    btn.textContent = 'ログアウト';
+    btn.onclick = function(){
+      if(cloudSaveTimer){ clearTimeout(cloudSaveTimer); cloudSaveTimer = null; doCloudSave(); }   /* 未送信の変更を先に送る */
+      fbAuth.signOut();
+    };
+  } else {
+    info.textContent = 'ログインしていません（このブラウザだけに保存）';
+    btn.textContent = 'Googleでログイン';
+    btn.onclick = signInWithGoogle;
+  }
+  box.appendChild(info); box.appendChild(btn);
+  if(errMsg){
+    var er = document.createElement('div'); er.className = 'account-err'; er.textContent = errMsg;
+    box.appendChild(er);
+  }
+}
+function authErrorMessage(e){
+  if(e && e.code === 'auth/unauthorized-domain')
+    return 'このページのドメインがFirebaseで許可されていません（Firebase Console → Authentication → 設定 → 承認済みドメイン に ' + location.hostname + ' を追加してください）';
+  return 'ログインできませんでした: ' + ((e && (e.message || e.code)) || e);
+}
+function signInWithGoogle(){
+  var provider = new firebase.auth.GoogleAuthProvider();
+  provider.setCustomParameters({ prompt: 'select_account' });
+  fbAuth.signInWithPopup(provider).catch(function(e){
+    var code = e && e.code;
+    if(code === 'auth/popup-blocked' || code === 'auth/operation-not-supported-in-environment'){
+      fbAuth.signInWithRedirect(provider).catch(function(e2){ console.error(e2); renderAccount(authErrorMessage(e2)); });
+    } else if(code !== 'auth/popup-closed-by-user' && code !== 'auth/cancelled-popup-request'){
+      console.error(e);
+      renderAccount(authErrorMessage(e));
+    }
+  });
+}
+function initFirebaseSync(){
+  if(!window.firebase){ renderAccount(); return; }
   try{
-    if(!sbClient) sbClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-    if(sbChannel) return;  /* 二重購読防止 */
-    sbChannel = sbClient
-      .channel('pwgen-config')
-      .on('postgres_changes',
-        { event: '*', schema: 'public', table: SUPABASE_TABLE, filter: 'id=eq.' + CLOUD_ROW_ID },
-        function(payload){
-          var row = payload.new || {};
-          var settings = row.settings;
-          if(!settings || typeof settings !== 'object') return;
-          /* 自分の保存が返ってきた場合は無視（_writerがこの端末のIDで始まる） */
-          var writer = settings._writer || '';
-          if(writer && writer.indexOf(CLIENT_ID + ':') === 0) return;
-          /* 同じ書き込みを二重受信した場合も無視 */
-          if(writer && writer === lastSeenWriter) return;
-          lastSeenWriter = writer;
-          /* 比較用JSON（_writerを除く）を記録し、適用直後クールダウンを設定 */
-          var incoming = JSON.stringify(settings).replace(/"_writer":"[^"]*",?/, '');
-          lastSavedJson = incoming;
-          lastAppliedAt = Date.now();
-          applyCloudData(settings);
-          lastAppliedAt = Date.now();
-          setCloudStatus('他の端末の変更を反映', '#185FA5', 'down');
-          setTimeout(function(){ setCloudStatus('', '#888'); }, 2000);
-        })
-      .subscribe();
-  }catch(e){ console.error('realtime init', e); }
+    firebase.initializeApp(FB_CONFIG);
+    fbAuth = firebase.auth();
+    fbDb = firebase.firestore();
+  }catch(e){ console.error('firebase init', e); fbAuth = null; renderAccount(); return; }
+  renderAccount();
+  fbAuth.getRedirectResult().catch(function(e){ console.error(e); renderAccount(authErrorMessage(e)); });
+  fbAuth.onAuthStateChanged(function(u){
+    if(((u && u.uid) || null) === ((fbUser && fbUser.uid) || null)) return;
+    fbUser = u;
+    renderAccount();
+    if(u) startCloudSync(); else stopCloudSync();
+  });
 }
 
 /* クラウド/JSONのデータオブジェクトを画面へ適用（確認ダイアログなしで反映）。
@@ -4867,15 +4982,9 @@ generate=function(){
 };
 generate();
 
-/* クラウドから読み込み（成功でローカルを上書き）→ 完了後に自動保存を有効化 → Realtime購読開始 */
-(function(){
-  function done(){
-    cloudReady = true;
-    if(typeof startRealtimeSync === 'function') startRealtimeSync();
-  }
-  if(typeof loadFromCloud === 'function'){ loadFromCloud().then(done).catch(done); }
-  else { done(); }
-})();
+/* Googleログイン → Firestore から読み込み（成功でローカルを上書き）→ 自動保存を有効化 → onSnapshot で同期。
+   ログインしていなければ localStorage だけ。 */
+initFirebaseSync();
 </script>
 </body>
 </html>
